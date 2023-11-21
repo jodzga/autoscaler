@@ -182,6 +182,8 @@ var (
 	userAgent                          = flag.String("user-agent", "cluster-autoscaler", "User agent used for HTTP calls.")
 
 	emitPerNodeGroupMetrics = flag.Bool("emit-per-nodegroup-metrics", false, "If true, emit per node group metrics.")
+
+	scaleDownIgnorePDB = flag.Bool("scale-down-ignore-pdb", false, "If true, cluster-autoscaler will ignore PDBs and may evict pods violating PDBs during scale-down.")
 )
 
 func createAutoscalingOptions() config.AutoscalingOptions {
@@ -259,6 +261,7 @@ func createAutoscalingOptions() config.AutoscalingOptions {
 		DaemonSetEvictionForEmptyNodes:     *daemonSetEvictionForEmptyNodes,
 		DaemonSetEvictionForOccupiedNodes:  *daemonSetEvictionForOccupiedNodes,
 		UserAgent:                          *userAgent,
+		ScaleDownIgnorePDB:                 *scaleDownIgnorePDB,
 	}
 }
 

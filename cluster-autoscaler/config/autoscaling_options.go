@@ -165,4 +165,6 @@ type AutoscalingOptions struct {
 	DaemonSetEvictionForOccupiedNodes bool
 	// User agent to use for HTTP calls.
 	UserAgent string
+	// Ignore PDB when scaling down
+	ScaleDownIgnorePDB bool
 }

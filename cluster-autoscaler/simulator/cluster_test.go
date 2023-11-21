@@ -393,7 +393,7 @@ func TestFindNodesToRemove(t *testing.T) {
 			toRemove, unremovable, _, err := FindNodesToRemove(
 				test.candidates, destinations, nil,
 				clusterSnapshot, predicateChecker, len(test.allNodes), true, map[string]string{},
-				tracker, time.Now(), []*policyv1.PodDisruptionBudget{})
+				tracker, time.Now(), []*policyv1.PodDisruptionBudget{}, false)
 			assert.NoError(t, err)
 			fmt.Printf("Test scenario: %s, found len(toRemove)=%v, expected len(test.toRemove)=%v\n", test.name, len(toRemove), len(test.toRemove))
 			assert.Equal(t, toRemove, test.toRemove)

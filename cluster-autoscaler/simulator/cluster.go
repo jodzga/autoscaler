@@ -123,6 +123,7 @@ func FindNodesToRemove(
 	usageTracker *UsageTracker,
 	timestamp time.Time,
 	podDisruptionBudgets []*policyv1.PodDisruptionBudget,
+	scaleDownIgnorePDB bool,
 ) (nodesToRemove []NodeToBeRemoved, unremovableNodes []*UnremovableNode, podReschedulingHints map[string]string, finalError errors.AutoscalerError) {
 
 	result := make([]NodeToBeRemoved, 0)
@@ -159,10 +160,10 @@ candidateloop:
 
 		if fastCheck {
 			podsToRemove, daemonSetPods, blockingPod, err = FastGetPodsToMove(nodeInfo, *skipNodesWithSystemPods, *skipNodesWithLocalStorage,
-				podDisruptionBudgets, timestamp)
+				podDisruptionBudgets, timestamp, scaleDownIgnorePDB)
 		} else {
 			podsToRemove, daemonSetPods, blockingPod, err = DetailedGetPodsForMove(nodeInfo, *skipNodesWithSystemPods, *skipNodesWithLocalStorage, listers, int32(*minReplicaCount),
-				podDisruptionBudgets, timestamp)
+				podDisruptionBudgets, timestamp, scaleDownIgnorePDB)
 		}
 
 		if err != nil {
@@ -197,7 +198,7 @@ candidateloop:
 }
 
 // FindEmptyNodesToRemove finds empty nodes that can be removed.
-func FindEmptyNodesToRemove(snapshot ClusterSnapshot, candidates []string, timestamp time.Time) []string {
+func FindEmptyNodesToRemove(snapshot ClusterSnapshot, candidates []string, timestamp time.Time, scaleDownIgnorePDB bool) []string {
 	result := make([]string, 0)
 	for _, node := range candidates {
 		nodeInfo, err := snapshot.NodeInfos().Get(node)
@@ -206,7 +207,7 @@ func FindEmptyNodesToRemove(snapshot ClusterSnapshot, candidates []string, times
 			continue
 		}
 		// Should block on all pods.
-		podsToRemove, _, _, err := FastGetPodsToMove(nodeInfo, true, true, nil, timestamp)
+		podsToRemove, _, _, err := FastGetPodsToMove(nodeInfo, true, true, nil, timestamp, scaleDownIgnorePDB)
 		if err == nil && len(podsToRemove) == 0 {
 			result = append(result, node)
 		}

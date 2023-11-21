@@ -543,7 +543,8 @@ func (sd *ScaleDown) UpdateUnneededNodes(
 		sd.podLocationHints,
 		sd.usageTracker,
 		timestamp,
-		pdbs)
+		pdbs,
+		sd.context.ScaleDownIgnorePDB)
 	if simulatorErr != nil {
 		return sd.markSimulationError(simulatorErr, timestamp)
 	}
@@ -575,7 +576,8 @@ func (sd *ScaleDown) UpdateUnneededNodes(
 				sd.podLocationHints,
 				sd.usageTracker,
 				timestamp,
-				pdbs)
+				pdbs,
+				sd.context.ScaleDownIgnorePDB)
 		if simulatorErr != nil {
 			return sd.markSimulationError(simulatorErr, timestamp)
 		}
@@ -956,7 +958,8 @@ func (sd *ScaleDown) TryToScaleDown(
 		sd.podLocationHints,
 		sd.usageTracker,
 		time.Now(),
-		pdbs)
+		pdbs,
+		sd.context.ScaleDownIgnorePDB)
 	findNodesToRemoveDuration = time.Now().Sub(findNodesToRemoveStart)
 
 	for _, unremovableNode := range unremovable {
@@ -1038,7 +1041,7 @@ func (sd *ScaleDown) getEmptyNodesNoResourceLimits(candidates []string, maxEmpty
 func (sd *ScaleDown) getEmptyNodes(candidates []string, maxEmptyBulkDelete int,
 	resourcesLimits scaleDownResourcesLimits, timestamp time.Time) []*apiv1.Node {
 
-	emptyNodes := simulator.FindEmptyNodesToRemove(sd.context.ClusterSnapshot, candidates, timestamp)
+	emptyNodes := simulator.FindEmptyNodesToRemove(sd.context.ClusterSnapshot, candidates, timestamp, sd.context.ScaleDownIgnorePDB)
 	availabilityMap := make(map[string]int)
 	result := make([]*apiv1.Node, 0)
 	resourcesLimitsCopy := copyScaleDownResourcesLimits(resourcesLimits) // we do not want to modify input parameter
@@ -1131,7 +1134,7 @@ func (sd *ScaleDown) scheduleDeleteEmptyNodes(emptyNodes []*apiv1.Node, client k
 					sd.context.LogRecorder.Eventf(apiv1.EventTypeNormal, "ScaleDownEmpty", "Scale-down: empty node %s removed", nodeToDelete.Name)
 				}
 			}()
-			if err := evictDaemonSetPods(sd.context.ClusterSnapshot, nodeToDelete, client, sd.context.MaxGracefulTerminationSec, time.Now(), DaemonSetEvictionEmptyNodeTimeout, DeamonSetTimeBetweenEvictionRetries, recorder, evictByDefault); err != nil {
+			if err := evictDaemonSetPods(sd.context.ClusterSnapshot, nodeToDelete, client, sd.context.MaxGracefulTerminationSec, time.Now(), DaemonSetEvictionEmptyNodeTimeout, DeamonSetTimeBetweenEvictionRetries, recorder, evictByDefault, sd.context.ScaleDownIgnorePDB); err != nil {
 				klog.Warningf("error while evicting DS pods from an empty node: %v", err)
 			}
 			deleteErr = waitForDelayDeletion(nodeToDelete, sd.context.ListerRegistry.AllNodeLister(), sd.context.AutoscalingOptions.NodeDeletionDelayTimeout)
@@ -1160,12 +1163,12 @@ func (sd *ScaleDown) scheduleDeleteEmptyNodes(emptyNodes []*apiv1.Node, client k
 
 // Create eviction object for all DaemonSet pods on the node
 func evictDaemonSetPods(clusterSnapshot simulator.ClusterSnapshot, nodeToDelete *apiv1.Node, client kube_client.Interface, maxGracefulTerminationSec int, timeNow time.Time, dsEvictionTimeout time.Duration, waitBetweenRetries time.Duration,
-	recorder kube_record.EventRecorder, evictByDefault bool) error {
+	recorder kube_record.EventRecorder, evictByDefault bool, scaleDownIgnorePDB bool) error {
 	nodeInfo, err := clusterSnapshot.NodeInfos().Get(nodeToDelete.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get node info for %s", nodeToDelete.Name)
 	}
-	_, daemonSetPods, _, err := simulator.FastGetPodsToMove(nodeInfo, true, true, []*policyv1.PodDisruptionBudget{}, timeNow)
+	_, daemonSetPods, _, err := simulator.FastGetPodsToMove(nodeInfo, true, true, []*policyv1.PodDisruptionBudget{}, timeNow, scaleDownIgnorePDB)
 	if err != nil {
 		return fmt.Errorf("failed to get DaemonSet pods for %s (error: %v)", nodeToDelete.Name, err)
 	}
@@ -1177,7 +1180,7 @@ func evictDaemonSetPods(clusterSnapshot simulator.ClusterSnapshot, nodeToDelete 
 	// Perform eviction of DaemonSet pods
 	for _, daemonSetPod := range daemonSetPods {
 		go func(podToEvict *apiv1.Pod) {
-			dsEviction <- evictPod(podToEvict, true, client, recorder, maxGracefulTerminationSec, timeNow.Add(dsEvictionTimeout), waitBetweenRetries)
+			dsEviction <- evictPod(podToEvict, true, client, recorder, maxGracefulTerminationSec, timeNow.Add(dsEvictionTimeout), waitBetweenRetries, scaleDownIgnorePDB)
 		}(daemonSetPod)
 	}
 	// Wait for creating eviction of DaemonSet pods
@@ -1230,7 +1233,7 @@ func (sd *ScaleDown) deleteNode(node *apiv1.Node, pods []*apiv1.Pod, daemonSetPo
 	daemonSetPods = daemonset.PodsToEvict(daemonSetPods, sd.context.DaemonSetEvictionForOccupiedNodes)
 
 	// attempt drain
-	evictionResults, err := drainNode(node, pods, daemonSetPods, sd.context.ClientSet, sd.context.Recorder, sd.context.MaxGracefulTerminationSec, MaxPodEvictionTime, EvictionRetryTime, PodEvictionHeadroom)
+	evictionResults, err := drainNode(node, pods, daemonSetPods, sd.context.ClientSet, sd.context.Recorder, sd.context.MaxGracefulTerminationSec, MaxPodEvictionTime, EvictionRetryTime, PodEvictionHeadroom, sd.context.ScaleDownIgnorePDB)
 	if err != nil {
 		return status.NodeDeleteResult{ResultType: status.NodeDeleteErrorFailedToEvictPods, Err: err, PodEvictionResults: evictionResults}
 	}
@@ -1251,7 +1254,7 @@ func (sd *ScaleDown) deleteNode(node *apiv1.Node, pods []*apiv1.Pod, daemonSetPo
 }
 
 func evictPod(podToEvict *apiv1.Pod, isDaemonSetPod bool, client kube_client.Interface, recorder kube_record.EventRecorder,
-	maxGracefulTerminationSec int, retryUntil time.Time, waitBetweenRetries time.Duration) status.PodEvictionResult {
+	maxGracefulTerminationSec int, retryUntil time.Time, waitBetweenRetries time.Duration, scaleDownIgnorePDB bool) status.PodEvictionResult {
 	recorder.Eventf(podToEvict, apiv1.EventTypeNormal, "ScaleDown", "deleting pod for node scale down")
 
 	maxTermination := int64(apiv1.DefaultTerminationGracePeriodSeconds)
@@ -1266,16 +1269,29 @@ func evictPod(podToEvict *apiv1.Pod, isDaemonSetPod bool, client kube_client.Int
 	var lastError error
 	for first := true; first || time.Now().Before(retryUntil); time.Sleep(waitBetweenRetries) {
 		first = false
-		eviction := &policyv1.Eviction{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: podToEvict.Namespace,
-				Name:      podToEvict.Name,
-			},
-			DeleteOptions: &metav1.DeleteOptions{
+
+		if scaleDownIgnorePDB {
+			// Logic to directly delete the pod
+			deleteOptions := &metav1.DeleteOptions{
 				GracePeriodSeconds: &maxTermination,
-			},
+			}
+			klog.V(4).Infof("Deleting pod %s/%s", podToEvict.Namespace, podToEvict.Name)
+			lastError = client.CoreV1().Pods(podToEvict.Namespace).Delete(ctx.TODO(), podToEvict.Name, *deleteOptions)
+		} else {
+			// Eviction logic
+			eviction := &policyv1.Eviction{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: podToEvict.Namespace,
+					Name:      podToEvict.Name,
+				},
+				DeleteOptions: &metav1.DeleteOptions{
+					GracePeriodSeconds: &maxTermination,
+				},
+			}
+			klog.V(4).Infof("Evicting pod %s/%s", podToEvict.Namespace, podToEvict.Name)
+			lastError = client.CoreV1().Pods(podToEvict.Namespace).Evict(ctx.TODO(), eviction)
 		}
-		lastError = client.CoreV1().Pods(podToEvict.Namespace).Evict(ctx.TODO(), eviction)
+
 		if lastError == nil || kube_errors.IsNotFound(lastError) {
 			return status.PodEvictionResult{Pod: podToEvict, TimedOut: false, Err: nil}
 		}
@@ -1291,7 +1307,7 @@ func evictPod(podToEvict *apiv1.Pod, isDaemonSetPod bool, client kube_client.Int
 // them up to MaxGracefulTerminationTime to finish.
 func drainNode(node *apiv1.Node, pods []*apiv1.Pod, daemonSetPods []*apiv1.Pod, client kube_client.Interface, recorder kube_record.EventRecorder,
 	maxGracefulTerminationSec int, maxPodEvictionTime time.Duration, waitBetweenRetries time.Duration,
-	podEvictionHeadroom time.Duration) (evictionResults map[string]status.PodEvictionResult, err error) {
+	podEvictionHeadroom time.Duration, scaleDownIgnorePDB bool) (evictionResults map[string]status.PodEvictionResult, err error) {
 
 	evictionResults = make(map[string]status.PodEvictionResult)
 	retryUntil := time.Now().Add(maxPodEvictionTime)
@@ -1300,14 +1316,14 @@ func drainNode(node *apiv1.Node, pods []*apiv1.Pod, daemonSetPods []*apiv1.Pod, 
 	for _, pod := range pods {
 		evictionResults[pod.Name] = status.PodEvictionResult{Pod: pod, TimedOut: true, Err: nil}
 		go func(podToEvict *apiv1.Pod) {
-			confirmations <- evictPod(podToEvict, false, client, recorder, maxGracefulTerminationSec, retryUntil, waitBetweenRetries)
+			confirmations <- evictPod(podToEvict, false, client, recorder, maxGracefulTerminationSec, retryUntil, waitBetweenRetries, scaleDownIgnorePDB)
 		}(pod)
 	}
 
 	// Perform eviction of daemonset. We don't want to raise an error if daemonsetPod wasn't evict properly
 	for _, daemonSetPod := range daemonSetPods {
 		go func(podToEvict *apiv1.Pod) {
-			daemonSetConfirmations <- evictPod(podToEvict, true, client, recorder, maxGracefulTerminationSec, retryUntil, waitBetweenRetries)
+			daemonSetConfirmations <- evictPod(podToEvict, true, client, recorder, maxGracefulTerminationSec, retryUntil, waitBetweenRetries, scaleDownIgnorePDB)
 		}(daemonSetPod)
 
 	}
