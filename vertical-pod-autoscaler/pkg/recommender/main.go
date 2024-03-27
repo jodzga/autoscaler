@@ -100,7 +100,7 @@ const (
 func main() {
 	klog.InitFlags(nil)
 	kube_flag.InitFlags()
-	klog.V(1).Infof("Vertical Pod Autoscaler %s Recommender: %v", common.VerticalPodAutoscalerVersion, recommenderName)
+	klog.V(1).Infof("Vertical Pod Autoscaler %s Recommender: %v", common.VerticalPodAutoscalerVersion, *recommenderName)
 
 	config := common.CreateKubeConfigOrDie(*kubeconfig, float32(*kubeApiQps), int(*kubeApiBurst))
 	kubeClient := kube_client.NewForConfigOrDie(config)
