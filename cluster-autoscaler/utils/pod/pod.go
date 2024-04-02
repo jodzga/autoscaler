@@ -29,6 +29,16 @@ const (
 )
 
 // IsDaemonSetPod returns true if the Pod should be considered as Pod managed by a DaemonSet
+func IsStatefulSetPod(pod *apiv1.Pod) bool {
+	controllerRef := metav1.GetControllerOf(pod)
+	if controllerRef != nil && controllerRef.Kind == "StatefulSet" {
+		return true
+	}
+
+	return false
+}
+
+// IsDaemonSetPod returns true if the Pod should be considered as Pod managed by a DaemonSet
 func IsDaemonSetPod(pod *apiv1.Pod) bool {
 	controllerRef := metav1.GetControllerOf(pod)
 	if controllerRef != nil && controllerRef.Kind == "DaemonSet" {

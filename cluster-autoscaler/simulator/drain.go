@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/autoscaler/cluster-autoscaler/utils/drain"
 	kube_util "k8s.io/autoscaler/cluster-autoscaler/utils/kubernetes"
+	pod_util "k8s.io/autoscaler/cluster-autoscaler/utils/pod"
 	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework"
 )
 
@@ -55,13 +56,27 @@ func FastGetPodsToMove(nodeInfo *schedulerframework.NodeInfo, skipNodesWithSyste
 	}
 	// if scaleDownIgnorePDB is true, we ignore PDBs when checking if a pod is blocking
 	if scaleDownIgnorePDB {
-		return pods, daemonSetPods, nil, nil
+		// if there are no statefulset pods, we can ignore PDBs
+		if !podsIncludeStatefSet(pods) {
+			return pods, daemonSetPods, nil, nil
+		}
 	}
 	if pdbBlockingPod, err := checkPdbs(pods, pdbs); err != nil {
 		return []*apiv1.Pod{}, []*apiv1.Pod{}, pdbBlockingPod, err
 	}
 
 	return pods, daemonSetPods, nil, nil
+}
+
+func podsIncludeStatefSet(pods []*apiv1.Pod) bool {
+	podsIncludeStatefSet := false
+	for _, pod := range pods {
+		if pod_util.IsStatefulSetPod(pod) {
+			podsIncludeStatefSet = true
+			break
+		}
+	}
+	return podsIncludeStatefSet
 }
 
 // DetailedGetPodsForMove returns a list of pods that should be moved elsewhere
@@ -89,7 +104,10 @@ func DetailedGetPodsForMove(nodeInfo *schedulerframework.NodeInfo, skipNodesWith
 	}
 	// if scaleDownIgnorePDB is true, we ignore PDBs when checking if a pod is blocking
 	if scaleDownIgnorePDB {
-		return pods, daemonSetPods, nil, nil
+		// if there are no statefulset pods, we can ignore PDBs
+		if !podsIncludeStatefSet(pods) {
+			return pods, daemonSetPods, nil, nil
+		}
 	}
 	if pdbBlockingPod, err := checkPdbs(pods, pdbs); err != nil {
 		return []*apiv1.Pod{}, []*apiv1.Pod{}, pdbBlockingPod, err

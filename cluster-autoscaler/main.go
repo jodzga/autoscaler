@@ -183,7 +183,7 @@ var (
 
 	emitPerNodeGroupMetrics = flag.Bool("emit-per-nodegroup-metrics", false, "If true, emit per node group metrics.")
 
-	scaleDownIgnorePDB = flag.Bool("scale-down-ignore-pdb", false, "If true, cluster-autoscaler will ignore PDBs and may evict pods violating PDBs during scale-down.")
+	scaleDownIgnorePDB = flag.Bool("scale-down-ignore-pdb", false, "If true, cluster-autoscaler will ignore PDBs and may evict pods violating PDBs during scale-down by directly deleting pods. This flag does not affect pods controlled by StatefulSets.")
 )
 
 func createAutoscalingOptions() config.AutoscalingOptions {
