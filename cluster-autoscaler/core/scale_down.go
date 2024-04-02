@@ -39,6 +39,7 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/utils/errors"
 	"k8s.io/autoscaler/cluster-autoscaler/utils/kubernetes"
 	kube_util "k8s.io/autoscaler/cluster-autoscaler/utils/kubernetes"
+	pod_util "k8s.io/autoscaler/cluster-autoscaler/utils/pod"
 	schedulerframework "k8s.io/kubernetes/pkg/scheduler/framework"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -1270,7 +1271,7 @@ func evictPod(podToEvict *apiv1.Pod, isDaemonSetPod bool, client kube_client.Int
 	for first := true; first || time.Now().Before(retryUntil); time.Sleep(waitBetweenRetries) {
 		first = false
 
-		if scaleDownIgnorePDB {
+		if scaleDownIgnorePDB && (!pod_util.IsStatefulSetPod(podToEvict)) {
 			// Logic to directly delete the pod
 			deleteOptions := &metav1.DeleteOptions{
 				GracePeriodSeconds: &maxTermination,
