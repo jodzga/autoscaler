@@ -57,7 +57,7 @@ func FastGetPodsToMove(nodeInfo *schedulerframework.NodeInfo, skipNodesWithSyste
 	// if scaleDownIgnorePDB is true, we ignore PDBs when checking if a pod is blocking
 	if scaleDownIgnorePDB {
 		// if there are no statefulset pods, we can ignore PDBs
-		if !podsIncludeStatefSet(pods) {
+		if !podsIncludeStatefulSet(pods) {
 			return pods, daemonSetPods, nil, nil
 		}
 	}
@@ -68,15 +68,15 @@ func FastGetPodsToMove(nodeInfo *schedulerframework.NodeInfo, skipNodesWithSyste
 	return pods, daemonSetPods, nil, nil
 }
 
-func podsIncludeStatefSet(pods []*apiv1.Pod) bool {
-	podsIncludeStatefSet := false
+func podsIncludeStatefulSet(pods []*apiv1.Pod) bool {
+	podsIncludeStatefulSet := false
 	for _, pod := range pods {
 		if pod_util.IsStatefulSetPod(pod) {
-			podsIncludeStatefSet = true
+			podsIncludeStatefulSet = true
 			break
 		}
 	}
-	return podsIncludeStatefSet
+	return podsIncludeStatefulSet
 }
 
 // DetailedGetPodsForMove returns a list of pods that should be moved elsewhere
@@ -105,7 +105,7 @@ func DetailedGetPodsForMove(nodeInfo *schedulerframework.NodeInfo, skipNodesWith
 	// if scaleDownIgnorePDB is true, we ignore PDBs when checking if a pod is blocking
 	if scaleDownIgnorePDB {
 		// if there are no statefulset pods, we can ignore PDBs
-		if !podsIncludeStatefSet(pods) {
+		if !podsIncludeStatefulSet(pods) {
 			return pods, daemonSetPods, nil, nil
 		}
 	}

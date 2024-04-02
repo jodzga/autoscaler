@@ -28,7 +28,7 @@ const (
 	DaemonSetPodAnnotationKey = "cluster-autoscaler.kubernetes.io/daemonset-pod"
 )
 
-// IsDaemonSetPod returns true if the Pod should be considered as Pod managed by a DaemonSet
+// IsStatefulSetPod returns true if the Pod should be considered as Pod managed by a StatefulSet
 func IsStatefulSetPod(pod *apiv1.Pod) bool {
 	controllerRef := metav1.GetControllerOf(pod)
 	if controllerRef != nil && controllerRef.Kind == "StatefulSet" {
