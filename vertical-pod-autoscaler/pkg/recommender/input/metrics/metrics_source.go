@@ -74,6 +74,8 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			klog.Infof("Pod: %s, Container: %s, CPU: %v, Memory: %v", pod.Name, container.Name, container.Usage[k8sapiv1.ResourceCPU], container.Usage[k8sapiv1.ResourceMemory])
 		}
 	}
+
+	return podMetrics, nil
 }
 
 // externalMetricsClient is the External Metrics source of metrics.
