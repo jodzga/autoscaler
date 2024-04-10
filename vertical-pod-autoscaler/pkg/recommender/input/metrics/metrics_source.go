@@ -95,11 +95,11 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			if !ok {
 				log.Fatalf("Error getting data from JSON: %v", err)
 			}
-			result, ok := (data["result"]).([]interface{})
+			um, ok := (data["result"]).([]interface{})
 			if !ok {
 				log.Fatalf("Error getting result from JSON: %v", err)
 			}
-			first, ok = (result[0]).(map[string]interface{})
+			first, ok = (um[0]).(map[string]interface{})
 			if !ok {
 				log.Fatalf("Error getting first from JSON: %v", err)
 			}
@@ -107,7 +107,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			if !ok {
 				log.Fatalf("Error getting value from JSON: %v", err)
 			}
-			quantity, ok := (result["data"]["result"][0]["value"][1]).(string)
+			quantity, ok := (value[1]).(string)
 			if !ok {
 				log.Fatalf("Error getting value from JSON: %v", err)
 			}
