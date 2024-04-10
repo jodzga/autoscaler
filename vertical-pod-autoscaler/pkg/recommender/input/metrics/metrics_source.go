@@ -17,9 +17,10 @@ limitations under the License.
 package metrics
 
 import (
-	"encoding/json"
+	// "encoding/json"
     "io/ioutil"
     "log"
+	"fmt"
     "net/http"
 	"context"
 	k8sapiv1 "k8s.io/api/core/v1"
@@ -160,20 +161,20 @@ func (s *externalMetricsClient) List(ctx context.Context, namespace string, opts
 	return &result, nil
 }
 
-// podMetricsSource is the metrics-client source of metrics.
-type podMetricsSource struct {
-	metricsGetter resourceclient.PodMetricsesGetter
-}
+// // podMetricsSource is the metrics-client source of metrics.
+// type podMetricsSource struct {
+// 	metricsGetter resourceclient.PodMetricsesGetter
+// }
 
-// NewPodMetricsesSource Returns a Source-wrapper around PodMetricsesGetter.
-func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter) PodMetricsLister {
-	return podMetricsSource{metricsGetter: source}
-}
+// // NewPodMetricsesSource Returns a Source-wrapper around PodMetricsesGetter.
+// func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter) PodMetricsLister {
+// 	return podMetricsSource{metricsGetter: source}
+// }
 
-func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.ListOptions) (*v1beta1.PodMetricsList, error) {
-	podMetricsInterface := s.metricsGetter.PodMetricses(namespace)
-	return podMetricsInterface.List(ctx, opts)
-}
+// func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.ListOptions) (*v1beta1.PodMetricsList, error) {
+// 	podMetricsInterface := s.metricsGetter.PodMetricses(namespace)
+// 	return podMetricsInterface.List(ctx, opts)
+// }
 
 // type customMetricsClient struct {
 // 	metricsClient resourceclient.PodMetricsesGetter
