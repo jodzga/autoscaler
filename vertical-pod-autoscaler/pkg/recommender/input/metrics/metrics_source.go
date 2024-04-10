@@ -21,6 +21,7 @@ import (
     "io/ioutil"
     "log"
 	"fmt"
+	"net/url"
     "net/http"
 	"context"
 	k8sapiv1 "k8s.io/api/core/v1"
@@ -61,7 +62,13 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 
 	for _, pod := range podMetrics.Items {
 		for _, container := range pod.Containers {
-			resp, err := http.Get(fmt.Sprintf("http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query=max_over_time(container_memory_rss{container_name=%s, pod_name=%s, namespace=%s}[5m])", container.Name, pod.Name, namespace))
+			baseURL := fmt.Sprintf("http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query=max_over_time(container_memory_rss{container_name=%s, pod_name=%s, namespace=%s}[5m])", container.Name, pod.Name, namespace)
+			parsedURL, err := url.Parse(baseURL)
+			if err != nil {
+				log.Fatalf("Error parsing base URL: %v", err)
+			}
+			parsedURL.RawQuery = params.Encode()
+			resp, err := http.Get(parsedURL.String())
 			if err != nil {
 				log.Fatalf("Error occurred making request: %v", err)
 			}
