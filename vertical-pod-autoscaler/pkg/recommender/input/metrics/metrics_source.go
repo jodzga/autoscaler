@@ -17,7 +17,7 @@ limitations under the License.
 package metrics
 
 import (
-	// "encoding/json"
+	"encoding/json"
     "io/ioutil"
     "log"
 	"fmt"
@@ -25,6 +25,7 @@ import (
     "net/http"
 	"context"
 	k8sapiv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -84,6 +85,20 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			}
 			klog.Infof("hi %s", string(body))
 			klog.Infof("Pod: %s, Container: %s, CPU: %v, Memory: %v", pod.Name, container.Name, container.Usage[k8sapiv1.ResourceCPU], container.Usage[k8sapiv1.ResourceMemory])
+			
+			var result map[string]interface{}
+			if err := json.Unmarshal(body, &result); err != nil {
+				log.Fatalf("Error unmarshalling JSON: %v", err)
+			}
+
+			quantity, ok := (result["data"]["result"][0]["value"][1]).(string)
+			if !ok {
+				log.Fatalf("Error getting value from JSON: %v", err)
+			}
+			
+
+			resourcequantity := resource.MustParse(quantity)
+			log.Printf("Resource Quantity: %v", resourcequantity)
 		}
 	}
 
