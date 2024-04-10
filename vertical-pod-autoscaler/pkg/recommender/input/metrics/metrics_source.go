@@ -75,7 +75,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			print(baseURL.String())
 			resp, err := http.Get(baseURL.String())
 			if err != nil {
-				log.Fatalf("Error occurred making request: %v", err)
+				log.Fatalf("Error occurred making reaquest: %v", err)
 			}
 			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
