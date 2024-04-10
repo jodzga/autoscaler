@@ -131,7 +131,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 
 			rssBytesQuantity := resource.MustParse(rssBytes)
 			klog.InfoS("RSS (Bytes)", "container", container.Name, "pod", pod.Name, "namespace", pod.Namespace, "rssBytes", rssBytesQuantity)
-			podMetrics.Items[i].Containers[j].Usage[ResourceRSS] = &rssBytesQuantity
+			podMetrics.Items[i].Containers[j].Usage[ResourceRSS] = rssBytesQuantity
 			klog.InfoS("Container Usage", "container", container.Name, "pod", pod.Name, "namespace", pod.Namespace, "usage", podMetrics.Items[i].Containers[j].Usage)
 		}
 	}
@@ -222,19 +222,6 @@ func (s *externalMetricsClient) List(ctx context.Context, namespace string, opts
 
 			}
 			for cname, res := range containerMetrics {
-				resp, err := http.Get("http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query=count(kube_pod_info)")
-				if err != nil {
-					log.Fatalf("Error occurred making request: %v", err)
-				}
-				defer resp.Body.Close()
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					log.Fatalf("Error reading response body: %v", err)
-				}
-				fmt.Println(string(body))
-				// query for the jvmheap metrics etc.
-				// 
-				// ok we have the pod name and the namespace and the name of the container, so we should be fine
 				podMets.Containers = append(podMets.Containers, v1beta1.ContainerMetrics{Name: cname, Usage: res})
 			}
 			result.Items = append(result.Items, podMets)
