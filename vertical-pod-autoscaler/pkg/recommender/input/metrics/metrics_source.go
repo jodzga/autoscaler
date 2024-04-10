@@ -53,7 +53,23 @@ func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter) PodMetricsL
 
 func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.ListOptions) (*v1beta1.PodMetricsList, error) {
 	podMetricsInterface := s.metricsGetter.PodMetricses(namespace)
-	return podMetricsInterface.List(ctx, opts)
+	podMetrics := podMetricsInterface.List(ctx, opts)
+
+	for _, pod := range podMetrics.Items {
+		for _, container := range pod.Containers {
+			resp, err := http.Get("http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query=count(kube_pod_info)")
+			if err != nil {
+				log.Fatalf("Error occurred making request: %v", err)
+			}
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Fatalf("Error reading response body: %v", err)
+			}
+			fmt.Println("hi " + string(body))
+			klog.Infof("Pod: %s, Container: %s, CPU: %v, Memory: %v", pod.Name, container.Name, container.Usage[k8sapiv1.ResourceCPU], container.Usage[k8sapiv1.ResourceMemory])
+		}
+	}
 }
 
 // externalMetricsClient is the External Metrics source of metrics.
