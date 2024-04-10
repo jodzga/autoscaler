@@ -114,7 +114,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			
 
 			resourcequantity := resource.MustParse(quantity)
-			log.Printf("Resource Quantity: %v", resourcequantity)
+			log.Printf("Resource Quantity: %+v", resourcequantity)
 		}
 	}
 
