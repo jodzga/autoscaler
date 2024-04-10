@@ -61,13 +61,14 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 
 	for _, pod := range podMetrics.Items {
 		for _, container := range pod.Containers {
-			baseURL := fmt.Sprintf("http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query='max_over_time(container_memory_rss{container_name=%s,pod_name=%s,namespace=%s}[5m])'", container.Name, pod.Name, pod.Namespace)
-			// parsedURL, err := url.Parse(baseURL)
-			// if err != nil {
-			// 	log.Fatalf("Error parsing base URL: %v", err)
-			// }
-			// parsedURL.RawQuery = params.Encode()
-			resp, err := http.Get(baseURL)
+			baseURL := "http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query="
+			queryURL := fmt.Sprintf("max_over_time(container_memory_rss{container_name=%s, pod_name=%s, namespace=%s}[5m])", container.Name, pod.Name, pod.Namespace)
+			parsedURL, err := url.Parse(queryURL)
+			if err != nil {
+				log.Fatalf("Error parsing base URL: %v", err)
+			}
+			print(baseURL + parsedURL.String())
+			resp, err := http.Get(baseURL + parsedURL.String())
 			if err != nil {
 				log.Fatalf("Error occurred making request: %v", err)
 			}
