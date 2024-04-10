@@ -99,7 +99,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			if !ok {
 				log.Fatalf("Error getting result from JSON: %v", err)
 			}
-			first, ok = (um[0]).(map[string]interface{})
+			first, ok := (um[0]).(map[string]interface{})
 			if !ok {
 				log.Fatalf("Error getting first from JSON: %v", err)
 			}
