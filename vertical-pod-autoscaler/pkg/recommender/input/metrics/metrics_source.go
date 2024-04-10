@@ -53,7 +53,11 @@ func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter) PodMetricsL
 
 func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.ListOptions) (*v1beta1.PodMetricsList, error) {
 	podMetricsInterface := s.metricsGetter.PodMetricses(namespace)
-	podMetrics := podMetricsInterface.List(ctx, opts)
+	podMetrics, err := podMetricsInterface.List(ctx, opts)
+	if err != nil {
+		klog.Errorf("Error getting pod metrics: %v", err)
+		return nil, err
+	}
 
 	for _, pod := range podMetrics.Items {
 		for _, container := range pod.Containers {
@@ -66,7 +70,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			if err != nil {
 				log.Fatalf("Error reading response body: %v", err)
 			}
-			fmt.Println("hi " + string(body))
+			klog.Infof*("hi %s", string(body))
 			klog.Infof("Pod: %s, Container: %s, CPU: %v, Memory: %v", pod.Name, container.Name, container.Usage[k8sapiv1.ResourceCPU], container.Usage[k8sapiv1.ResourceMemory])
 		}
 	}
