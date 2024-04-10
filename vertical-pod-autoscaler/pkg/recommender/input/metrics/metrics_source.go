@@ -70,7 +70,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			if err != nil {
 				log.Fatalf("Error reading response body: %v", err)
 			}
-			klog.Infof*("hi %s", string(body))
+			klog.Infof("hi %s", string(body))
 			klog.Infof("Pod: %s, Container: %s, CPU: %v, Memory: %v", pod.Name, container.Name, container.Usage[k8sapiv1.ResourceCPU], container.Usage[k8sapiv1.ResourceMemory])
 		}
 	}
