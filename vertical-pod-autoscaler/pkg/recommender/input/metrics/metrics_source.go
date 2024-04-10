@@ -61,7 +61,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 
 	for _, pod := range podMetrics.Items {
 		for _, container := range pod.Containers {
-			resp, err := http.Get("http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query=count(kube_pod_info)")
+			resp, err := http.Get(fmt.Sprintf("http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query=max_over_time(container_memory_rss{container_name=%s, pod_name=%s, namespace=%s}[5m])", container.Name, pod.Name, namespace))
 			if err != nil {
 				log.Fatalf("Error occurred making request: %v", err)
 			}
