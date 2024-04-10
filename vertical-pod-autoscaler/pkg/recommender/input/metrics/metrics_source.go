@@ -17,6 +17,10 @@ limitations under the License.
 package metrics
 
 import (
+	"encoding/json"
+    "io/ioutil"
+    "log"
+    "net/http"
 	"context"
 	k8sapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -134,6 +138,19 @@ func (s *externalMetricsClient) List(ctx context.Context, namespace string, opts
 
 			}
 			for cname, res := range containerMetrics {
+				resp, err := http.Get("http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201/api/v1/query?query=count(kube_pod_info)")
+				if err != nil {
+					log.Fatalf("Error occurred making request: %v", err)
+				}
+				defer resp.Body.Close()
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					log.Fatalf("Error reading response body: %v", err)
+				}
+				fmt.Println(string(body))
+				// query for the jvmheap metrics etc.
+				// 
+				// ok we have the pod name and the namespace and the name of the container, so we should be fine
 				podMets.Containers = append(podMets.Containers, v1beta1.ContainerMetrics{Name: cname, Usage: res})
 			}
 			result.Items = append(result.Items, podMets)
@@ -142,3 +159,107 @@ func (s *externalMetricsClient) List(ctx context.Context, namespace string, opts
 	}
 	return &result, nil
 }
+
+// podMetricsSource is the metrics-client source of metrics.
+type podMetricsSource struct {
+	metricsGetter resourceclient.PodMetricsesGetter
+}
+
+// NewPodMetricsesSource Returns a Source-wrapper around PodMetricsesGetter.
+func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter) PodMetricsLister {
+	return podMetricsSource{metricsGetter: source}
+}
+
+func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.ListOptions) (*v1beta1.PodMetricsList, error) {
+	podMetricsInterface := s.metricsGetter.PodMetricses(namespace)
+	return podMetricsInterface.List(ctx, opts)
+}
+
+// type customMetricsClient struct {
+// 	metricsClient resourceclient.PodMetricsesGetter
+// 	customMetricsClient custom_metrics.CustomMetricsClient
+// 	clusterState   *model.ClusterState
+// }
+
+// // NewAugmentedMetricsSource returns a Source for Metrics and Custom Metrics Clients.
+// func NewAugmentedMetricsSource(c *rest.Config, clusterState *model.ClusterState) PodMetricsLister {
+// 	customMetricsClient, err := custom_metrics.NewForConfig(c)
+// 	if err != nil {
+// 		klog.Fatalf("Failed initializing custom metrics client: %v", err)
+// 	}
+
+// 	return &customMetricsClient{
+// 		metricsClient: resourceclient.NewForConfigOrDie(c),
+// 		customMetricsClient: customMetricsClient,
+// 		clusterState:   clusterState,
+// 	}
+// }
+
+// func (s customMetricsClient) List(ctx context.Context, namespace string, opts v1.ListOptions) (*v1beta1.PodMetricsList, error) {
+// 	podMetricsInterface := s.metricsGetter.PodMetricses(namespace)
+// 	podMetrics := podMetricsInterface.List(ctx, opts)
+	
+// 	result := v1beta1.PodMetricsList{}
+
+// 	for _, vpa := range s.clusterState.Vpas {
+// 		if vpa.PodCount == 0 {
+// 			continue
+// 		}
+
+// 		if namespace != "" && vpa.ID.Namespace != namespace {
+// 			continue
+// 		}
+
+// 		nsClient := s.externalClient.NamespacedMetrics(vpa.ID.Namespace)
+// 		pods := s.clusterState.GetMatchingPods(vpa)
+
+// 		for _, pod := range pods {
+// 			nsClient..GetForObject(schema.GroupKind{Group: "", Kind: "Pod"}, resourceName, metricName, metav1.GetOptions{})
+// 			podNameReq, err := labels.NewRequirement("pod", selection.Equals, []string{pod.PodName})
+// 			if err != nil {
+// 				return nil, err
+// 			}
+// 			selector := vpa.PodSelector.Add(*podNameReq)
+// 			podMets := v1beta1.PodMetrics{
+// 				TypeMeta:   v1.TypeMeta{},
+// 				ObjectMeta: v1.ObjectMeta{Namespace: vpa.ID.Namespace, Name: pod.PodName},
+// 				Window:     v1.Duration{},
+// 				Containers: make([]v1beta1.ContainerMetrics, 0),
+// 			}
+// 			// Query each resource in turn, then assemble back to a single []ContainerMetrics.
+// 			containerMetrics := make(map[string]k8sapiv1.ResourceList)
+// 			for resourceName, metricName := range s.options.ResourceMetrics {
+// 				m, err := nsClient.List(metricName, selector)
+// 				if err != nil {
+// 					return nil, err
+// 				}
+// 				if m == nil || len(m.Items) == 0 {
+// 					klog.V(4).Infof("External Metrics Query for VPA %+v: resource %+v, metric %+v, No items,", vpa.ID, resourceName, metricName)
+// 					continue
+// 				}
+// 				klog.V(4).Infof("External Metrics Query for VPA %+v: resource %+v, metric %+v, %d items, item[0]: %+v", vpa.ID, resourceName, metricName, len(m.Items), m.Items[0])
+// 				podMets.Timestamp = m.Items[0].Timestamp
+// 				if m.Items[0].WindowSeconds != nil {
+// 					podMets.Window = v1.Duration{Duration: time.Duration(*m.Items[0].WindowSeconds) * time.Second}
+// 				}
+// 				for _, val := range m.Items {
+// 					ctrName, hasCtrName := val.MetricLabels[s.options.ContainerNameLabel]
+// 					if !hasCtrName {
+// 						continue
+// 					}
+// 					if containerMetrics[ctrName] == nil {
+// 						containerMetrics[ctrName] = make(k8sapiv1.ResourceList)
+// 					}
+// 					containerMetrics[ctrName][resourceName] = val.Value
+// 				}
+
+// 			}
+// 			for cname, res := range containerMetrics {
+// 				podMets.Containers = append(podMets.Containers, v1beta1.ContainerMetrics{Name: cname, Usage: res})
+// 			}
+// 			result.Items = append(result.Items, podMets)
+
+// 		}
+// 	}
+// 	return &result, nil
+// }
