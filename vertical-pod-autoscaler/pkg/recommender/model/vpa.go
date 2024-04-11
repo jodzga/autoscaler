@@ -20,6 +20,7 @@ import (
 	"sort"
 	"time"
 
+	"k8s.io/klog/v2"
 	autoscaling "k8s.io/api/autoscaling/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -204,7 +205,9 @@ func (vpa *Vpa) MergeCheckpointedState(aggregateContainerStateMap ContainerNameT
 // AggregateStateByContainerName returns a map from container name to the aggregated state
 // of all containers with that name, belonging to pods matched by the VPA.
 func (vpa *Vpa) AggregateStateByContainerName() ContainerNameToAggregateStateMap {
+	klog.InfoS("aggregate states: %+v", vpa.aggregateContainerStates)
 	containerNameToAggregateStateMap := AggregateStateByContainerName(vpa.aggregateContainerStates)
+	klog.InfoS("aggregate state map: %+v", containerNameToAggregateStateMap)
 	vpa.MergeCheckpointedState(containerNameToAggregateStateMap)
 	return containerNameToAggregateStateMap
 }
