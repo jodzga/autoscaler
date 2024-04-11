@@ -56,6 +56,15 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 		return
 	}
 
+	// list all those in this namespace
+	listResults, err := vpaClient.List(context.TODO(), meta.ListOptions{})
+	if err != nil {
+		klog.Errorf("Cannot list VPA objects in namespace. Reason: %+v", err)
+		return nil, err
+	}
+	klog.Infof("list results: %+v", listResults)
+	klog.Infof("vpa name: %s", vpaName)
+
 	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{}, "status")
 }
 
@@ -69,6 +78,7 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 	}}
 
 	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
+		klog.Infof("Updating VPA %s status from %+v to %+v", vpaName, oldStatus, newStatus)
 		return patchVpaStatus(vpaClient, vpaName, patches)
 	}
 	return nil, nil
