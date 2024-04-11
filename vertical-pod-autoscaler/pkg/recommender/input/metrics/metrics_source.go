@@ -38,7 +38,6 @@ import (
 )
 
 const M3Url = "http://m3coord-read-regional-internal-svc.m3.svc.cluster.local:7201"
-const ResourceRSS k8sapiv1.ResourceName = "rss"
 
 // PodMetricsLister wraps both metrics-client and External Metrics
 type PodMetricsLister interface {
@@ -131,7 +130,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 
 			rssBytesQuantity := resource.MustParse(rssBytes)
 			klog.InfoS("RSS (Bytes)", "container", container.Name, "pod", pod.Name, "namespace", pod.Namespace, "rssBytes", rssBytesQuantity)
-			podMetrics.Items[i].Containers[j].Usage[ResourceRSS] = rssBytesQuantity
+			podMetrics.Items[i].Containers[j].Usage[k8sapiv1.ResourceName(model.ResourceRSS)] = rssBytesQuantity
 			klog.InfoS("Container Usage", "container", container.Name, "pod", pod.Name, "namespace", pod.Namespace, "usage", podMetrics.Items[i].Containers[j].Usage)
 		}
 	}

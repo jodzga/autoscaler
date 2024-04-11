@@ -39,7 +39,7 @@ const (
 	ResourceCPU ResourceName = "cpu"
 	// ResourceMemory represents memory, in bytes. (500Gi = 500GiB = 500 * 1024 * 1024 * 1024).
 	ResourceMemory ResourceName = "memory"
-	// ResourceRSS represents RSS, in bytes.
+	// ResourceRSS represents RSS memory, in bytes.
 	ResourceRSS ResourceName = "rss"
 	// MaxResourceAmount is the maximum allowed value of resource amount.
 	MaxResourceAmount = ResourceAmount(1e14)

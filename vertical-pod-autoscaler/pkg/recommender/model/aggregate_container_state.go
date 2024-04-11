@@ -94,6 +94,7 @@ type AggregateContainerState struct {
 	// AggregateMemoryPeaks is a distribution of memory peaks from all containers:
 	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
 	AggregateMemoryPeaks util.Histogram
+	RSSBytes float64
 	// Note: first/last sample timestamps as well as the sample count are based only on CPU samples.
 	FirstSampleStart  time.Time
 	LastSampleStart   time.Time
@@ -174,6 +175,7 @@ func NewAggregateContainerState() *AggregateContainerState {
 	return &AggregateContainerState{
 		AggregateCPUUsage:    util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
 		AggregateMemoryPeaks: util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
+		RSSBytes: 0,
 		CreationTime:         time.Now(),
 	}
 }
@@ -185,6 +187,8 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 		a.addCPUSample(sample)
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+	case ResourceRSS:
+		a.overwriteRSSSample(sample)
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -219,6 +223,11 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 		a.FirstSampleStart = sample.MeasureStart
 	}
 	a.TotalSamplesCount++
+}
+
+func (a *AggregateContainerState) overwriteRSSSample(sample *ContainerUsageSample) {
+	rssBytes := BytesFromMemoryAmount(sample.Usage)
+	a.RSSBytes = rssBytes
 }
 
 // SaveToCheckpoint serializes AggregateContainerState as VerticalPodAutoscalerCheckpointStatus.
