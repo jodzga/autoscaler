@@ -213,6 +213,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample) bool
 	// }
 	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceCPU)
 	container.aggregator.AddSample(sample)
+	klog.InfoS("adding rss sample in containerstateaggregator %+v", sample)
 	// container.LastCPUSampleStart = sample.MeasureStart
 	return true
 }
@@ -231,6 +232,7 @@ func (container *ContainerState) AddSample(sample *ContainerUsageSample) bool {
 	case ResourceMemory:
 		return container.addMemorySample(sample, false)
 	case ResourceRSS:
+		klog.InfoS("adding sample in containerstate %+v", sample)
 		return container.addRSSSample(sample)
 	default:
 		return false

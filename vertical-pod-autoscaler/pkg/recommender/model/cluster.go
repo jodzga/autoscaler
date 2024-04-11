@@ -220,6 +220,7 @@ func (cluster *ClusterState) AddSample(sample *ContainerUsageSampleWithKey) erro
 	if !containerState.AddSample(&sample.ContainerUsageSample) {
 		return fmt.Errorf("sample discarded (invalid or out of order)")
 	}
+	klog.InfoS("added sample in clusterstate %+v", sample)
 	return nil
 }
 
