@@ -92,6 +92,8 @@ func (r *recommender) UpdateVPAs() {
 			continue
 		}
 		resources := r.podResourceRecommender.GetRecommendedPodResources(GetContainerNameToAggregateStateMap(vpa))
+		klog.Infof("resources dump")
+		klog.Infof("%s/%s, %+v", observedVpa.Namespace, observedVpa.Name, resources)
 		had := vpa.HasRecommendation()
 
 		listOfResourceRecommendation := logic.MapToListOfRecommendedContainerResources(resources)

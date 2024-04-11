@@ -39,6 +39,8 @@ const (
 	ResourceCPU ResourceName = "cpu"
 	// ResourceMemory represents memory, in bytes. (500Gi = 500GiB = 500 * 1024 * 1024 * 1024).
 	ResourceMemory ResourceName = "memory"
+	// ResourceRSS represents RSS, in bytes.
+	ResourceRSS ResourceName = "rss"
 	// MaxResourceAmount is the maximum allowed value of resource amount.
 	MaxResourceAmount = ResourceAmount(1e14)
 )
@@ -91,6 +93,9 @@ func ResourcesAsResourceList(resources Resources) apiv1.ResourceList {
 		case ResourceMemory:
 			newKey = apiv1.ResourceMemory
 			quantity = QuantityFromMemoryAmount(resourceAmount)
+		case ResourceRSS:
+			newKey = apiv1.ResourceName(ResourceRSS)
+			quantity = QuantityFromCPUAmount(resourceAmount)
 		default:
 			klog.Errorf("Cannot translate %v resource name", key)
 			continue

@@ -66,6 +66,7 @@ func (r *podResourceRecommender) GetRecommendedPodResources(containerNameToAggre
 	minResources := model.Resources{
 		model.ResourceCPU:    model.ScaleResource(model.CPUAmountFromCores(*podMinCPUMillicores*0.001), fraction),
 		model.ResourceMemory: model.ScaleResource(model.MemoryAmountFromBytes(*podMinMemoryMb*1024*1024), fraction),
+		model.ResourceRSS: model.ScaleResource(model.MemoryAmountFromBytes(*podMinMemoryMb*1024*1024), fraction),
 	}
 
 	recommender := &podResourceRecommender{

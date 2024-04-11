@@ -60,7 +60,7 @@ const (
 
 var (
 	// DefaultControlledResources is a default value of Spec.ResourcePolicy.ContainerPolicies[].ControlledResources.
-	DefaultControlledResources = []ResourceName{ResourceCPU, ResourceMemory}
+	DefaultControlledResources = []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS}
 )
 
 // ContainerStateAggregator is an interface for objects that consume and
