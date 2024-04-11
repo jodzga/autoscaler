@@ -95,7 +95,6 @@ func (r *podResourceRecommender) estimateContainerResources(s *model.AggregateCo
 func FilterControlledResources(estimation model.Resources, controlledResources []model.ResourceName) model.Resources {
 	result := make(model.Resources)
 	for _, resource := range controlledResources {
-		klog.Info("resource", resource, "estimation", estimation[resource])
 		if value, ok := estimation[resource]; ok {
 			result[resource] = value
 		}
