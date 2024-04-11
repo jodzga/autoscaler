@@ -95,7 +95,7 @@ func ResourcesAsResourceList(resources Resources) apiv1.ResourceList {
 			quantity = QuantityFromMemoryAmount(resourceAmount)
 		case ResourceRSS:
 			newKey = apiv1.ResourceName(ResourceRSS)
-			quantity = QuantityFromCPUAmount(resourceAmount)
+			quantity = QuantityFromMemoryAmount(resourceAmount)
 		default:
 			klog.Errorf("Cannot translate %v resource name", key)
 			continue
