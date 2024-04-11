@@ -100,6 +100,8 @@ func (e *percentileEstimator) GetResourceEstimation(s *model.AggregateContainerS
 			s.AggregateCPUUsage.Percentile(e.cpuPercentile)),
 		model.ResourceMemory: model.MemoryAmountFromBytes(
 			s.AggregateMemoryPeaks.Percentile(e.memoryPercentile)),
+		// TODO: Take percentile once RSS aggregation moves away from the naive max to by histogram.
+		model.ResourceRSS: model.MemoryAmountFromBytes(s.RSSBytes),
 	}
 }
 
