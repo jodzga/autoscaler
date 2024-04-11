@@ -219,6 +219,8 @@ func (container *ContainerState) AddSample(sample *ContainerUsageSample) bool {
 		return container.addCPUSample(sample)
 	case ResourceMemory:
 		return container.addMemorySample(sample, false)
+	case ResourceRSS:
+		return true
 	default:
 		return false
 	}
