@@ -39,6 +39,7 @@ import (
 	"fmt"
 	"math"
 	"time"
+	"k8s.io/klog/v2"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,7 +159,6 @@ func (a *AggregateContainerState) MarkNotAutoscaled() {
 func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerState) {
 	a.AggregateCPUUsage.Merge(other.AggregateCPUUsage)
 	a.AggregateMemoryPeaks.Merge(other.AggregateMemoryPeaks)
-	// a.RSSBytes = other.RSSBytes
 
 	if a.FirstSampleStart.IsZero() ||
 		(!other.FirstSampleStart.IsZero() && other.FirstSampleStart.Before(a.FirstSampleStart)) {
@@ -189,6 +189,7 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceRSS:
+		klog.InfoS("sample for overwriteRSSSample: %v", sample)
 		a.overwriteRSSSample(sample)
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
@@ -228,6 +229,7 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 
 func (a *AggregateContainerState) overwriteRSSSample(sample *ContainerUsageSample) {
 	rssBytes := BytesFromMemoryAmount(sample.Usage)
+	klog.InfoS("overwriting rss bytes with rssBytes: %v", rssBytes)
 	a.RSSBytes = rssBytes
 }
 

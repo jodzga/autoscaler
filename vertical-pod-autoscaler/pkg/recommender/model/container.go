@@ -206,6 +206,17 @@ func (container *ContainerState) RecordOOM(timestamp time.Time, requestedMemory 
 	return nil
 }
 
+func (container *ContainerState) addRSSSample(sample *ContainerUsageSample) bool {
+	// Order should not matter for the histogram, other than deduplication.
+	// if !sample.isValid(ResourceRSS) || !sample.MeasureStart.After(container.LastCPUSampleStart) {
+	// 	return false // Discard invalid, duplicate or out-of-order samples.
+	// }
+	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceCPU)
+	container.aggregator.AddSample(sample)
+	// container.LastCPUSampleStart = sample.MeasureStart
+	return true
+}
+
 // AddSample adds a usage sample to the given ContainerState. Requires samples
 // for a single resource to be passed in chronological order (i.e. in order of
 // growing MeasureStart). Invalid samples (out of order or measure out of legal
@@ -220,7 +231,7 @@ func (container *ContainerState) AddSample(sample *ContainerUsageSample) bool {
 	case ResourceMemory:
 		return container.addMemorySample(sample, false)
 	case ResourceRSS:
-		return true
+		return container.addRSSSample(sample)
 	default:
 		return false
 	}
