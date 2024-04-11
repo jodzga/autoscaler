@@ -159,6 +159,8 @@ func (a *AggregateContainerState) MarkNotAutoscaled() {
 func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerState) {
 	a.AggregateCPUUsage.Merge(other.AggregateCPUUsage)
 	a.AggregateMemoryPeaks.Merge(other.AggregateMemoryPeaks)
+	klog.InfoS("merging rss bytes with rssBytes: %v %v", a.RSSBytes, other.RSSBytes)
+	a.RSSBytes += other.RSSBytes
 
 	if a.FirstSampleStart.IsZero() ||
 		(!other.FirstSampleStart.IsZero() && other.FirstSampleStart.Before(a.FirstSampleStart)) {
