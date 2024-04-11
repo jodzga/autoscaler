@@ -76,6 +76,7 @@ func (c *metricsClient) GetContainersMetrics() ([]*ContainerMetricsSnapshot, err
 		metricsSnapshotsForPod := createContainerMetricsSnapshots(podMetrics)
 		metricsSnapshots = append(metricsSnapshots, metricsSnapshotsForPod...)
 	}
+	klog.Infof("metrics snapshots %+v", metricsSnapshots)
 	return metricsSnapshots, nil
 }
 
