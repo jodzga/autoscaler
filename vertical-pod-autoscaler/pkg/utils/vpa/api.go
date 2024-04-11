@@ -65,6 +65,13 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	klog.Infof("list results: %+v", listResults)
 	klog.Infof("vpa name: %s", vpaName)
 
+	getResults, err := vpaClient.Get(context.TODO(), vpaName, meta.GetOptions{})
+	if err != nil {
+		klog.Errorf("Cannot get VPA object in namespace. Reason: %+v", err)
+		return nil, err
+	}
+	klog.Infof("get results: %+v", getResults)
+
 	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{}, "status")
 }
 
