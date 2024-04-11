@@ -158,6 +158,7 @@ func (a *AggregateContainerState) MarkNotAutoscaled() {
 func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerState) {
 	a.AggregateCPUUsage.Merge(other.AggregateCPUUsage)
 	a.AggregateMemoryPeaks.Merge(other.AggregateMemoryPeaks)
+	// a.RSSBytes = other.RSSBytes
 
 	if a.FirstSampleStart.IsZero() ||
 		(!other.FirstSampleStart.IsZero() && other.FirstSampleStart.Before(a.FirstSampleStart)) {
