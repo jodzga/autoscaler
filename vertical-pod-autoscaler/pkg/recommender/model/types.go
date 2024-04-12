@@ -42,7 +42,7 @@ const (
 	// ResourceRSS represents RSS, in bytes.
 	ResourceRSS ResourceName = "rss"
 	// ResourceJVMHeap represents committed JVM Heap, in bytes.
-	ResourceJVMHeap ResourceName = "jvmHeap"
+	ResourceJVMHeap ResourceName = "jvmHeapCommitted"
 	// MaxResourceAmount is the maximum allowed value of resource amount.
 	MaxResourceAmount = ResourceAmount(1e14)
 )
