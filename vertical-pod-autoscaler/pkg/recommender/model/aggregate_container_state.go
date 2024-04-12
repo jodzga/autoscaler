@@ -59,6 +59,7 @@ const (
 )
 
 var (
+	// TODO: Remove ResourceRSS from default (requires updating all our VPAs to include ResourceRSS in container policies).
 	// DefaultControlledResources is a default value of Spec.ResourcePolicy.ContainerPolicies[].ControlledResources.
 	DefaultControlledResources = []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS}
 )
@@ -95,7 +96,7 @@ type AggregateContainerState struct {
 	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
 	AggregateMemoryPeaks util.Histogram
 	// RSSBytes is the max 5m-average RSS observed of all RSS samples (naive implementation).
-	// TODO: aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
+	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
 	RSSBytes float64
 	// Note: first/last sample timestamps as well as the sample count are based only on CPU samples.
 	FirstSampleStart  time.Time
@@ -230,7 +231,7 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 
 func (a *AggregateContainerState) addRSSSample(sample *ContainerUsageSample) {
 	// RSSBytes is the max 5m-average RSS observed of all RSS samples (naive implementation).
-	// TODO: aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
+	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
 	a.RSSBytes = math.Max(a.RSSBytes, BytesFromMemoryAmount(sample.Usage))
 	if sample.MeasureStart.After(a.LastSampleStart) {
 		a.LastSampleStart = sample.MeasureStart
