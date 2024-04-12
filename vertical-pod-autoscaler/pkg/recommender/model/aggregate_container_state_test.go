@@ -279,11 +279,11 @@ func TestUpdateFromPolicyControlledResources(t *testing.T) {
 		}, {
 			name:     "No ControlledResources specified - used default",
 			policy:   &vpa_types.ContainerResourcePolicy{},
-			expected: []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS},
+			expected: []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS, ResourceJVMHeap},
 		}, {
 			name:     "Nil policy - use default",
 			policy:   nil,
-			expected: []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS},
+			expected: []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS, ResourceJVMHeap},
 		},
 	}
 	for _, tc := range testCases {

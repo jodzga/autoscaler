@@ -59,6 +59,8 @@ type ContainerState struct {
 	lastMemorySampleStart time.Time
 	// Start of the latest RSS sample that was aggregated.
 	lastRSSSampleStart time.Time
+	// Start of the latest JVM Heap sample that was aggregated.
+	lastJVMHeapSampleStart time.Time
 	// Aggregation to add usage samples to.
 	aggregator ContainerStateAggregator
 }
@@ -66,12 +68,13 @@ type ContainerState struct {
 // NewContainerState returns a new ContainerState.
 func NewContainerState(request Resources, aggregator ContainerStateAggregator) *ContainerState {
 	return &ContainerState{
-		Request:               request,
-		LastCPUSampleStart:    time.Time{},
-		WindowEnd:             time.Time{},
-		lastMemorySampleStart: time.Time{},
-		lastRSSSampleStart:    time.Time{},
-		aggregator:            aggregator,
+		Request:                request,
+		LastCPUSampleStart:     time.Time{},
+		WindowEnd:              time.Time{},
+		lastMemorySampleStart:  time.Time{},
+		lastRSSSampleStart:     time.Time{},
+		lastJVMHeapSampleStart: time.Time{},
+		aggregator:             aggregator,
 	}
 }
 
@@ -98,6 +101,17 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample) bool
 	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceRSS))
 	container.aggregator.AddSample(sample)
 	container.lastRSSSampleStart = sample.MeasureStart
+	return true
+}
+
+func (container *ContainerState) addJVMHeapSample(sample *ContainerUsageSample) bool {
+	if !sample.isValid(ResourceJVMHeap) || !sample.MeasureStart.After(container.lastJVMHeapSampleStart) {
+		return false // Discard invalid, duplicate or out-of-order samples.
+	}
+	// TODO: Observe quality metrics once JVM Heap aggregation moves away from the naive max to by histogram.
+	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceJVMHeap))
+	container.aggregator.AddSample(sample)
+	container.lastJVMHeapSampleStart = sample.MeasureStart
 	return true
 }
 
@@ -235,6 +249,8 @@ func (container *ContainerState) AddSample(sample *ContainerUsageSample) bool {
 		return container.addMemorySample(sample, false)
 	case ResourceRSS:
 		return container.addRSSSample(sample)
+	case ResourceJVMHeap:
+		return container.addJVMHeapSample(sample)
 	default:
 		return false
 	}

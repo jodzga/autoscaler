@@ -41,6 +41,8 @@ const (
 	ResourceMemory ResourceName = "memory"
 	// ResourceRSS represents RSS, in bytes.
 	ResourceRSS ResourceName = "rss"
+	// ResourceJVMHeap represents committed JVM Heap, in bytes.
+	ResourceJVMHeap ResourceName = "jvmheap"
 	// MaxResourceAmount is the maximum allowed value of resource amount.
 	MaxResourceAmount = ResourceAmount(1e14)
 )
@@ -96,6 +98,9 @@ func ResourcesAsResourceList(resources Resources) apiv1.ResourceList {
 		case ResourceRSS:
 			newKey = apiv1.ResourceName(ResourceRSS)
 			quantity = QuantityFromMemoryAmount(resourceAmount)
+		case ResourceJVMHeap:
+			newKey = apiv1.ResourceName(ResourceJVMHeap)
+			quantity = QuantityFromMemoryAmount(resourceAmount)
 		default:
 			klog.Errorf("Cannot translate %v resource name", key)
 			continue
@@ -116,6 +121,8 @@ func ResourceNamesApiToModel(resources []apiv1.ResourceName) *[]ResourceName {
 			result = append(result, ResourceMemory)
 		case apiv1.ResourceName(ResourceRSS):
 			result = append(result, ResourceRSS)
+		case apiv1.ResourceName(ResourceJVMHeap):
+			result = append(result, ResourceJVMHeap)
 		default:
 			klog.Errorf("Cannot translate %v resource name", resource)
 			continue
