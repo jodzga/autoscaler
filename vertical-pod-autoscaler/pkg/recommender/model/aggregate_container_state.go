@@ -60,8 +60,8 @@ const (
 
 var (
 	// DefaultControlledResources is a default value of Spec.ResourcePolicy.ContainerPolicies[].ControlledResources.
-	// TODO: Remove ResourceRSS from default (requires updating all our VPAs to include ResourceRSS in container policies).
-	DefaultControlledResources = []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS}
+	// TODO: Remove ResourceRSS/JVMHeap from default (requires updating all our VPAs to include ResourceRSS/JVMHeap in container policies).
+	DefaultControlledResources = []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS, ResourceJVMHeap}
 )
 
 // ContainerStateAggregator is an interface for objects that consume and
@@ -98,6 +98,9 @@ type AggregateContainerState struct {
 	// RSSBytes is the max 5m-average RSS observed of all RSS samples (naive implementation).
 	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
 	RSSBytes float64
+	// JVMHeapBytes is the max 5m-average committed JVM Heap observed of all JVM Heap samples (naive implementation).
+	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
+	JVMHeapBytes float64
 	// Note: first/last sample timestamps as well as the sample count are based only on CPU samples.
 	FirstSampleStart  time.Time
 	LastSampleStart   time.Time
@@ -162,6 +165,7 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	a.AggregateCPUUsage.Merge(other.AggregateCPUUsage)
 	a.AggregateMemoryPeaks.Merge(other.AggregateMemoryPeaks)
 	a.RSSBytes = math.Max(a.RSSBytes, other.RSSBytes)
+	a.JVMHeapBytes = math.Max(a.JVMHeapBytes, other.JVMHeapBytes)
 
 	if a.FirstSampleStart.IsZero() ||
 		(!other.FirstSampleStart.IsZero() && other.FirstSampleStart.Before(a.FirstSampleStart)) {
@@ -180,6 +184,7 @@ func NewAggregateContainerState() *AggregateContainerState {
 		AggregateCPUUsage:    util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
 		AggregateMemoryPeaks: util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
 		RSSBytes:             0,
+		JVMHeapBytes:         0,
 		CreationTime:         time.Now(),
 	}
 }
@@ -193,6 +198,8 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceRSS:
 		a.addRSSSample(sample)
+	case ResourceJVMHeap:
+		a.addJVMHeapSample(sample)
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -233,6 +240,19 @@ func (a *AggregateContainerState) addRSSSample(sample *ContainerUsageSample) {
 	// RSSBytes is the max 5m-average RSS observed of all RSS samples (naive implementation).
 	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
 	a.RSSBytes = math.Max(a.RSSBytes, BytesFromMemoryAmount(sample.Usage))
+	if sample.MeasureStart.After(a.LastSampleStart) {
+		a.LastSampleStart = sample.MeasureStart
+	}
+	if a.FirstSampleStart.IsZero() || sample.MeasureStart.Before(a.FirstSampleStart) {
+		a.FirstSampleStart = sample.MeasureStart
+	}
+	a.TotalSamplesCount++
+}
+
+func (a *AggregateContainerState) addJVMHeapSample(sample *ContainerUsageSample) {
+	// JVMHeapBytes is the max 5m-average committed JVM Heap observed of all JVM Heap samples (naive implementation).
+	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
+	a.JVMHeapBytes = math.Max(a.JVMHeapBytes, BytesFromMemoryAmount(sample.Usage))
 	if sample.MeasureStart.After(a.LastSampleStart) {
 		a.LastSampleStart = sample.MeasureStart
 	}
