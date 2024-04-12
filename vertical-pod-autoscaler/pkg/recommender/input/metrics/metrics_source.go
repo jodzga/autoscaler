@@ -159,6 +159,11 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 		return nil, err
 	}
 
+	if s.m3Url == "" {
+		klog.Info("No M3 URL provided - skipping custom pod usage metrics")
+		return podsMetrics, nil
+	}
+
 	return s.withM3CustomMetrics(podsMetrics)
 }
 
