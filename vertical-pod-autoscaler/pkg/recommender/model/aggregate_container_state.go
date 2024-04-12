@@ -59,8 +59,8 @@ const (
 )
 
 var (
-	// TODO: Remove ResourceRSS from default (requires updating all our VPAs to include ResourceRSS in container policies).
 	// DefaultControlledResources is a default value of Spec.ResourcePolicy.ContainerPolicies[].ControlledResources.
+	// TODO: Remove ResourceRSS from default (requires updating all our VPAs to include ResourceRSS in container policies).
 	DefaultControlledResources = []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS}
 )
 
