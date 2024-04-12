@@ -60,7 +60,8 @@ const (
 
 var (
 	// DefaultControlledResources is a default value of Spec.ResourcePolicy.ContainerPolicies[].ControlledResources.
-	DefaultControlledResources = []ResourceName{ResourceCPU, ResourceMemory}
+	// TODO: Remove ResourceRSS from default (requires updating all our VPAs to include ResourceRSS in container policies).
+	DefaultControlledResources = []ResourceName{ResourceCPU, ResourceMemory, ResourceRSS}
 )
 
 // ContainerStateAggregator is an interface for objects that consume and
@@ -94,6 +95,9 @@ type AggregateContainerState struct {
 	// AggregateMemoryPeaks is a distribution of memory peaks from all containers:
 	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
 	AggregateMemoryPeaks util.Histogram
+	// RSSBytes is the max 5m-average RSS observed of all RSS samples (naive implementation).
+	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
+	RSSBytes float64
 	// Note: first/last sample timestamps as well as the sample count are based only on CPU samples.
 	FirstSampleStart  time.Time
 	LastSampleStart   time.Time
@@ -157,6 +161,7 @@ func (a *AggregateContainerState) MarkNotAutoscaled() {
 func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerState) {
 	a.AggregateCPUUsage.Merge(other.AggregateCPUUsage)
 	a.AggregateMemoryPeaks.Merge(other.AggregateMemoryPeaks)
+	a.RSSBytes = math.Max(a.RSSBytes, other.RSSBytes)
 
 	if a.FirstSampleStart.IsZero() ||
 		(!other.FirstSampleStart.IsZero() && other.FirstSampleStart.Before(a.FirstSampleStart)) {
@@ -174,6 +179,7 @@ func NewAggregateContainerState() *AggregateContainerState {
 	return &AggregateContainerState{
 		AggregateCPUUsage:    util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
 		AggregateMemoryPeaks: util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
+		RSSBytes:             0,
 		CreationTime:         time.Now(),
 	}
 }
@@ -185,6 +191,8 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 		a.addCPUSample(sample)
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+	case ResourceRSS:
+		a.addRSSSample(sample)
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -212,6 +220,19 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 	// which helps react quickly to CPU starvation.
 	a.AggregateCPUUsage.AddSample(
 		cpuUsageCores, math.Max(cpuRequestCores, minSampleWeight), sample.MeasureStart)
+	if sample.MeasureStart.After(a.LastSampleStart) {
+		a.LastSampleStart = sample.MeasureStart
+	}
+	if a.FirstSampleStart.IsZero() || sample.MeasureStart.Before(a.FirstSampleStart) {
+		a.FirstSampleStart = sample.MeasureStart
+	}
+	a.TotalSamplesCount++
+}
+
+func (a *AggregateContainerState) addRSSSample(sample *ContainerUsageSample) {
+	// RSSBytes is the max 5m-average RSS observed of all RSS samples (naive implementation).
+	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
+	a.RSSBytes = math.Max(a.RSSBytes, BytesFromMemoryAmount(sample.Usage))
 	if sample.MeasureStart.After(a.LastSampleStart) {
 		a.LastSampleStart = sample.MeasureStart
 	}

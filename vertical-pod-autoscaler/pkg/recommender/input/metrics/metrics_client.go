@@ -111,8 +111,12 @@ func calculateUsage(containerUsage k8sapiv1.ResourceList) model.Resources {
 	memoryQuantity := containerUsage[k8sapiv1.ResourceMemory]
 	memoryBytes := memoryQuantity.Value()
 
+	rssQuantity := containerUsage[k8sapiv1.ResourceName(model.ResourceRSS)]
+	rssBytes := rssQuantity.Value()
+
 	return model.Resources{
 		model.ResourceCPU:    model.ResourceAmount(cpuMillicores),
 		model.ResourceMemory: model.ResourceAmount(memoryBytes),
+		model.ResourceRSS:    model.ResourceAmount(rssBytes),
 	}
 }

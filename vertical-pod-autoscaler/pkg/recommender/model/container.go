@@ -57,6 +57,8 @@ type ContainerState struct {
 	WindowEnd time.Time
 	// Start of the latest memory usage sample that was aggregated.
 	lastMemorySampleStart time.Time
+	// Start of the latest RSS sample that was aggregated.
+	lastRSSSampleStart time.Time
 	// Aggregation to add usage samples to.
 	aggregator ContainerStateAggregator
 }
@@ -68,6 +70,7 @@ func NewContainerState(request Resources, aggregator ContainerStateAggregator) *
 		LastCPUSampleStart:    time.Time{},
 		WindowEnd:             time.Time{},
 		lastMemorySampleStart: time.Time{},
+		lastRSSSampleStart:    time.Time{},
 		aggregator:            aggregator,
 	}
 }
@@ -84,6 +87,17 @@ func (container *ContainerState) addCPUSample(sample *ContainerUsageSample) bool
 	container.observeQualityMetrics(sample.Usage, false, corev1.ResourceCPU)
 	container.aggregator.AddSample(sample)
 	container.LastCPUSampleStart = sample.MeasureStart
+	return true
+}
+
+func (container *ContainerState) addRSSSample(sample *ContainerUsageSample) bool {
+	if !sample.isValid(ResourceRSS) || !sample.MeasureStart.After(container.lastRSSSampleStart) {
+		return false // Discard invalid, duplicate or out-of-order samples.
+	}
+	// TODO: Observe quality metrics once RSS aggregation moves away from the naive max to by histogram.
+	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceRSS))
+	container.aggregator.AddSample(sample)
+	container.lastRSSSampleStart = sample.MeasureStart
 	return true
 }
 
@@ -219,6 +233,8 @@ func (container *ContainerState) AddSample(sample *ContainerUsageSample) bool {
 		return container.addCPUSample(sample)
 	case ResourceMemory:
 		return container.addMemorySample(sample, false)
+	case ResourceRSS:
+		return container.addRSSSample(sample)
 	default:
 		return false
 	}
