@@ -66,7 +66,7 @@ func TestMinResourcesSplitAcrossContainers(t *testing.T) {
 func TestControlledResourcesFiltered(t *testing.T) {
 	constEstimator := NewConstEstimator(model.Resources{
 		model.ResourceCPU:    model.CPUAmountFromCores(0.001),
-		model.ResourceMemory: model.MemoryAmountFromBytes(0),
+		model.ResourceMemory: model.MemoryAmountFromBytes(1e6),
 	})
 	recommender := podResourceRecommender{
 		constEstimator,
@@ -92,7 +92,7 @@ func TestControlledResourcesFiltered(t *testing.T) {
 func TestControlledResourcesFilteredDefault(t *testing.T) {
 	constEstimator := NewConstEstimator(model.Resources{
 		model.ResourceCPU:    model.CPUAmountFromCores(0.001),
-		model.ResourceMemory: model.MemoryAmountFromBytes(0),
+		model.ResourceMemory: model.MemoryAmountFromBytes(1e6),
 	})
 	recommender := podResourceRecommender{
 		constEstimator,
