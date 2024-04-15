@@ -27,7 +27,7 @@ import (
 var (
 	safetyMarginFraction = flag.Float64("recommendation-margin-fraction", 0.15, `Fraction of usage added as the safety margin to the recommended request`)
 	podMinCPUMillicores  = flag.Float64("pod-recommendation-min-cpu-millicores", 25, `Minimum CPU recommendation for a pod`)
-	podMinMemoryMb       = flag.Float64("pod-recommendation-min-memory-mb", 250, `Minimum memory recommendation for a pod`)
+	podMinMemoryMb       = flag.Float64("pod-recommendation-min-memory-mb", 0, `Minimum memory recommendation for a pod`)
 	podMinRSSMb          = flag.Float64("pod-recommendation-min-rss-mb", 0, `Minimum RSS recommendation for a pod`)
 	podMinJVMHeapMb      = flag.Float64("pod-recommendation-min-jvmheap-mb", 0, `Minimum JVM Heap recommendation for a pod`)
 	targetCPUPercentile  = flag.Float64("target-cpu-percentile", 0.9, "CPU usage percentile that will be used as a base for CPU target recommendation. Doesn't affect CPU lower bound, CPU upper bound nor memory recommendations.")
