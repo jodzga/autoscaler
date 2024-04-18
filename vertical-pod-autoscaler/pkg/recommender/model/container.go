@@ -68,13 +68,13 @@ type ContainerState struct {
 // NewContainerState returns a new ContainerState.
 func NewContainerState(request Resources, aggregator ContainerStateAggregator) *ContainerState {
 	return &ContainerState{
-		Request:                request,
-		LastCPUSampleStart:     time.Time{},
-		WindowEnd:              time.Time{},
-		lastMemorySampleStart:  time.Time{},
-		lastRSSSampleStart:     time.Time{},
+		Request:                         request,
+		LastCPUSampleStart:              time.Time{},
+		WindowEnd:                       time.Time{},
+		lastMemorySampleStart:           time.Time{},
+		lastRSSSampleStart:              time.Time{},
 		lastJVMHeapCommittedSampleStart: time.Time{},
-		aggregator:             aggregator,
+		aggregator:                      aggregator,
 	}
 }
 

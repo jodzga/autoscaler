@@ -181,11 +181,11 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 func NewAggregateContainerState() *AggregateContainerState {
 	config := GetAggregationsConfig()
 	return &AggregateContainerState{
-		AggregateCPUUsage:    util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
-		AggregateMemoryPeaks: util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
-		RSSBytes:             0,
-		JVMHeapCommittedBytes:         0,
-		CreationTime:         time.Now(),
+		AggregateCPUUsage:     util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
+		AggregateMemoryPeaks:  util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
+		RSSBytes:              0,
+		JVMHeapCommittedBytes: 0,
+		CreationTime:          time.Now(),
 	}
 }
 

@@ -77,7 +77,7 @@ func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList
 	for i, pod := range podMetrics.Items {
 		for j, container := range pod.Containers {
 			queries := map[string]k8sapiv1.ResourceName{
-				getRSSQuery(container.Name, pod.Name, pod.Namespace):     k8sapiv1.ResourceName(model.ResourceRSS),
+				getRSSQuery(container.Name, pod.Name, pod.Namespace):              k8sapiv1.ResourceName(model.ResourceRSS),
 				getJVMHeapCommittedQuery(container.Name, pod.Name, pod.Namespace): k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted),
 			}
 			for query, resourceName := range queries {

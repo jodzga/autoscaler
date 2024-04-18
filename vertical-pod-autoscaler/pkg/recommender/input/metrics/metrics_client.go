@@ -118,9 +118,9 @@ func calculateUsage(containerUsage k8sapiv1.ResourceList) model.Resources {
 	jvmHeapCommittedBytes := jvmHeapCommittedQuantity.Value()
 
 	return model.Resources{
-		model.ResourceCPU:     model.ResourceAmount(cpuMillicores),
-		model.ResourceMemory:  model.ResourceAmount(memoryBytes),
-		model.ResourceRSS:     model.ResourceAmount(rssBytes),
+		model.ResourceCPU:              model.ResourceAmount(cpuMillicores),
+		model.ResourceMemory:           model.ResourceAmount(memoryBytes),
+		model.ResourceRSS:              model.ResourceAmount(rssBytes),
 		model.ResourceJVMHeapCommitted: model.ResourceAmount(jvmHeapCommittedBytes),
 	}
 }

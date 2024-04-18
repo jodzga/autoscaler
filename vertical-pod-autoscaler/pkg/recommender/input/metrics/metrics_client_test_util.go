@@ -74,9 +74,9 @@ func (tc *metricsClientTestCase) newContainerMetricsSnapshot(id model.ContainerI
 		SnapshotTime:   tc.snapshotTimestamp,
 		SnapshotWindow: tc.snapshotWindow,
 		Usage: model.Resources{
-			model.ResourceCPU:     model.ResourceAmount(cpuUsage),
-			model.ResourceMemory:  model.ResourceAmount(memUsage),
-			model.ResourceRSS:     0,
+			model.ResourceCPU:              model.ResourceAmount(cpuUsage),
+			model.ResourceMemory:           model.ResourceAmount(memUsage),
+			model.ResourceRSS:              0,
 			model.ResourceJVMHeapCommitted: 0,
 		},
 	}
@@ -135,9 +135,9 @@ func calculateResourceList(usage model.Resources) k8sapiv1.ResourceList {
 	jvmHeapCommittedQuantityString := jvmHeapCommittedBytes.String()
 
 	resourceMap := map[k8sapiv1.ResourceName]resource.Quantity{
-		k8sapiv1.ResourceCPU:                         resource.MustParse(cpuQuantityString),
-		k8sapiv1.ResourceMemory:                      resource.MustParse(memoryQuantityString),
-		k8sapiv1.ResourceName(model.ResourceRSS):     resource.MustParse(rssQuantityString),
+		k8sapiv1.ResourceCPU:                                  resource.MustParse(cpuQuantityString),
+		k8sapiv1.ResourceMemory:                               resource.MustParse(memoryQuantityString),
+		k8sapiv1.ResourceName(model.ResourceRSS):              resource.MustParse(rssQuantityString),
 		k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted): resource.MustParse(jvmHeapCommittedQuantityString),
 	}
 	return k8sapiv1.ResourceList(resourceMap)
