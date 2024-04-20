@@ -114,13 +114,13 @@ func calculateUsage(containerUsage k8sapiv1.ResourceList) model.Resources {
 	rssQuantity := containerUsage[k8sapiv1.ResourceName(model.ResourceRSS)]
 	rssBytes := rssQuantity.Value()
 
-	jvmHeapQuantity := containerUsage[k8sapiv1.ResourceName(model.ResourceJVMHeap)]
-	jvmHeapBytes := jvmHeapQuantity.Value()
+	jvmHeapCommittedQuantity := containerUsage[k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted)]
+	jvmHeapCommittedBytes := jvmHeapCommittedQuantity.Value()
 
 	return model.Resources{
-		model.ResourceCPU:     model.ResourceAmount(cpuMillicores),
-		model.ResourceMemory:  model.ResourceAmount(memoryBytes),
-		model.ResourceRSS:     model.ResourceAmount(rssBytes),
-		model.ResourceJVMHeap: model.ResourceAmount(jvmHeapBytes),
+		model.ResourceCPU:              model.ResourceAmount(cpuMillicores),
+		model.ResourceMemory:           model.ResourceAmount(memoryBytes),
+		model.ResourceRSS:              model.ResourceAmount(rssBytes),
+		model.ResourceJVMHeapCommitted: model.ResourceAmount(jvmHeapCommittedBytes),
 	}
 }

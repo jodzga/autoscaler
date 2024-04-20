@@ -101,8 +101,8 @@ func (e *percentileEstimator) GetResourceEstimation(s *model.AggregateContainerS
 		model.ResourceMemory: model.MemoryAmountFromBytes(
 			s.AggregateMemoryPeaks.Percentile(e.memoryPercentile)),
 		// TODO: Take percentile once RSS + JVM Heap aggregation moves away from the naive max to by histogram.
-		model.ResourceRSS:     model.MemoryAmountFromBytes(s.RSSBytes),
-		model.ResourceJVMHeap: model.MemoryAmountFromBytes(s.JVMHeapBytes),
+		model.ResourceRSS:              model.MemoryAmountFromBytes(s.RSSBytes),
+		model.ResourceJVMHeapCommitted: model.MemoryAmountFromBytes(s.JVMHeapCommittedBytes),
 	}
 }
 

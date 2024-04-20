@@ -61,7 +61,7 @@ func getRSSQuery(containerName string, podName string, namespace string) string 
 	return fmt.Sprintf("max_over_time(container_memory_rss{container_name='%s', pod_name='%s', namespace='%s'}[5m])", containerName, podName, namespace)
 }
 
-func getJVMHeapQuery(containerName string, podName string, namespace string) string {
+func getJVMHeapCommittedQuery(containerName string, podName string, namespace string) string {
 	return fmt.Sprintf("max_over_time(jmx_Memory_HeapMemoryUsage_committed{kubernetes_container_name='%s', kubernetes_pod_name='%s', kubernetes_namespace='%s'}[5m])", containerName, podName, namespace)
 }
 
@@ -77,8 +77,8 @@ func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList
 	for i, pod := range podMetrics.Items {
 		for j, container := range pod.Containers {
 			queries := map[string]k8sapiv1.ResourceName{
-				getRSSQuery(container.Name, pod.Name, pod.Namespace):     k8sapiv1.ResourceName(model.ResourceRSS),
-				getJVMHeapQuery(container.Name, pod.Name, pod.Namespace): k8sapiv1.ResourceName(model.ResourceJVMHeap),
+				getRSSQuery(container.Name, pod.Name, pod.Namespace):              k8sapiv1.ResourceName(model.ResourceRSS),
+				getJVMHeapCommittedQuery(container.Name, pod.Name, pod.Namespace): k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted),
 			}
 			for query, resourceName := range queries {
 				params := url.Values{}
