@@ -248,7 +248,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 		}
 	} else {
 		// TODO: Use a separate aggregation interval for RSS.
-		rssAggregationInterval := GetAggregationsConfig().memoryAggregationInterval
+		rssAggregationInterval := GetAggregationsConfig().MemoryAggregationInterval
 		shift := ts.Sub(container.WindowEnd).Truncate(rssAggregationInterval) + memoryAggregationInterval
 		container.WindowEnd = container.WindowEnd.Add(shift)
 		container.rssPeak = 0
@@ -298,7 +298,7 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 		}
 	} else {
 		// TODO: Use a separate aggregation interval for committed JVM heap.
-		jvmHeapCommittedAggregationInterval := GetAggregationsConfig().memoryAggregationInterval
+		jvmHeapCommittedAggregationInterval := GetAggregationsConfig().MemoryAggregationInterval
 		shift := ts.Sub(container.WindowEnd).Truncate(jvmHeapCommittedAggregationInterval) + jvmHeapCommittedAggregationInterval
 		container.WindowEnd = container.WindowEnd.Add(shift)
 		container.jvmHeapCommittedPeak = 0
