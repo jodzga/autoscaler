@@ -76,8 +76,8 @@ func (tc *metricsClientTestCase) newContainerMetricsSnapshot(id model.ContainerI
 		Usage: model.Resources{
 			model.ResourceCPU:              model.ResourceAmount(cpuUsage),
 			model.ResourceMemory:           model.ResourceAmount(memUsage),
-			model.ResourceRSS:              0,
-			model.ResourceJVMHeapCommitted: 0,
+			model.ResourceRSS:              model.ResourceAmount(0),
+			model.ResourceJVMHeapCommitted: model.ResourceAmount(0),
 		},
 	}
 }

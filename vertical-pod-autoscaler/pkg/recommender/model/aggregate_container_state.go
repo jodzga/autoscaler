@@ -95,12 +95,12 @@ type AggregateContainerState struct {
 	// AggregateMemoryPeaks is a distribution of memory peaks from all containers:
 	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
 	AggregateMemoryPeaks util.Histogram
-	// RSSBytes is the max 5m-average RSS observed of all RSS samples (naive implementation).
-	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
-	RSSBytes float64
-	// JVMHeapCommittedBytes is the max 5m-average committed JVM Heap observed of all JVM Heap samples (naive implementation).
-	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
-	JVMHeapCommittedBytes float64
+	// AggregateRSSPeaks is a distribution of RSS peaks from all containers:
+	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
+	AggregateRSSPeaks util.Histogram
+	// AggregateJVMHeapCommittedPeaks is a distribution of committed JVM heap peaks from all containers:
+	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
+	AggregateJVMHeapCommittedPeaks util.Histogram
 	// Note: first/last sample timestamps as well as the sample count are based only on CPU samples.
 	FirstSampleStart  time.Time
 	LastSampleStart   time.Time
@@ -164,8 +164,8 @@ func (a *AggregateContainerState) MarkNotAutoscaled() {
 func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerState) {
 	a.AggregateCPUUsage.Merge(other.AggregateCPUUsage)
 	a.AggregateMemoryPeaks.Merge(other.AggregateMemoryPeaks)
-	a.RSSBytes = math.Max(a.RSSBytes, other.RSSBytes)
-	a.JVMHeapCommittedBytes = math.Max(a.JVMHeapCommittedBytes, other.JVMHeapCommittedBytes)
+	a.AggregateRSSPeaks.Merge(other.AggregateRSSPeaks)
+	a.AggregateJVMHeapCommittedPeaks.Merge(other.AggregateJVMHeapCommittedPeaks)
 
 	if a.FirstSampleStart.IsZero() ||
 		(!other.FirstSampleStart.IsZero() && other.FirstSampleStart.Before(a.FirstSampleStart)) {
@@ -181,11 +181,12 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 func NewAggregateContainerState() *AggregateContainerState {
 	config := GetAggregationsConfig()
 	return &AggregateContainerState{
-		AggregateCPUUsage:     util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
-		AggregateMemoryPeaks:  util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
-		RSSBytes:              0,
-		JVMHeapCommittedBytes: 0,
-		CreationTime:          time.Now(),
+		AggregateCPUUsage:    util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
+		AggregateMemoryPeaks: util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
+		// TODO: Use individual config for RSS and JVMHeapCommitted.
+		AggregateRSSPeaks:              util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
+		AggregateJVMHeapCommittedPeaks: util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
+		CreationTime:                   time.Now(),
 	}
 }
 
@@ -197,9 +198,9 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceRSS:
-		a.addRSSSample(sample)
+		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceJVMHeapCommitted:
-		a.addJVMHeapCommittedSample(sample)
+		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -214,6 +215,10 @@ func (a *AggregateContainerState) SubtractSample(sample *ContainerUsageSample) {
 	switch sample.Resource {
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.SubtractSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+	case ResourceRSS:
+		a.AggregateRSSPeaks.SubtractSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+	case ResourceJVMHeapCommitted:
+		a.AggregateJVMHeapCommittedPeaks.SubtractSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	default:
 		panic(fmt.Sprintf("SubtractSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -236,32 +241,6 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 	a.TotalSamplesCount++
 }
 
-func (a *AggregateContainerState) addRSSSample(sample *ContainerUsageSample) {
-	// RSSBytes is the max 5m-average RSS observed of all RSS samples (naive implementation).
-	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
-	a.RSSBytes = math.Max(a.RSSBytes, BytesFromMemoryAmount(sample.Usage))
-	if sample.MeasureStart.After(a.LastSampleStart) {
-		a.LastSampleStart = sample.MeasureStart
-	}
-	if a.FirstSampleStart.IsZero() || sample.MeasureStart.Before(a.FirstSampleStart) {
-		a.FirstSampleStart = sample.MeasureStart
-	}
-	a.TotalSamplesCount++
-}
-
-func (a *AggregateContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample) {
-	// JVMHeapCommittedBytes is the max 5m-average committed JVM Heap observed of all JVM Heap samples (naive implementation).
-	// TODO: Aggregate properly with histogram once VPACheckpoint updated to support additional histogram.
-	a.JVMHeapCommittedBytes = math.Max(a.JVMHeapCommittedBytes, BytesFromMemoryAmount(sample.Usage))
-	if sample.MeasureStart.After(a.LastSampleStart) {
-		a.LastSampleStart = sample.MeasureStart
-	}
-	if a.FirstSampleStart.IsZero() || sample.MeasureStart.Before(a.FirstSampleStart) {
-		a.FirstSampleStart = sample.MeasureStart
-	}
-	a.TotalSamplesCount++
-}
-
 // SaveToCheckpoint serializes AggregateContainerState as VerticalPodAutoscalerCheckpointStatus.
 // The serialization may result in loss of precission of the histograms.
 func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAutoscalerCheckpointStatus, error) {
@@ -273,16 +252,24 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 	if err != nil {
 		return nil, err
 	}
+	rss, err := a.AggregateRSSPeaks.SaveToChekpoint()
+	if err != nil {
+		return nil, err
+	}
+	jvmHeapCommitted, err := a.AggregateJVMHeapCommittedPeaks.SaveToChekpoint()
+	if err != nil {
+		return nil, err
+	}
 	return &vpa_types.VerticalPodAutoscalerCheckpointStatus{
-		LastUpdateTime:    metav1.NewTime(time.Now()),
-		FirstSampleStart:  metav1.NewTime(a.FirstSampleStart),
-		LastSampleStart:   metav1.NewTime(a.LastSampleStart),
-		TotalSamplesCount: a.TotalSamplesCount,
-		MemoryHistogram:   *memory,
-		CPUHistogram:      *cpu,
-		RssBytes: a.RssBytes,
-		JVMHeapCommittedBytes: a.JVMHeapCommittedBytes,
-		Version:           SupportedCheckpointVersion,
+		LastUpdateTime:            metav1.NewTime(time.Now()),
+		FirstSampleStart:          metav1.NewTime(a.FirstSampleStart),
+		LastSampleStart:           metav1.NewTime(a.LastSampleStart),
+		TotalSamplesCount:         a.TotalSamplesCount,
+		MemoryHistogram:           *memory,
+		CPUHistogram:              *cpu,
+		RSSHistogram:              *rss,
+		JVMHeapCommittedHistogram: *jvmHeapCommitted,
+		Version:                   SupportedCheckpointVersion,
 	}, nil
 }
 
@@ -300,6 +287,14 @@ func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.Verti
 		return err
 	}
 	err = a.AggregateCPUUsage.LoadFromCheckpoint(&checkpoint.CPUHistogram)
+	if err != nil {
+		return err
+	}
+	err = a.AggregateRSSPeaks.LoadFromCheckpoint(&checkpoint.RSSHistogram)
+	if err != nil {
+		return err
+	}
+	err = a.AggregateJVMHeapCommittedPeaks.LoadFromCheckpoint(&checkpoint.JVMHeapCommittedHistogram)
 	if err != nil {
 		return err
 	}

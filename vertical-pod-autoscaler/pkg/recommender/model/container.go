@@ -53,6 +53,10 @@ type ContainerState struct {
 	memoryPeak ResourceAmount
 	// Max memory usage estimated from an OOM event in the current aggregation interval.
 	oomPeak ResourceAmount
+	// Max RSS usage observed in the current aggregation interval.
+	rssPeak ResourceAmount
+	// Max committed JVM Heap usage observed in the current aggregation interval.
+	jvmHeapCommittedPeak ResourceAmount
 	// End time of the current memory aggregation interval (not inclusive).
 	WindowEnd time.Time
 	// Start of the latest memory usage sample that was aggregated.
@@ -93,17 +97,6 @@ func (container *ContainerState) addCPUSample(sample *ContainerUsageSample) bool
 	return true
 }
 
-func (container *ContainerState) addRSSSample(sample *ContainerUsageSample) bool {
-	if !sample.isValid(ResourceRSS) || !sample.MeasureStart.After(container.lastRSSSampleStart) {
-		return false // Discard invalid, duplicate or out-of-order samples.
-	}
-	// TODO: Observe quality metrics once RSS aggregation moves away from the naive max to by histogram.
-	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceRSS))
-	container.aggregator.AddSample(sample)
-	container.lastRSSSampleStart = sample.MeasureStart
-	return true
-}
-
 func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample) bool {
 	if !sample.isValid(ResourceJVMHeapCommitted) || !sample.MeasureStart.After(container.lastJVMHeapCommittedSampleStart) {
 		return false // Discard invalid, duplicate or out-of-order samples.
@@ -127,6 +120,7 @@ func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isO
 	case corev1.ResourceMemory:
 		usageValue = BytesFromMemoryAmount(usage)
 	}
+	// TODO: add quality metrics for RSS and JVMHeapCommitted.
 	if container.aggregator.GetLastRecommendation() == nil {
 		metrics_quality.ObserveQualityMetricsRecommendationMissing(usageValue, isOOM, resource, updateMode)
 		return
@@ -152,6 +146,18 @@ func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isO
 // GetMaxMemoryPeak returns maximum memory usage in the sample, possibly estimated from OOM
 func (container *ContainerState) GetMaxMemoryPeak() ResourceAmount {
 	return ResourceAmountMax(container.memoryPeak, container.oomPeak)
+}
+
+// GetMaxRSSPeak returns maximum RSS usage in the sample, possibly estimated from OOM
+// TODO: Consider OOM in max RSS peak.
+func (container *ContainerState) GetMaxRSSPeak() ResourceAmount {
+	return container.rssPeak
+}
+
+// GetMaxJVMHeapCommittedPeak returns maximum memory usage in the sample, possibly estimated from OOM
+// TODO: Consider OOM in max JVM Heap committed peak.
+func (container *ContainerState) GetMaxJVMHeapCommittedPeak() ResourceAmount {
+	return container.jvmHeapCommittedPeak
 }
 
 func (container *ContainerState) addMemorySample(sample *ContainerUsageSample, isOOM bool) bool {
@@ -207,6 +213,107 @@ func (container *ContainerState) addMemorySample(sample *ContainerUsageSample, i
 		} else {
 			container.memoryPeak = sample.Usage
 		}
+	}
+	return true
+}
+
+// TODO: Handle OOM samples.
+func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOOM bool) bool {
+	ts := sample.MeasureStart
+	if !sample.isValid(ResourceRSS) || ts.Before(container.lastRSSSampleStart) {
+		return false // Discard invalid or outdated samples.
+	}
+	container.lastRSSSampleStart = ts
+	if container.WindowEnd.IsZero() { // This is the first sample.
+		container.WindowEnd = ts
+	}
+
+	// Each container aggregates one peak per aggregation interval. If the timestamp of the
+	// current sample is earlier than the end of the current interval (WindowEnd) and is larger
+	// than the current peak, the peak is updated in the aggregation by subtracting the old value
+	// and adding the new value.
+	addNewPeak := false
+	if ts.Before(container.WindowEnd) {
+		oldMaxRss := container.GetMaxRSSPeak()
+		if oldMaxRss != 0 && sample.Usage > oldMaxRss {
+			// Remove the old peak.
+			oldPeak := ContainerUsageSample{
+				MeasureStart: container.WindowEnd,
+				Usage:        oldMaxRss,
+				Request:      sample.Request,
+				Resource:     ResourceRSS,
+			}
+			container.aggregator.SubtractSample(&oldPeak)
+			addNewPeak = true
+		}
+	} else {
+		// TODO: Use a separate aggregation interval for RSS.
+		rssAggregationInterval := GetAggregationsConfig().memoryAggregationInterval
+		shift := ts.Sub(container.WindowEnd).Truncate(rssAggregationInterval) + memoryAggregationInterval
+		container.WindowEnd = container.WindowEnd.Add(shift)
+		container.rssPeak = 0
+		addNewPeak = true
+	}
+	// TODO: Observe quality metrics once OOM is considered.
+	if addNewPeak {
+		newPeak := ContainerUsageSample{
+			MeasureStart: container.WindowEnd,
+			Usage:        sample.Usage,
+			Request:      sample.Request,
+			Resource:     ResourceRSS,
+		}
+		container.aggregator.AddSample(&newPeak)
+		container.rssPeak = sample.Usage
+	}
+	return true
+}
+
+func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample) bool {
+	ts := sample.MeasureStart
+	if !sample.isValid(ResourceJVMHeapCommitted) || ts.Before(container.lastJVMHeapCommittedSampleStart) {
+		return false // Discard invalid or outdated samples.
+	}
+	container.lastJVMHeapCommittedSampleStart = ts
+	if container.WindowEnd.IsZero() { // This is the first sample.
+		container.WindowEnd = ts
+	}
+
+	// Each container aggregates one peak per aggregation interval. If the timestamp of the
+	// current sample is earlier than the end of the current interval (WindowEnd) and is larger
+	// than the current peak, the peak is updated in the aggregation by subtracting the old value
+	// and adding the new value.
+	addNewPeak := false
+	if ts.Before(container.WindowEnd) {
+		oldMaxJVMHeapCommitted := container.GetMaxJVMHeapCommittedPeak()
+		if oldMaxJVMHeapCommitted != 0 && sample.Usage > oldMaxJVMHeapCommitted {
+			// Remove the old peak.
+			oldPeak := ContainerUsageSample{
+				MeasureStart: container.WindowEnd,
+				Usage:        oldMaxJVMHeapCommitted,
+				Request:      sample.Request,
+				Resource:     ResourceJVMHeapCommitted,
+			}
+			container.aggregator.SubtractSample(&oldPeak)
+			addNewPeak = true
+		}
+	} else {
+		// TODO: Use a separate aggregation interval for committed JVM heap.
+		jvmHeapCommittedAggregationInterval := GetAggregationsConfig().memoryAggregationInterval
+		shift := ts.Sub(container.WindowEnd).Truncate(jvmHeapCommittedAggregationInterval) + jvmHeapCommittedAggregationInterval
+		container.WindowEnd = container.WindowEnd.Add(shift)
+		container.jvmHeapCommittedPeak = 0
+		addNewPeak = true
+	}
+	// TODO: Observe quality metrics once OOM is considered.
+	if addNewPeak {
+		newPeak := ContainerUsageSample{
+			MeasureStart: container.WindowEnd,
+			Usage:        sample.Usage,
+			Request:      sample.Request,
+			Resource:     ResourceJVMHeapCommitted,
+		}
+		container.aggregator.AddSample(&newPeak)
+		container.jvmHeapCommittedPeak = sample.Usage
 	}
 	return true
 }

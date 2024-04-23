@@ -327,8 +327,8 @@ func (in *VerticalPodAutoscalerCheckpointStatus) DeepCopyInto(out *VerticalPodAu
 	in.LastUpdateTime.DeepCopyInto(&out.LastUpdateTime)
 	in.CPUHistogram.DeepCopyInto(&out.CPUHistogram)
 	in.MemoryHistogram.DeepCopyInto(&out.MemoryHistogram)
-	in.RssHistogram.DeepCopyInto(&out.RssHistogram)
-	in.JvmHeapCommittedHistogram.DeepCopyInto(&out.JvmHeapCommittedHistogram)
+	in.RSSHistogram.DeepCopyInto(&out.RSSHistogram)
+	in.JVMHeapCommittedHistogram.DeepCopyInto(&out.JVMHeapCommittedHistogram)
 	in.FirstSampleStart.DeepCopyInto(&out.FirstSampleStart)
 	in.LastSampleStart.DeepCopyInto(&out.LastSampleStart)
 	return
