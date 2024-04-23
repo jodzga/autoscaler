@@ -97,6 +97,7 @@ func (container *ContainerState) addCPUSample(sample *ContainerUsageSample) bool
 	return true
 }
 
+// TODO: Add quality metrics for RSS and JVMHeapCommitted.
 func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isOOM bool, resource corev1.ResourceName) {
 	if !container.aggregator.NeedsRecommendation() {
 		return
@@ -109,7 +110,6 @@ func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isO
 	case corev1.ResourceMemory:
 		usageValue = BytesFromMemoryAmount(usage)
 	}
-	// TODO: add quality metrics for RSS and JVMHeapCommitted.
 	if container.aggregator.GetLastRecommendation() == nil {
 		metrics_quality.ObserveQualityMetricsRecommendationMissing(usageValue, isOOM, resource, updateMode)
 		return
@@ -257,7 +257,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	return true
 }
 
-func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample) bool {
+func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample, isOOM bool) bool {
 	ts := sample.MeasureStart
 	if !sample.isValid(ResourceJVMHeapCommitted) || ts.Before(container.lastJVMHeapCommittedSampleStart) {
 		return false // Discard invalid or outdated samples.
@@ -344,9 +344,9 @@ func (container *ContainerState) AddSample(sample *ContainerUsageSample) bool {
 	case ResourceMemory:
 		return container.addMemorySample(sample, false)
 	case ResourceRSS:
-		return container.addRSSSample(sample)
+		return container.addRSSSample(sample, false)
 	case ResourceJVMHeapCommitted:
-		return container.addJVMHeapCommittedSample(sample)
+		return container.addJVMHeapCommittedSample(sample, false)
 	default:
 		return false
 	}
