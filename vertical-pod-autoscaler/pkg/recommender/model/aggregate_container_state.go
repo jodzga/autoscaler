@@ -40,6 +40,8 @@ import (
 	"math"
 	"time"
 
+	"k8s.io/klog/v2"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
@@ -253,11 +255,15 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 		return nil, err
 	}
 	rss, err := a.AggregateRSSPeaks.SaveToChekpoint()
+	klog.Infof("RSS Histogram: %+v", rss)
 	if err != nil {
+		klog.Infof("Error saving RSS histogram: %v", err)
 		return nil, err
 	}
 	jvmHeapCommitted, err := a.AggregateJVMHeapCommittedPeaks.SaveToChekpoint()
+	klog.Infof("JVM Heap Committed Histogram: %+v", jvmHeapCommitted)
 	if err != nil {
+		klog.Infof("Error saving JVM Heap Committed histogram: %v", err)
 		return nil, err
 	}
 	return &vpa_types.VerticalPodAutoscalerCheckpointStatus{
@@ -291,11 +297,15 @@ func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.Verti
 		return err
 	}
 	err = a.AggregateRSSPeaks.LoadFromCheckpoint(&checkpoint.RSSHistogram)
+	klog.Infof("RSS Histogram: %+v", checkpoint.RSSHistogram)
 	if err != nil {
+		klog.Infof("Error loading RSS histogram: %v", err)
 		return err
 	}
 	err = a.AggregateJVMHeapCommittedPeaks.LoadFromCheckpoint(&checkpoint.JVMHeapCommittedHistogram)
+	klog.Infof("JVM Heap Committed Histogram: %+v", checkpoint.JVMHeapCommittedHistogram)
 	if err != nil {
+		klog.Infof("Error loading JVM Heap Committed histogram: %v", err)
 		return err
 	}
 	return nil
