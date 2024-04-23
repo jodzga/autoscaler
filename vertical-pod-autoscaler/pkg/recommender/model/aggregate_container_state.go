@@ -280,6 +280,8 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 		TotalSamplesCount: a.TotalSamplesCount,
 		MemoryHistogram:   *memory,
 		CPUHistogram:      *cpu,
+		RssBytes: a.RssBytes,
+		JVMHeapCommittedBytes: a.JVMHeapCommittedBytes,
 		Version:           SupportedCheckpointVersion,
 	}, nil
 }
