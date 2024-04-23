@@ -97,17 +97,6 @@ func (container *ContainerState) addCPUSample(sample *ContainerUsageSample) bool
 	return true
 }
 
-func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample) bool {
-	if !sample.isValid(ResourceJVMHeapCommitted) || !sample.MeasureStart.After(container.lastJVMHeapCommittedSampleStart) {
-		return false // Discard invalid, duplicate or out-of-order samples.
-	}
-	// TODO: Observe quality metrics once JVM Heap aggregation moves away from the naive max to by histogram.
-	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceJVMHeapCommitted))
-	container.aggregator.AddSample(sample)
-	container.lastJVMHeapCommittedSampleStart = sample.MeasureStart
-	return true
-}
-
 func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isOOM bool, resource corev1.ResourceName) {
 	if !container.aggregator.NeedsRecommendation() {
 		return
@@ -249,7 +238,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	} else {
 		// TODO: Use a separate aggregation interval for RSS.
 		rssAggregationInterval := GetAggregationsConfig().MemoryAggregationInterval
-		shift := ts.Sub(container.WindowEnd).Truncate(rssAggregationInterval) + memoryAggregationInterval
+		shift := ts.Sub(container.WindowEnd).Truncate(rssAggregationInterval) + rssAggregationInterval
 		container.WindowEnd = container.WindowEnd.Add(shift)
 		container.rssPeak = 0
 		addNewPeak = true
