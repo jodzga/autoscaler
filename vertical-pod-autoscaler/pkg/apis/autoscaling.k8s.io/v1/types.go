@@ -396,6 +396,12 @@ type VerticalPodAutoscalerCheckpointStatus struct {
 	// Checkpoint of histogram for consumption of memory.
 	MemoryHistogram HistogramCheckpoint `json:"memoryHistogram,omitempty" protobuf:"bytes,4,rep,name=memoryHistogram"`
 
+	// Checkpoint of histogram for consumption of RSS.
+	RSSHistogram HistogramCheckpoint `json:"rssHistogram,omitempty" protobuf:"bytes,5,rep,name=rssHistogram"`
+
+	// Checkpoint of histogram for consumption of committed JVM heap.
+	JVMHeapCommittedHistogram HistogramCheckpoint `json:"jvmHeapCommittedHistogram,omitempty" protobuf:"bytes,6,rep,name=jvmHeapCommittedHistogram"`
+
 	// Timestamp of the fist sample from the histograms.
 	// +nullable
 	FirstSampleStart metav1.Time `json:"firstSampleStart,omitempty" protobuf:"bytes,5,opt,name=firstSampleStart"`
