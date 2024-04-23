@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	checkpointsWriteTimeout = flag.Duration("checkpoints-timeout", time.Minute, `Timeout for writing checkpoints since the start of the recommender's main loop`)
+	checkpointsWriteTimeout = flag.Duration("checkpoints-timeout", 2 * time.Minute, `Timeout for writing checkpoints since the start of the recommender's main loop`)
 	minCheckpointsPerRun    = flag.Int("min-checkpoints", 10, "Minimum number of checkpoints to write per recommender's main loop")
 )
 
