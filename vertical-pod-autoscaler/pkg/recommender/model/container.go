@@ -226,13 +226,15 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 		oldMaxRss := container.GetMaxRSSPeak()
 		if oldMaxRss != 0 && sample.Usage > oldMaxRss {
 			// Remove the old peak.
-			oldPeak := ContainerUsageSample{
-				MeasureStart: container.WindowEnd,
-				Usage:        oldMaxRss,
-				Request:      sample.Request,
-				Resource:     ResourceRSS,
+			if oldMaxRss != 0 {
+				oldPeak := ContainerUsageSample{
+					MeasureStart: container.WindowEnd,
+					Usage:        oldMaxRss,
+					Request:      sample.Request,
+					Resource:     ResourceRSS,
+				}
+				container.aggregator.SubtractSample(&oldPeak)
 			}
-			container.aggregator.SubtractSample(&oldPeak)
 			addNewPeak = true
 			klog.Info("removing old peak before adding new higher peak because same agg window")
 		}
@@ -279,15 +281,17 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 	addNewPeak := false
 	if ts.Before(container.WindowEnd) {
 		oldMaxJVMHeapCommitted := container.GetMaxJVMHeapCommittedPeak()
-		if oldMaxJVMHeapCommitted != 0 && sample.Usage > oldMaxJVMHeapCommitted {
+		if sample.Usage > oldMaxJVMHeapCommitted {
 			// Remove the old peak.
-			oldPeak := ContainerUsageSample{
-				MeasureStart: container.WindowEnd,
-				Usage:        oldMaxJVMHeapCommitted,
-				Request:      sample.Request,
-				Resource:     ResourceJVMHeapCommitted,
+			if oldMaxJVMHeapCommitted != 0 {
+				oldPeak := ContainerUsageSample{
+					MeasureStart: container.WindowEnd,
+					Usage:        oldMaxJVMHeapCommitted,
+					Request:      sample.Request,
+					Resource:     ResourceJVMHeapCommitted,
+				}
+				container.aggregator.SubtractSample(&oldPeak)
 			}
-			container.aggregator.SubtractSample(&oldPeak)
 			addNewPeak = true
 		}
 	} else {

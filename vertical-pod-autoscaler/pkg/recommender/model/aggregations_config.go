@@ -64,10 +64,10 @@ const (
 	// (just inside MemoryAggregationWindowLength) added with minSampleWeight are still kept
 	epsilon = 0.001 * minSampleWeight
 	// DefaultMemoryAggregationIntervalCount is the default value for MemoryAggregationIntervalCount.
-	DefaultMemoryAggregationIntervalCount = 8 * 24
+	DefaultMemoryAggregationIntervalCount = 8
 	// DefaultMemoryAggregationInterval is the default value for MemoryAggregationInterval.
 	// which the peak memory usage is computed.
-	DefaultMemoryAggregationInterval = time.Hour
+	DefaultMemoryAggregationInterval = time.Hour * 24
 	// DefaultHistogramBucketSizeGrowth is the default value for HistogramBucketSizeGrowth.
 	DefaultHistogramBucketSizeGrowth = 0.05 // Make each bucket 5% larger than the previous one.
 	// DefaultMemoryHistogramDecayHalfLife is the default value for MemoryHistogramDecayHalfLife.
