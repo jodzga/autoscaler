@@ -92,6 +92,7 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 
 		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, writer.cluster, now)
 		for container, aggregatedContainerState := range aggregateContainerStateMap {
+			klog.Infof("Saving checkpoint for VPA %s/%s container %s", vpa.ID.Namespace, vpa.ID.VpaName, container)
 			containerCheckpoint, err := aggregatedContainerState.SaveToCheckpoint()
 			if err != nil {
 				klog.Errorf("Cannot serialize checkpoint for vpa %v container %v. Reason: %+v", vpa.ID.VpaName, container, err)
