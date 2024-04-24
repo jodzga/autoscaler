@@ -186,7 +186,7 @@ func (r *recommender) RunOnce() {
 		}
 	}
 
-	r.MaintainCheckpoints()
+	r.MaintainCheckpoints(ctx, *minCheckpointsPerRun)
 	timer.ObserveStep("MaintainCheckpoints")
 	for _, vpa := range r.clusterState.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
