@@ -226,9 +226,6 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	addNewPeak := false
 	if ts.Before(container.WindowEnd) {
 		oldMaxRss := container.GetMaxRSSPeak()
-		// ok since windowend is not zero because this is not the first sample
-		// we cann use if oldMaxRss != 0 && sample.Usage > oldMaxRss because then we'd never get the first peak
-		// (at least until the next day when the windowend is reset)
 		if sample.Usage > oldMaxRss {
 			// Remove the old peak.
 			if oldMaxRss != 0 {
