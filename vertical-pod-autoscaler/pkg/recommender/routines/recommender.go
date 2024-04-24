@@ -164,10 +164,9 @@ func (r *recommender) RunOnce() {
 	timer.ObserveStep("LoadMetrics")
 	klog.V(3).Infof("ClusterState is tracking %v PodStates and %v VPAs", len(r.clusterState.Pods), len(r.clusterState.Vpas))
 
-	vpas := getVpasToCheckpoint(r.checkpointWriter.cluster.Vpas)
-	for _, vpa := range vpas {
+	for _, vpa := range r.checkpointWriter.Cluster.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
-		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.cluster, now)
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.Cluster, time.Now())
 		klog.Infof("HELLO after load metrics aggregateContainerStateMap %+v", aggregateContainerStateMap)
 		break
 		}
@@ -175,20 +174,18 @@ func (r *recommender) RunOnce() {
 
 	r.UpdateVPAs()
 	timer.ObserveStep("UpdateVPAs")
-	vpas2 := getVpasToCheckpoint(r.checkpointWriter.cluster.Vpas)
-	for _, vpa := range vpas2 {
+	for _, vpa := range r.checkpointWriter.Cluster.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
-		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.cluster, now)
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.Cluster, time.Now())
 		klog.Infof("HELLO after update vpas aggregateContainerStateMap %+v", aggregateContainerStateMap)
 		break
 		}
 	}
 
 	timer.ObserveStep("MaintainCheckpoints")
-	vpas3 := getVpasToCheckpoint(r.checkpointWriter.cluster.Vpas)
-	for _, vpa := range vpas2 {
+	for _, vpa := range r.checkpointWriter.Cluster.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
-		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.cluster, now)
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.Cluster, time.Now())
 		klog.Infof("HELLO after maintain checkpoints aggregateContainerStateMap %+v", aggregateContainerStateMap)
 		break
 		}
@@ -198,6 +195,7 @@ func (r *recommender) RunOnce() {
 	timer.ObserveStep("GarbageCollect")
 	klog.V(3).Infof("ClusterState is tracking %d aggregated container states", r.clusterState.StateMapSize())
 }
+
 
 // RecommenderFactory makes instances of Recommender.
 type RecommenderFactory struct {
