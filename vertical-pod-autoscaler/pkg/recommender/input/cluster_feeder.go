@@ -424,7 +424,13 @@ func (feeder *clusterStateFeeder) LoadRealTimeMetrics() {
 	sampleCount := 0
 	droppedSampleCount := 0
 	for _, containerMetrics := range containersMetrics {
+		if containerMetrics.ID.ContainerName == "vpa-test-service" {
+			klog.Infof("ContainerMetricsSnapshot for vpa-test-service: %+v", containerMetrics.Usage)
+		}
 		for _, sample := range newContainerUsageSamplesWithKey(containerMetrics) {
+			if containerMetrics.ID.ContainerName == "vpa-test-service" {
+				klog.Infof("containerusage sample for vpa-test-service: %+v", sample)
+			}
 			if err := feeder.clusterState.AddSample(sample); err != nil {
 				// Not all pod states are tracked in memory saver mode
 				if _, isKeyError := err.(model.KeyError); isKeyError && feeder.memorySaveMode {

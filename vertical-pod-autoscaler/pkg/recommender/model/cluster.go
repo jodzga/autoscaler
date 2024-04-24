@@ -209,6 +209,9 @@ func (cluster *ClusterState) AddOrUpdateContainer(containerID ContainerID, reque
 // object. Requires the container as well as the parent pod to be added to the
 // ClusterState first. Otherwise an error is returned.
 func (cluster *ClusterState) AddSample(sample *ContainerUsageSampleWithKey) error {
+	if sample.Container.ContainerName == "vpa-test-service" {
+		klog.Infof("Adding vpa-test-service in clusterstate sample for %+v", sample)
+	}
 	pod, podExists := cluster.Pods[sample.Container.PodID]
 	if !podExists {
 		return NewKeyError(sample.Container.PodID)
