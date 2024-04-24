@@ -97,28 +97,6 @@ func (container *ContainerState) addCPUSample(sample *ContainerUsageSample) bool
 	return true
 }
 
-func (container *ContainerState) addRSSSample(sample *ContainerUsageSample) bool {
-	if !sample.isValid(ResourceRSS) || !sample.MeasureStart.After(container.lastRSSSampleStart) {
-		return false // Discard invalid, duplicate or out-of-order samples.
-	}
-	// TODO: Observe quality metrics once RSS aggregation moves away from the naive max to by histogram.
-	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceRSS))
-	container.aggregator.AddSample(sample)
-	container.lastRSSSampleStart = sample.MeasureStart
-	return true
-}
-
-func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample) bool {
-	if !sample.isValid(ResourceJVMHeapCommitted) || !sample.MeasureStart.After(container.lastJVMHeapCommittedSampleStart) {
-		return false // Discard invalid, duplicate or out-of-order samples.
-	}
-	// TODO: Observe quality metrics once JVM Heap aggregation moves away from the naive max to by histogram.
-	// container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceJVMHeapCommitted))
-	container.aggregator.AddSample(sample)
-	container.lastJVMHeapCommittedSampleStart = sample.MeasureStart
-	return true
-}
-
 // TODO: Add quality metrics for RSS and JVMHeapCommitted.
 func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isOOM bool, resource corev1.ResourceName) {
 	if !container.aggregator.NeedsRecommendation() {
