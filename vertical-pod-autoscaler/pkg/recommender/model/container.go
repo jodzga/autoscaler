@@ -168,17 +168,15 @@ func (container *ContainerState) addMemorySample(sample *ContainerUsageSample, i
 	addNewPeak := false
 	if ts.Before(container.WindowEnd) {
 		oldMaxMem := container.GetMaxMemoryPeak()
-		if sample.Usage > oldMaxMem {
+		if oldMaxMem != 0 && sample.Usage > oldMaxMem {
 			// Remove the old peak.
-			if oldMaxMem != 0 {
-				oldPeak := ContainerUsageSample{
-					MeasureStart: container.WindowEnd,
-					Usage:        oldMaxMem,
-					Request:      sample.Request,
-					Resource:     ResourceMemory,
-				}
-				container.aggregator.SubtractSample(&oldPeak)
+			oldPeak := ContainerUsageSample{
+				MeasureStart: container.WindowEnd,
+				Usage:        oldMaxMem,
+				Request:      sample.Request,
+				Resource:     ResourceMemory,
 			}
+			container.aggregator.SubtractSample(&oldPeak)
 			addNewPeak = true
 		}
 	} else {
@@ -226,17 +224,15 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	addNewPeak := false
 	if ts.Before(container.WindowEnd) {
 		oldMaxRss := container.GetMaxRSSPeak()
-		if sample.Usage > oldMaxRss {
+		if oldMaxRss != 0 && sample.Usage > oldMaxRss {
 			// Remove the old peak.
-			if oldMaxRss != 0 {
-				oldPeak := ContainerUsageSample{
-					MeasureStart: container.WindowEnd,
-					Usage:        oldMaxRss,
-					Request:      sample.Request,
-					Resource:     ResourceRSS,
-				}
-				container.aggregator.SubtractSample(&oldPeak)
+			oldPeak := ContainerUsageSample{
+				MeasureStart: container.WindowEnd,
+				Usage:        oldMaxRss,
+				Request:      sample.Request,
+				Resource:     ResourceRSS,
 			}
+			container.aggregator.SubtractSample(&oldPeak)
 			addNewPeak = true
 		}
 	} else {
@@ -279,17 +275,15 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 	addNewPeak := false
 	if ts.Before(container.WindowEnd) {
 		oldMaxJVMHeapCommitted := container.GetMaxJVMHeapCommittedPeak()
-		if sample.Usage > oldMaxJVMHeapCommitted {
+		if oldMaxJVMHeapCommitted != 0 && sample.Usage > oldMaxJVMHeapCommitted {
 			// Remove the old peak.
-			if oldMaxJVMHeapCommitted != 0 {
-				oldPeak := ContainerUsageSample{
-					MeasureStart: container.WindowEnd,
-					Usage:        oldMaxJVMHeapCommitted,
-					Request:      sample.Request,
-					Resource:     ResourceJVMHeapCommitted,
-				}
-				container.aggregator.SubtractSample(&oldPeak)
+			oldPeak := ContainerUsageSample{
+				MeasureStart: container.WindowEnd,
+				Usage:        oldMaxJVMHeapCommitted,
+				Request:      sample.Request,
+				Resource:     ResourceJVMHeapCommitted,
 			}
+			container.aggregator.SubtractSample(&oldPeak)
 			addNewPeak = true
 		}
 	} else {
