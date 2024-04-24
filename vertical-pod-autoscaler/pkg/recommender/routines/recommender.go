@@ -168,7 +168,7 @@ func (r *recommender) RunOnce() {
 		if vpa.ID.Namespace == "vpa-test-service" {
 		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
 		klog.Infof("HELLO after load metrics aggregateContainerStateMap %+v", aggregateContainerStateMap["vpa-test-service"].AggregateRSSPeaks)
-		klog.Infof("HELLO after load metrics vpacheckpoint %+v", aggregateContainerStateMap["vpa-test-service".AggregateRSSPeaks].SaveToChekpoint())
+		klog.Infof("HELLO after load metrics vpacheckpoint %+v", aggregateContainerStateMap["vpa-test-service"].AggregateRSSPeaks.SaveToChekpoint())
 		break
 		}
 	}
@@ -179,7 +179,7 @@ func (r *recommender) RunOnce() {
 		if vpa.ID.Namespace == "vpa-test-service" {
 		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
 		klog.Infof("HELLO after update vpas aggregateContainerStateMap %+v", aggregateContainerStateMap["vpa-test-service"].AggregateRSSPeaks)
-		klog.Infof("HELLO after update vpas vpacheckpoint %+v", aggregateContainerStateMap["vpa-test-service".AggregateRSSPeaks].SaveToChekpoint())
+		klog.Infof("HELLO after update vpas vpacheckpoint %+v", aggregateContainerStateMap["vpa-test-service"].AggregateRSSPeaks.SaveToChekpoint())
 		break
 		}
 	}
@@ -189,7 +189,7 @@ func (r *recommender) RunOnce() {
 		if vpa.ID.Namespace == "vpa-test-service" {
 		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
 		klog.Infof("HELLO after maintain checkpoints aggregateContainerStateMap %+v", aggregateContainerStateMap["vpa-test-service"].AggregateRSSPeaks)
-		klog.Infof("HELLO after maintain checkpoints vpacheckpoint %+v", aggregateContainerStateMap["vpa-test-service".AggregateRSSPeaks].SaveToChekpoint())
+		klog.Infof("HELLO after maintain checkpoints vpacheckpoint %+v", aggregateContainerStateMap["vpa-test-service"].AggregateRSSPeaks.SaveToChekpoint())
 		break
 		}
 	}
