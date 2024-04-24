@@ -92,6 +92,10 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 
 		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, writer.cluster, now)
 		for container, aggregatedContainerState := range aggregateContainerStateMap {
+			if vpa.ID.Namespace == "vpa-test-service" {
+				klog.Infof("vpa agg container state map: %+v", aggregatedContainerState)
+			}
+
 			klog.Infof("Saving checkpoint for VPA %s/%s container %s", vpa.ID.Namespace, vpa.ID.VpaName, container)
 			containerCheckpoint, err := aggregatedContainerState.SaveToCheckpoint()
 			if err != nil {
@@ -147,5 +151,8 @@ func buildAggregateContainerStateMap(vpa *model.Vpa, cluster *model.ClusterState
 func subtractCurrentContainerMemoryPeak(a *model.AggregateContainerState, container *model.ContainerState, now time.Time) {
 	if now.Before(container.WindowEnd) {
 		a.AggregateMemoryPeaks.SubtractSample(model.BytesFromMemoryAmount(container.GetMaxMemoryPeak()), 1.0, container.WindowEnd)
+		a.AggregateRSSPeaks.SubtractSample(model.BytesFromMemoryAmount(container.GetMaxRSSPeak()), 1.0, container.WindowEnd)
+		a.AggregateJvmHeapCommittedPeaks.SubtractSample(model.BytesFromMemoryAmount(container.GetMaxJvmHeapCommittedPeak()), 1.0, container.WindowEnd)
 	}
 }
+
