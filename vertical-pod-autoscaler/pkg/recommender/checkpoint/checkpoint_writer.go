@@ -48,7 +48,7 @@ type checkpointWriter struct {
 func NewCheckpointWriter(cluster *model.ClusterState, vpaCheckpointClient vpa_api.VerticalPodAutoscalerCheckpointsGetter) CheckpointWriter {
 	return &checkpointWriter{
 		vpaCheckpointClient: vpaCheckpointClient,
-		cluster:             cluster,
+		Cluster:             cluster,
 	}
 }
 
