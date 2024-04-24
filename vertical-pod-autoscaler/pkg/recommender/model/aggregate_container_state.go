@@ -199,9 +199,9 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceRSS:
-		klog.Infof("adding sample to RSS Histogram: %+v", BytesFromMemoryAmount(sample.Usage))
+		// klog.Infof("adding sample to RSS Histogram: %+v", BytesFromMemoryAmount(sample.Usage))
 		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
-		klog.Infof("after: the rss histogram is: %+v", a.AggregateRSSPeaks)
+		// klog.Infof("after: the rss histogram is: %+v", a.AggregateRSSPeaks)
 	case ResourceJVMHeapCommitted:
 		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	default:
@@ -256,13 +256,13 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 		return nil, err
 	}
 	rss, err := a.AggregateRSSPeaks.SaveToChekpoint()
-	klog.Infof("saving to checkpoint RSS Histogram: %+v", rss)
+	// klog.Infof("saving to checkpoint RSS Histogram: %+v", rss)
 	if err != nil {
 		klog.Infof("saving to checkpoint Error saving RSS histogram: %v", err)
 		return nil, err
 	}
 	jvmHeapCommitted, err := a.AggregateJVMHeapCommittedPeaks.SaveToChekpoint()
-	klog.Infof("saving to checkpoint JVM Heap Committed Histogram: %+v", jvmHeapCommitted)
+	// klog.Infof("saving to checkpoint JVM Heap Committed Histogram: %+v", jvmHeapCommitted)
 	if err != nil {
 		klog.Infof("saving to checkpoint Error saving JVM Heap Committed histogram: %v", err)
 		return nil, err
@@ -298,13 +298,13 @@ func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.Verti
 		return err
 	}
 	err = a.AggregateRSSPeaks.LoadFromCheckpoint(&checkpoint.RSSHistogram)
-	klog.Infof("loading form checkpoint RSS Histogram: %+v", checkpoint.RSSHistogram)
+	// klog.Infof("loading form checkpoint RSS Histogram: %+v", checkpoint.RSSHistogram)
 	if err != nil {
 		klog.Infof("loading form checkpoint Error loading RSS histogram: %v", err)
 		return err
 	}
 	err = a.AggregateJVMHeapCommittedPeaks.LoadFromCheckpoint(&checkpoint.JVMHeapCommittedHistogram)
-	klog.Infof("loading form checkpoint JVM Heap Committed Histogram: %+v", checkpoint.JVMHeapCommittedHistogram)
+	// klog.Infof("loading form checkpoint JVM Heap Committed Histogram: %+v", checkpoint.JVMHeapCommittedHistogram)
 	if err != nil {
 		klog.Infof("loading form checkpoint Error loading JVM Heap Committed histogram: %v", err)
 		return err
