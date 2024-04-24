@@ -256,7 +256,7 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 		return nil, err
 	}
 	rss, err := a.AggregateRSSPeaks.SaveToChekpoint()
-	// klog.Infof("saving to checkpoint RSS Histogram: %+v", rss)
+	klog.Infof("saving to checkpoint RSS Histogram: %+v", rss)
 	if err != nil {
 		klog.Infof("saving to checkpoint Error saving RSS histogram: %v", err)
 		return nil, err
