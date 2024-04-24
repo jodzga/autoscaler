@@ -199,6 +199,7 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceRSS:
+		klog.Infof("adding sample to RSS Histogram: %+v", BytesFromMemoryAmount(sample.Usage))
 		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceJVMHeapCommitted:
 		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
