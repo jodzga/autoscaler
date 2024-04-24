@@ -122,7 +122,7 @@ func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList
 					continue
 				}
 				if len(result) > 1 {
-					klog.Errorf("More than one query result in .data.result: %+v", responseBody)
+					// klog.Errorf("More than one query result in .data.result: %+v", responseBody)
 					// Proceed for now and just use the first result. Will need to fine-tune the query if so.
 				}
 				firstResult, ok := (result[0]).(map[string]interface{})
