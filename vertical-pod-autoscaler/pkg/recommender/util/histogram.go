@@ -222,6 +222,7 @@ func (h *histogram) updateMinAndMaxBucket() {
 }
 
 func (h *histogram) SaveToChekpoint() (*vpa_types.HistogramCheckpoint, error) {
+	klog.Infof("starting save to histogram checkpoint %+v", h)
 	result := vpa_types.HistogramCheckpoint{
 		BucketWeights: make(map[int]uint32),
 	}
@@ -243,6 +244,7 @@ func (h *histogram) SaveToChekpoint() (*vpa_types.HistogramCheckpoint, error) {
 		}
 	}
 
+	klog.Infof("result is %+v", result)
 	return &result, nil
 }
 
