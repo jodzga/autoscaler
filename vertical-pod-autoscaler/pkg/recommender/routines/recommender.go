@@ -167,7 +167,7 @@ func (r *recommender) RunOnce() {
 	for _, vpa := range r.clusterState.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
 		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
-		klog.Infof("HELLO after load metrics aggregateContainerStateMap %+v", aggregateContainerStateMap)
+		klog.Infof("HELLO after load metrics aggregateContainerStateMap %+v", aggregateContainerStateMap["vpa-test-service"])
 		break
 		}
 	}
@@ -177,7 +177,7 @@ func (r *recommender) RunOnce() {
 	for _, vpa := range r.clusterState.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
 		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
-		klog.Infof("HELLO after update vpas aggregateContainerStateMap %+v", aggregateContainerStateMap)
+		klog.Infof("HELLO after update vpas aggregateContainerStateMap %+v", aggregateContainerStateMap["vpa-test-service"])
 		break
 		}
 	}
@@ -186,7 +186,7 @@ func (r *recommender) RunOnce() {
 	for _, vpa := range r.clusterState.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
 		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
-		klog.Infof("HELLO after maintain checkpoints aggregateContainerStateMap %+v", aggregateContainerStateMap)
+		klog.Infof("HELLO after maintain checkpoints aggregateContainerStateMap %+v", aggregateContainerStateMap["vpa-test-service"])
 		break
 		}
 	}
