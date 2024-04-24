@@ -168,7 +168,7 @@ func (container *ContainerState) addMemorySample(sample *ContainerUsageSample, i
 	addNewPeak := false
 	if ts.Before(container.WindowEnd) {
 		oldMaxMem := container.GetMaxMemoryPeak()
-		if oldMaxMem != 0 && sample.Usage > oldMaxMem {
+		if sample.Usage > oldMaxMem {
 			// Remove the old peak.
 			if oldMaxMem != 0 {
 				oldPeak := ContainerUsageSample{
