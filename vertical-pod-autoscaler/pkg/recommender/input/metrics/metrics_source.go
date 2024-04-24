@@ -118,7 +118,7 @@ func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList
 					continue
 				}
 				if len(result) == 0 {
-					klog.Errorf("Failed to get any query results in .data.result: %+v", responseBody)
+					// klog.Errorf("Failed to get any query results in .data.result: %+v", responseBody)
 					continue
 				}
 				if len(result) > 1 {
