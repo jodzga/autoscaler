@@ -223,6 +223,9 @@ func (cluster *ClusterState) AddSample(sample *ContainerUsageSampleWithKey) erro
 	if !containerState.AddSample(&sample.ContainerUsageSample) {
 		return fmt.Errorf("sample discarded (invalid or out of order)")
 	}
+	if sample.Container.ContainerName == "vpa-test-service" {
+		klog.Infof("Succeeded in adding vpa-test-service in clusterstate sample with containerstate %+v", containerState)
+	}
 	return nil
 }
 
