@@ -234,7 +234,9 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 			}
 			container.aggregator.SubtractSample(&oldPeak)
 			addNewPeak = true
+			klog.Info("removing old peak before adding new higher peak because same agg window")
 		}
+		klog.Info("not adding new peak because same agg window but not higher peak")
 	} else {
 		// TODO: Use a separate aggregation interval for RSS.
 		rssAggregationInterval := GetAggregationsConfig().MemoryAggregationInterval
@@ -242,9 +244,12 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 		container.WindowEnd = container.WindowEnd.Add(shift)
 		container.rssPeak = 0
 		addNewPeak = true
+		klog.Info("adding new peak because new agg window")
 	}
 	// TODO: Observe quality metrics once OOM is considered.
+	klog.Info("Considering adding a new peak for RSS")
 	if addNewPeak {
+		klog.Infof("Adding new peak for RSS +%v", sample.Usage)
 		newPeak := ContainerUsageSample{
 			MeasureStart: container.WindowEnd,
 			Usage:        sample.Usage,
