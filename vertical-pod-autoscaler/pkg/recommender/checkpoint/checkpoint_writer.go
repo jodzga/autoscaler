@@ -41,14 +41,14 @@ type CheckpointWriter interface {
 
 type checkpointWriter struct {
 	vpaCheckpointClient vpa_api.VerticalPodAutoscalerCheckpointsGetter
-	Cluster             *model.ClusterState
+	cluster             *model.ClusterState
 }
 
 // NewCheckpointWriter returns new instance of a CheckpointWriter
 func NewCheckpointWriter(cluster *model.ClusterState, vpaCheckpointClient vpa_api.VerticalPodAutoscalerCheckpointsGetter) CheckpointWriter {
 	return &checkpointWriter{
 		vpaCheckpointClient: vpaCheckpointClient,
-		Cluster:             cluster,
+		cluster:             cluster,
 	}
 }
 
@@ -76,7 +76,7 @@ func getVpasToCheckpoint(clusterVpas map[model.VpaID]*model.Vpa) []*model.Vpa {
 }
 
 func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.Time, minCheckpoints int) error {
-	vpas := getVpasToCheckpoint(writer.Cluster.Vpas)
+	vpas := getVpasToCheckpoint(writer.cluster.Vpas)
 	for _, vpa := range vpas {
 
 		// Draining ctx.Done() channel. ctx.Err() will be checked if timeout occurred, but minCheckpoints have
@@ -90,7 +90,7 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 			return ctx.Err()
 		}
 
-		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, writer.Cluster, now)
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, writer.cluster, now)
 		for container, aggregatedContainerState := range aggregateContainerStateMap {
 			// if vpa.ID.Namespace == "vpa-test-service" {
 			// 	klog.Infof("vpa agg container state map: %+v", aggregatedContainerState)

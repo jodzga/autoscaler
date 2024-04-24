@@ -164,9 +164,9 @@ func (r *recommender) RunOnce() {
 	timer.ObserveStep("LoadMetrics")
 	klog.V(3).Infof("ClusterState is tracking %v PodStates and %v VPAs", len(r.clusterState.Pods), len(r.clusterState.Vpas))
 
-	for _, vpa := range r.checkpointWriter.Cluster.Vpas {
+	for _, vpa := range r.clusterState.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
-		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.Cluster, time.Now())
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
 		klog.Infof("HELLO after load metrics aggregateContainerStateMap %+v", aggregateContainerStateMap)
 		break
 		}
@@ -174,18 +174,18 @@ func (r *recommender) RunOnce() {
 
 	r.UpdateVPAs()
 	timer.ObserveStep("UpdateVPAs")
-	for _, vpa := range r.checkpointWriter.Cluster.Vpas {
+	for _, vpa := range r.clusterState.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
-		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.Cluster, time.Now())
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
 		klog.Infof("HELLO after update vpas aggregateContainerStateMap %+v", aggregateContainerStateMap)
 		break
 		}
 	}
 
 	timer.ObserveStep("MaintainCheckpoints")
-	for _, vpa := range r.checkpointWriter.Cluster.Vpas {
+	for _, vpa := range r.clusterState.Vpas {
 		if vpa.ID.Namespace == "vpa-test-service" {
-		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.Cluster, time.Now())
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.clusterState, time.Now())
 		klog.Infof("HELLO after maintain checkpoints aggregateContainerStateMap %+v", aggregateContainerStateMap)
 		break
 		}
