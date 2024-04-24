@@ -148,7 +148,6 @@ func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList
 				}
 
 				podMetrics.Items[i].Containers[j].Usage[resourceName] = resourceQuantity
-				klog.InfoS("Added container usage data from M3", "resource", resourceName, "value", resourceQuantity, "container", container.Name, "pod", pod.Name, "namespace", pod.Namespace)
 			}
 		}
 	}

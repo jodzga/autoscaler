@@ -164,11 +164,35 @@ func (r *recommender) RunOnce() {
 	timer.ObserveStep("LoadMetrics")
 	klog.V(3).Infof("ClusterState is tracking %v PodStates and %v VPAs", len(r.clusterState.Pods), len(r.clusterState.Vpas))
 
+	vpas := getVpasToCheckpoint(r.checkpointWriter.cluster.Vpas)
+	for _, vpa := range vpas {
+		if vpa.ID.Namespace == "vpa-test-service" {
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.cluster, now)
+		klog.Infof("HELLO after load metrics aggregateContainerStateMap %+v", aggregateContainerStateMap)
+		break
+		}
+	}
+
 	r.UpdateVPAs()
 	timer.ObserveStep("UpdateVPAs")
+	vpas2 := getVpasToCheckpoint(r.checkpointWriter.cluster.Vpas)
+	for _, vpa := range vpas2 {
+		if vpa.ID.Namespace == "vpa-test-service" {
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.cluster, now)
+		klog.Infof("HELLO after update vpas aggregateContainerStateMap %+v", aggregateContainerStateMap)
+		break
+		}
+	}
 
-	r.MaintainCheckpoints(ctx, *minCheckpointsPerRun)
 	timer.ObserveStep("MaintainCheckpoints")
+	vpas3 := getVpasToCheckpoint(r.checkpointWriter.cluster.Vpas)
+	for _, vpa := range vpas2 {
+		if vpa.ID.Namespace == "vpa-test-service" {
+		aggregateContainerStateMap := buildAggregateContainerStateMap(vpa, r.checkpointWriter.cluster, now)
+		klog.Infof("HELLO after maintain checkpoints aggregateContainerStateMap %+v", aggregateContainerStateMap)
+		break
+		}
+	}
 
 	r.clusterState.RateLimitedGarbageCollectAggregateCollectionStates(time.Now(), r.controllerFetcher)
 	timer.ObserveStep("GarbageCollect")
