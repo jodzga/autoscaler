@@ -140,6 +140,9 @@ func buildAggregateContainerStateMap(vpa *model.Vpa, cluster *model.ClusterState
 			aggregateKey := cluster.MakeAggregateStateKey(pod, containerName)
 			if vpa.UsesAggregation(aggregateKey) {
 				if aggregateContainerState, exists := aggregateContainerStateMap[containerName]; exists {
+					if containerName == "vpa-test-service" {
+						klog.Infof("vpa-test-service aggregate container state %+v", aggregateContainerState)
+					}
 					subtractCurrentContainerMemoryPeak(aggregateContainerState, container, now)
 				}
 			}

@@ -167,7 +167,7 @@ func observeUsageRecommendationDiff(usage, recommendation float64, isRecommendat
 				strconv.FormatBool(isRecommendationMissing), strconv.FormatBool(isOOM)).Observe(diff)
 		}
 	default:
-		klog.Warningf("Unknown resource: %v", resource)
+		// klog.Warningf("Unknown resource: %v", resource)
 	}
 }
 
@@ -179,7 +179,7 @@ func observeRecommendation(recommendation float64, isOOM bool, resource corev1.R
 	case corev1.ResourceMemory:
 		memoryRecommendations.WithLabelValues(updateModeToString(updateMode), strconv.FormatBool(isOOM)).Observe(recommendation)
 	default:
-		klog.Warningf("Unknown resource: %v", resource)
+		// klog.Warningf("Unknown resource: %v", resource)
 	}
 }
 
@@ -231,7 +231,7 @@ func quantityAsFloat(resource corev1.ResourceName, quantity resource.Quantity) f
 	case corev1.ResourceMemory:
 		return float64(quantity.Value())
 	default:
-		klog.Warningf("Unknown resource: %v", resource)
+		// klog.Warningf("Unknown resource: %v", resource)
 		return 0.0
 	}
 }
