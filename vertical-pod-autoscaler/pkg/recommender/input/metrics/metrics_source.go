@@ -87,68 +87,68 @@ func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList
 
 				resp, err := http.Get(m3Url.String())
 				if err != nil {
-					klog.ErrorS(err, "Failed to query M3", "query", query)
+					// klog.ErrorS(err, "Failed to query M3", "query", query)
 					continue
 				}
 				if resp.StatusCode != http.StatusOK {
-					klog.ErrorS(err, "Failed to get valid response", "query", query, "status", resp.Status)
+					// klog.ErrorS(err, "Failed to get valid response", "query", query, "status", resp.Status)
 					continue
 				}
 
 				defer resp.Body.Close()
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					klog.ErrorS(err, "Failed to read response body", "query", query)
+					// klog.ErrorS(err, "Failed to read response body", "query", query)
 					continue
 				}
 
 				var responseBody map[string]interface{}
 				if err := json.Unmarshal(body, &responseBody); err != nil {
-					klog.ErrorS(err, "Failed to unmarshal JSON", "body", string(body))
+					// klog.ErrorS(err, "Failed to unmarshal JSON", "body", string(body))
 					continue
 				}
 				data, ok := (responseBody["data"]).(map[string]interface{})
 				if !ok {
-					klog.Errorf("Failed to get .data from JSON: %+v", responseBody)
+					// klog.Errorf("Failed to get .data from JSON: %+v", responseBody)
 					continue
 				}
 				result, ok := (data["result"]).([]interface{})
 				if !ok {
-					klog.Errorf("Failed to get .data.result from JSON: %+v", responseBody)
+					// klog.Errorf("Failed to get .data.result from JSON: %+v", responseBody)
 					continue
 				}
 				if len(result) == 0 {
-					klog.Errorf("Failed to get any query results in .data.result: %+v", responseBody)
+					// klog.Errorf("Failed to get any query results in .data.result: %+v", responseBody)
 					continue
 				}
 				if len(result) > 1 {
-					klog.Errorf("More than one query result in .data.result: %+v", responseBody)
+					// klog.Errorf("More than one query result in .data.result: %+v", responseBody)
 					// Proceed for now and just use the first result. Will need to fine-tune the query if so.
 				}
 				firstResult, ok := (result[0]).(map[string]interface{})
 				if !ok {
-					klog.Errorf("Failed to get first element from .data.result: %+v", responseBody)
+					// klog.Errorf("Failed to get first element from .data.result: %+v", responseBody)
 					continue
 				}
 				value, ok := (firstResult["value"]).([]interface{})
 				if !ok {
-					klog.Errorf("Failed to get .data.result[0].value: %+v", responseBody)
+					// klog.Errorf("Failed to get .data.result[0].value: %+v", responseBody)
 					continue
 				}
 				resourceValue, ok := (value[1]).(string)
 				if !ok {
-					klog.Errorf("Failed to get .data.result[0].value[1]: %+v", responseBody)
+					// klog.Errorf("Failed to get .data.result[0].value[1]: %+v", responseBody)
 					continue
 				}
 
 				resourceQuantity, err := resource.ParseQuantity(resourceValue)
 				if err != nil {
-					klog.ErrorS(err, "Failed to parse as resource quantity", "resourceValue", resourceValue)
+					// klog.ErrorS(err, "Failed to parse as resource quantity", "resourceValue", resourceValue)
 					continue
 				}
 
 				podMetrics.Items[i].Containers[j].Usage[resourceName] = resourceQuantity
-				klog.InfoS("Added container usage data from M3", "resource", resourceName, "value", resourceQuantity, "container", container.Name, "pod", pod.Name, "namespace", pod.Namespace)
+				// klog.InfoS("Added container usage data from M3", "resource", resourceName, "value", resourceQuantity, "container", container.Name, "pod", pod.Name, "namespace", pod.Namespace)
 			}
 		}
 	}

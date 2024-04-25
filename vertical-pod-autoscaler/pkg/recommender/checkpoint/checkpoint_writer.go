@@ -106,6 +106,9 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 				},
 				Status: *containerCheckpoint,
 			}
+			if vpa.ID.Namespace == "vpa-test-service" {
+				klog.Infof("vpa-test-service CHECKPOINT %+v", containerCheckpoint)
+			}
 			err = api_util.CreateOrUpdateVpaCheckpoint(writer.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(vpa.ID.Namespace), &vpaCheckpoint)
 			if err != nil {
 				klog.Errorf("Cannot save VPA %s/%s checkpoint for %s. Reason: %+v",
