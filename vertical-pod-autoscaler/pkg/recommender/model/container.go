@@ -45,6 +45,7 @@ type ContainerUsageSample struct {
 //
 //	Note: samples are added to intervals based on their start timestamps.
 type ContainerState struct {
+	Namespace string
 	// Current request.
 	Request Resources
 	// Start of the latest CPU usage sample that was aggregated.
@@ -74,8 +75,9 @@ type ContainerState struct {
 }
 
 // NewContainerState returns a new ContainerState.
-func NewContainerState(request Resources, aggregator ContainerStateAggregator) *ContainerState {
+func NewContainerState(namespace string, request Resources, aggregator ContainerStateAggregator) *ContainerState {
 	return &ContainerState{
+		Namespace: namespace,
 		Request:                         request,
 		LastCPUSampleStart:              time.Time{},
 		MemoryWindowEnd:                 time.Time{},
@@ -220,6 +222,9 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	}
 	container.lastRSSSampleStart = ts
 	if container.RSSWindowEnd.IsZero() { // This is the first sample.
+		if container.Namespace == "vpa-test-service" {
+			klog.Info("first sample for vpa-test-service")
+		}
 		container.RSSWindowEnd = ts
 	}
 
@@ -229,6 +234,9 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	// and adding the new value.
 	addNewPeak := false
 	if ts.Before(container.RSSWindowEnd) {
+		if container.Namespace == "vpa-test-service" {
+			klog.Info("in the same interval for vpa-test-service")
+		}
 		oldMaxRss := container.GetMaxRSSPeak()
 		if oldMaxRss != 0 && sample.Usage > oldMaxRss {
 			// Remove the old peak.
@@ -240,6 +248,13 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 			}
 			container.aggregator.SubtractSample(&oldPeak)
 			addNewPeak = true
+			if container.Namespace == "vpa-test-service" {
+				klog.Infof("in the same interval for vpa-test-service > removing the old peak and adding a new peak %v", sample.Usage)
+			}
+		} else {
+			if container.Namespace == "vpa-test-service" {
+				klog.Infof("in the same interval for vpa-test-service > not adding a new peak %v", sample.Usage)
+			}
 		}
 	} else {
 		// TODO: Use a separate aggregation interval for RSS.
@@ -248,6 +263,9 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 		container.RSSWindowEnd = container.RSSWindowEnd.Add(shift)
 		container.rssPeak = 0
 		addNewPeak = true
+		if container.Namespace == "vpa-test-service" {
+			klog.Infof("in a new interval for vpa-test-service so adding a new peak %v", sample.Usage)
+		}
 	}
 	// TODO: Observe quality metrics once OOM is considered.
 	if addNewPeak {
