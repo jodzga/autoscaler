@@ -220,9 +220,6 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	}
 	container.lastRSSSampleStart = ts
 	if container.RSSWindowEnd.IsZero() { // This is the first sample.
-		if container.Namespace == "vpa-test-service" {
-			klog.Info("first sample for vpa-test-service")
-		}
 		container.RSSWindowEnd = ts
 	}
 
