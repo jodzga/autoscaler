@@ -220,7 +220,6 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	}
 	container.lastRSSSampleStart = ts
 	if container.RSSWindowEnd.IsZero() { // This is the first sample.
-		klog.Infof("first RSS sample")
 		container.RSSWindowEnd = ts
 	}
 
@@ -231,9 +230,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	addNewPeak := false
 	if ts.Before(container.RSSWindowEnd) {
 		oldMaxRss := container.GetMaxRSSPeak()
-		klog.Infof("sample was taken in the same aggregation interval")
 		if oldMaxRss != 0 && sample.Usage > oldMaxRss {
-			klog.Infof("sample is larger than the current peak")
 			// Remove the old peak.
 			oldPeak := ContainerUsageSample{
 				MeasureStart: container.RSSWindowEnd,
@@ -245,7 +242,6 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 			addNewPeak = true
 		}
 	} else {
-		klog.Infof("sample taken in a new aggregation interval")
 		// TODO: Use a separate aggregation interval for RSS.
 		rssAggregationInterval := GetAggregationsConfig().MemoryAggregationInterval
 		shift := ts.Sub(container.RSSWindowEnd).Truncate(rssAggregationInterval) + rssAggregationInterval
@@ -255,7 +251,6 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	}
 	// TODO: Observe quality metrics once OOM is considered.
 	if addNewPeak {
-		klog.Infof("Adding new peak for RSS +%v", sample.Usage)
 		newPeak := ContainerUsageSample{
 			MeasureStart: container.RSSWindowEnd,
 			Usage:        sample.Usage,
