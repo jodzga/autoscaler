@@ -114,8 +114,10 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 				klog.Errorf("Cannot save VPA %s/%s checkpoint for %s. Reason: %+v",
 					vpa.ID.Namespace, vpaCheckpoint.Spec.VPAObjectName, vpaCheckpoint.Spec.ContainerName, err)
 			} else {
-				klog.V(3).Infof("Saved VPA %s/%s checkpoint for %s",
-					vpa.ID.Namespace, vpaCheckpoint.Spec.VPAObjectName, vpaCheckpoint.Spec.ContainerName)
+				if vpa.ID.Namespace == "vpa-test-service" {
+					klog.V(3).Infof("Saved VPA %s/%s checkpoint for %s",
+						vpa.ID.Namespace, vpaCheckpoint.Spec.VPAObjectName, vpaCheckpoint.Spec.ContainerName)
+				}
 				vpa.CheckpointWritten = now
 			}
 			minCheckpoints--

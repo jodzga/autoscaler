@@ -359,7 +359,7 @@ func (feeder *clusterStateFeeder) LoadVPAs() {
 		}
 
 		selector, conditions := feeder.getSelector(vpaCRD)
-		klog.V(4).Infof("Using selector %s for VPA %s/%s", selector.String(), vpaCRD.Namespace, vpaCRD.Name)
+		// klog.V(4).Infof("Using selector %s for VPA %s/%s", selector.String(), vpaCRD.Namespace, vpaCRD.Name)
 
 		if feeder.clusterState.AddOrUpdateVpa(vpaCRD, selector) == nil {
 			// Successfully added VPA to the model.
@@ -442,7 +442,7 @@ Loop:
 	for {
 		select {
 		case oomInfo := <-feeder.oomChan:
-			klog.V(3).Infof("OOM detected %+v", oomInfo)
+			// klog.V(3).Infof("OOM detected %+v", oomInfo)
 			if err = feeder.clusterState.RecordOOM(oomInfo.ContainerID, oomInfo.Timestamp, oomInfo.Memory); err != nil {
 				klog.Warningf("Failed to record OOM %+v. Reason: %+v", oomInfo, err)
 			}
