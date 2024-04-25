@@ -214,6 +214,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	}
 	container.lastRSSSampleStart = ts
 	if container.WindowEnd.IsZero() { // This is the first sample.
+		klog.Infof("first RSS sample")
 		container.WindowEnd = ts
 	}
 
@@ -224,7 +225,9 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 	addNewPeak := false
 	if ts.Before(container.WindowEnd) {
 		oldMaxRss := container.GetMaxRSSPeak()
+		klog.Infof("sample was taken in the same aggregation interval")
 		if oldMaxRss != 0 && sample.Usage > oldMaxRss {
+			klog.Infof("sample is larger than the current peak")
 			// Remove the old peak.
 			oldPeak := ContainerUsageSample{
 				MeasureStart: container.WindowEnd,
@@ -236,6 +239,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 			addNewPeak = true
 		}
 	} else {
+		klog.Infof("sample taken in a new aggregation interval")
 		// TODO: Use a separate aggregation interval for RSS.
 		rssAggregationInterval := GetAggregationsConfig().MemoryAggregationInterval
 		shift := ts.Sub(container.WindowEnd).Truncate(rssAggregationInterval) + rssAggregationInterval
