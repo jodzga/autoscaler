@@ -119,8 +119,8 @@ func TestAggregateStateByContainerName(t *testing.T) {
 	actualCPUHistogram := aggregateResources["app-A"].AggregateCPUUsage
 
 	expectedMemoryHistogram := util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife)
-	expectedMemoryHistogram.AddSample(2e9, 1.0, cluster.GetContainer(containers[0]).WindowEnd)
-	expectedMemoryHistogram.AddSample(4e9, 1.0, cluster.GetContainer(containers[2]).WindowEnd)
+	expectedMemoryHistogram.AddSample(2e9, 1.0, cluster.GetContainer(containers[0]).MemoryWindowEnd)
+	expectedMemoryHistogram.AddSample(4e9, 1.0, cluster.GetContainer(containers[2]).MemoryWindowEnd)
 	actualMemoryHistogram := aggregateResources["app-A"].AggregateMemoryPeaks
 
 	assert.True(t, expectedCPUHistogram.Equals(actualCPUHistogram), "Expected:\n%s\nActual:\n%s", expectedCPUHistogram, actualCPUHistogram)
