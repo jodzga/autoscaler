@@ -54,8 +54,10 @@ func TestPercentileEstimator(t *testing.T) {
 
 	resourceEstimation := estimator.GetResourceEstimation(
 		&model.AggregateContainerState{
-			AggregateCPUUsage:    cpuHistogram,
-			AggregateMemoryPeaks: memoryPeaksHistogram,
+			AggregateCPUUsage:              cpuHistogram,
+			AggregateMemoryPeaks:           memoryPeaksHistogram,
+			AggregateRSSPeaks:              memoryPeaksHistogram,
+			AggregateJVMHeapCommittedPeaks: memoryPeaksHistogram,
 		})
 	maxRelativeError := 0.05 // Allow 5% relative error to account for histogram rounding.
 	assert.InEpsilon(t, 1.0, model.CoresFromCPUAmount(resourceEstimation[model.ResourceCPU]), maxRelativeError)
