@@ -225,7 +225,7 @@ func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList
 				continue
 			}
 
-			for resourceName, _ := range customResourceQueryFuncs {
+			for resourceName := range customResourceQueryFuncs {
 				containerMetricForResource := containerMetric[resourceName]
 				if !ok {
 					continue
