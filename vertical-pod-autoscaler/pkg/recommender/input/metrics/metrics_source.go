@@ -271,7 +271,6 @@ func (s podMetricsSource) withCustomResourceMetrics(podMetrics *v1beta1.PodMetri
 				}
 
 				podMetrics.Items[i].Containers[j].Usage[nsQueryResult.resource] = containerUsage
-				klog.InfoS("Added custom resource metric", "resource", nsQueryResult.resource, "namespace", pod.Namespace, "pod", pod.Name, "container", container.Name, "value", containerUsage)
 			}
 		}
 	}
