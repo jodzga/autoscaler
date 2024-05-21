@@ -91,7 +91,7 @@ type m3Response struct {
 func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter, m3UrlBase string) PodMetricsLister {
 	var m3Url *url.URL
 	if m3UrlBase != "" {
-		m3Url, _ := url.Parse(m3UrlBase)
+		m3Url, _ = url.Parse(m3UrlBase)
 		m3Url.Path += "/api/v1/query"
 	}
 
