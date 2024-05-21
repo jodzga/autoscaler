@@ -35,6 +35,7 @@ import (
 	vpa_lister "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/listers/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 )
 
 // VpaWithSelector is a pair of VPA and its selector.
@@ -56,7 +57,14 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 		return
 	}
 
-	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{}, "status")
+	// Define patch options with Server-Side Apply and Force set to true
+	opts := meta.PatchOptions{
+		FieldManager: "vpa-controller",
+		Force:        pointer.Bool(true),
+	}
+
+	// Apply the patch using Server-Side Apply
+	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
