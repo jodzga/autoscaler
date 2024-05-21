@@ -98,7 +98,7 @@ type m3Response struct {
 		ResultType string `json:"resultType"`
 		Result     []struct {
 			Metric map[string]string `json:"metric"`
-			Value  []int64          `json:"value"`
+			Value  []float64          `json:"value"`
 		} `json:"result"`
 	} `json:"data"`
 }
