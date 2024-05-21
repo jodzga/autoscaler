@@ -73,14 +73,22 @@ type nsQueryResults struct {
 	err             error
 }
 
+// type m3Response struct {
+// 	Status string `json:"status"`
+// 	Data   struct {
+// 		ResultType string `json:"resultType"`
+// 		Result     []struct {
+// 			Metric map[string]string `json:"metric"`
+// 			Value  []string          `json:"value"`
+// 		} `json:"result"`
+// 	} `json:"data"`
+// }
+
 type m3Response struct {
 	Status string `json:"status"`
 	Data   struct {
 		ResultType string `json:"resultType"`
-		Result     []struct {
-			Metric map[string]string `json:"metric"`
-			Value  []string          `json:"value"`
-		} `json:"result"`
+		Result     []interface{} `json:"result"`
 	} `json:"data"`
 }
 
@@ -161,11 +169,11 @@ func (s podMetricsSource) queryM3CustomMetric(ns string, podNames []string, quer
 	if err := json.Unmarshal(body, &response); err != nil {
 		return nsQueryResults{namespace: ns, err: err}
 	}
+	klog.InfoS("[defined] Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", response)
 	// if resp.Status != "success" {
 	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get valid response (status: %s)", resp.Status)}
 	// }
 
-	klog.InfoS("[defined] Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", response)
 	// data, ok := (responseBody["data"]).(map[string]interface{})
 	// if !ok {
 	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to parse .data from response")}
