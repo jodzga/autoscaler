@@ -58,17 +58,16 @@ type podMetricsSource struct {
 // Parameters are list of pod names and namespace.
 type nsQueryFunc func([]string, string) string
 
-// containerQueryResults is a struct to hold the results of a custom resource query and metadata.
-type containerQueryResults map[k8sapiv1.ResourceName]resource.Quantity
-
 type podQueryResults struct {
 	pod types.NamespacedName
+	resource k8sapiv1.ResourceName
 	// Maps container name to its resource usages.
-	containerQueryResults map[string]containerQueryResults
+	containerQueryResults map[string]resource.Quantity
 }
 
 type nsQueryResults struct {
 	namespace string
+	resource k8sapiv1.ResourceName
 	// Maps pod name to its containers' resource usages.
 	podQueryResults map[types.NamespacedName]podQueryResults
 	err             error
@@ -152,11 +151,21 @@ func (s podMetricsSource) queryM3CustomMetric(ns string, podNames []string, quer
 		return nsQueryResults{namespace: ns, err: err}
 	}
 
-	var m3Response m3Response
-	if err := json.Unmarshal(body, &m3Response); err != nil {
+	var responseBody map[string]interface{}
+	if err := json.Unmarshal(body, &responseBody); err != nil {
 		return nsQueryResults{namespace: ns, err: err}
 	}
-	klog.InfoS("Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", m3Response)
+	klog.InfoS("[interface] Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", responseBody)
+
+	var response m3Response
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nsQueryResults{namespace: ns, err: err}
+	}
+	// if resp.Status != "success" {
+	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get valid response (status: %s)", resp.Status)}
+	// }
+
+	klog.InfoS("[defined] Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", response)
 	// data, ok := (responseBody["data"]).(map[string]interface{})
 	// if !ok {
 	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to parse .data from response")}
@@ -240,45 +249,45 @@ func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList
 	wg.Wait()
 	close(resChan)
 
-	// Index the results by namespace.
-	resultsByNs := make(map[string][]nsQueryResults, len(podsByNsBatched))
-	for res := range resChan {
-		if res.err != nil {
-			klog.ErrorS(res.err, "Failed to query custom resource metrics", "namespace", res.namespace)
-		}
-		resultsByNs[res.namespace] = append(resultsByNs[res.namespace], res)
-	}
+	// // Index the results by namespace.
+	// resultsByNs := make(map[string][]nsQueryResults, len(podsByNsBatched))
+	// for res := range resChan {
+	// 	if res.err != nil {
+	// 		klog.ErrorS(res.err, "Failed to query custom resource metrics", "namespace", res.namespace)
+	// 	}
+	// 	resultsByNs[res.namespace] = append(resultsByNs[res.namespace], res)
+	// }
 
-	// Augment the PodMetricsList with the custom resource metrics.
-	for i, pod := range podMetrics.Items {
-		nsQueryResults, ok := resultsByNs[pod.Namespace]
-		if !ok {
-			continue
-		}
+	// // Augment the PodMetricsList with the custom resource metrics.
+	// for i, pod := range podMetrics.Items {
+	// 	nsQueryResults, ok := resultsByNs[pod.Namespace]
+	// 	if !ok {
+	// 		continue
+	// 	}
 
-		for _, nsQueryResult := range nsQueryResults {
-			podQueryResults, ok := nsQueryResult.podQueryResults[types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]
-			if !ok {
-				continue
-			}
+	// 	for _, nsQueryResult := range nsQueryResults {
+	// 		podQueryResults, ok := nsQueryResult.podQueryResults[types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}]
+	// 		if !ok {
+	// 			continue
+	// 		}
 
-			for j, container := range pod.Containers {
-				containerQueryResults, ok := podQueryResults.containerQueryResults[container.Name]
-				if !ok {
-					continue
-				}
+	// 		for j, container := range pod.Containers {
+	// 			containerQueryResults, ok := podQueryResults.containerQueryResults[container.Name]
+	// 			if !ok {
+	// 				continue
+	// 			}
 
-				for resourceName := range customResourceQueryFuncs {
-					containerQueryResult, ok := containerQueryResults[resourceName]
-					if !ok {
-						continue
-					}
+	// 			for resourceName := range customResourceQueryFuncs {
+	// 				containerQueryResult, ok := containerQueryResults[resourceName]
+	// 				if !ok {
+	// 					continue
+	// 				}
 
-					podMetrics.Items[i].Containers[j].Usage[resourceName] = containerQueryResult
-				}
-			}
-		}
-	}
+	// 				podMetrics.Items[i].Containers[j].Usage[resourceName] = containerQueryResult
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	return podMetrics, nil
 }
