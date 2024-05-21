@@ -40,7 +40,7 @@ import (
 	"time"
 )
 
-const BatchSize = 500
+const batchSize = 500
 
 // PodMetricsLister wraps both metrics-client and External Metrics
 type PodMetricsLister interface {
@@ -125,7 +125,7 @@ func (s podMetricsSource) batchPodsByNs(podMetrics *v1beta1.PodMetricsList) map[
 		lastBatchIdx := len(podsByNsBatched[pod.Namespace]) - 1
 		lastBatch := podsByNsBatched[pod.Namespace][lastBatchIdx]
 		// Create a new batch if the last one is full
-		if len(lastBatch) >= BatchSize {
+		if len(lastBatch) >= batchSize {
 			podsByNsBatched[pod.Namespace] = append(podsByNsBatched[pod.Namespace], []string{})
 		}
 
