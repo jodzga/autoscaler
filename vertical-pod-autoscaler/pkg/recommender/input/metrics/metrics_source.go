@@ -111,36 +111,6 @@ func getJVMHeapCommittedQuery(podNames []string, namespace string, containerName
 	return fmt.Sprintf("max_over_time(jmx_Memory_HeapMemoryUsage_committed{%s!='', %s=~'%s', kubernetes_namespace='%s'}[5m])", containerNameLabel, podNameLabel, strings.Join(podNames, "|"), namespace)
 }
 
-// batchPodsByNs batches pods by namespace to avoid exploding DFA states in the queries.
-// It returns a map of namespace to batches of pod names. Batch size is hardcoded to 500.
-func (s podMetricsSource) batchPodsByNs(podMetrics *v1beta1.PodMetricsList) map[string][][]string {
-	podsByNsBatched := map[string][][]string{}
-	for _, pod := range podMetrics.Items {
-		_, exists := podsByNsBatched[pod.Namespace]
-		if !exists {
-			podsByNsBatched[pod.Namespace] = [][]string{{}}
-		}
-
-		// Get the last batch for this namespace
-		lastBatchIdx := len(podsByNsBatched[pod.Namespace]) - 1
-		lastBatch := podsByNsBatched[pod.Namespace][lastBatchIdx]
-		// Create a new batch if the last one is full
-		if len(lastBatch) >= batchSize {
-			podsByNsBatched[pod.Namespace] = append(podsByNsBatched[pod.Namespace], []string{})
-		}
-
-		// Get the current batch for this namespace and add the pod
-		currentBatchIdx := len(podsByNsBatched[pod.Namespace]) - 1
-		currentBatch := podsByNsBatched[pod.Namespace][currentBatchIdx]
-		currentBatch = append(currentBatch, pod.Name)
-
-		// Wire the update back into the map
-		podsByNsBatched[pod.Namespace][currentBatchIdx] = currentBatch
-	}
-
-	return podsByNsBatched
-}
-
 // queryCustomResourceMetric queries M3 for a custom resource metric for the specified pods in the namespace.
 func (s podMetricsSource) queryCustomResourceMetric(ns string, podNames []string, customQuery nsQuery) nsQueryResults {
 	params := url.Values{}
@@ -208,6 +178,36 @@ func (s podMetricsSource) queryCustomResourceMetric(ns string, podNames []string
 	}
 
 	return nsQueryResults
+}
+
+// batchPodsByNs batches pods by namespace to avoid exploding DFA states in the queries.
+// It returns a map of namespace to batches of pod names. Batch size is hardcoded to 500.
+func (s podMetricsSource) batchPodsByNs(podMetrics *v1beta1.PodMetricsList) map[string][][]string {
+	podsByNsBatched := map[string][][]string{}
+	for _, pod := range podMetrics.Items {
+		_, exists := podsByNsBatched[pod.Namespace]
+		if !exists {
+			podsByNsBatched[pod.Namespace] = [][]string{{}}
+		}
+
+		// Get the last batch for this namespace
+		lastBatchIdx := len(podsByNsBatched[pod.Namespace]) - 1
+		lastBatch := podsByNsBatched[pod.Namespace][lastBatchIdx]
+		// Create a new batch if the last one is full
+		if len(lastBatch) >= batchSize {
+			podsByNsBatched[pod.Namespace] = append(podsByNsBatched[pod.Namespace], []string{})
+		}
+
+		// Get the current batch for this namespace and add the pod
+		currentBatchIdx := len(podsByNsBatched[pod.Namespace]) - 1
+		currentBatch := podsByNsBatched[pod.Namespace][currentBatchIdx]
+		currentBatch = append(currentBatch, pod.Name)
+
+		// Wire the update back into the map
+		podsByNsBatched[pod.Namespace][currentBatchIdx] = currentBatch
+	}
+
+	return podsByNsBatched
 }
 
 // withCustomResourceMetrics augments and returns pod metrics with custom resource metrics from M3.
