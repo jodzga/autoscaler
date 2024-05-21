@@ -161,15 +161,17 @@ func (s podMetricsSource) queryM3CustomMetric(ns string, podNames []string, quer
 
 	var responseBody map[string]interface{}
 	if err := json.Unmarshal(body, &responseBody); err != nil {
+		klog.ErrorS(err, "[interface] 1Response from M3 Failed to unmarshal response from M3", "namespace", ns, "resource", resourceName, "query", query)
 		return nsQueryResults{namespace: ns, err: err}
 	}
-	klog.InfoS("[interface] Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", responseBody)
+	klog.InfoS("[interface] 1Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", responseBody)
 
 	var response m3Response
 	if err := json.Unmarshal(body, &response); err != nil {
+		klog.ErrorS(err, "[defined] 1Response from M3 Failed to unmarshal response from M3", "namespace", ns, "resource", resourceName, "query", query)
 		return nsQueryResults{namespace: ns, err: err}
 	}
-	klog.InfoS("[defined] Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", response)
+	klog.InfoS("[defined] 1Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", response.Data.Result)
 	// if resp.Status != "success" {
 	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get valid response (status: %s)", resp.Status)}
 	// }
