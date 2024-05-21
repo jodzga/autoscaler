@@ -51,8 +51,12 @@ type patchRecord struct {
 }
 
 func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, status vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	// Construct the desired status in the form of the VerticalPodAutoscalerStatus struct
+	// Construct the desired status within the context of a complete VerticalPodAutoscaler resource
 	statusUpdate := &vpa_types.VerticalPodAutoscaler{
+		TypeMeta: meta.TypeMeta{
+			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
+			Kind:       "VerticalPodAutoscaler",
+		},
 		Status: status,
 	}
 
