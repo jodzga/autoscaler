@@ -84,13 +84,21 @@ type nsQueryResults struct {
 // 	} `json:"data"`
 // }
 
+// type m3Response struct {
+// 	Status string `json:"status"`
+// 	Data   struct {
+// 		ResultType string `json:"resultType"`
+// 		Result     []interface{} `json:"result"`
+// 	} `json:"data"`
+// }
+
 type m3Response struct {
 	Status string `json:"status"`
 	Data   struct {
 		ResultType string `json:"resultType"`
 		Result     []struct {
-			Metric interface{} `json:"metric"`
-			Value  []string          `json:"value"`
+			Metric map[string]string `json:"metric"`
+			Value  []int64          `json:"value"`
 		} `json:"result"`
 	} `json:"data"`
 }
