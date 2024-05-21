@@ -74,11 +74,16 @@ type nsQueryResults struct {
 	err             error
 }
 
-// containerResourceUsage is a mpa of resource name to resource usage.
-type containerResourceUsage map[k8sapiv1.ResourceName]resource.Quantity
-
-// podContainerResourceUsage is a map of pod name to its containers' resource usages.
-type podContainerResourceUsage map[string]containerResourceUsage
+type m3Response struct {
+	status string `json:"status"`
+	data   struct {
+		resultType string `json:"resultType"`
+		result     []struct {
+			metric map[string]string `json:"metric"`
+			value  []string          `json:"value"`
+		} `json:"results"`
+	} `json:"data"`
+}
 
 // NewPodMetricsesSource Returns a Source-wrapper around PodMetricsesGetter.
 func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter, m3Url string) PodMetricsLister {
@@ -147,48 +152,48 @@ func (s podMetricsSource) queryM3CustomMetric(ns string, podNames []string, quer
 		return nsQueryResults{namespace: ns, err: err}
 	}
 
-	var responseBody map[string]interface{}
-	if err := json.Unmarshal(body, &responseBody); err != nil {
+	var m3Response m3Response
+	if err := json.Unmarshal(body, &m3Response); err != nil {
 		return nsQueryResults{namespace: ns, err: err}
 	}
-	klog.InfoS("Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", responseBody)
-	data, ok := (responseBody["data"]).(map[string]interface{})
-	if !ok {
-		return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to parse .data from response")}
-	}
-	klog.InfoS("Data from M3", "namespace", ns, "resource", resourceName, "query", query, "data", data)
-	result, ok := (data["result"]).([]interface{})
-	if !ok {
-		return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get .data.result from response")}
-	}
-	klog.InfoS("Result from M3", "namespace", ns, "resource", resourceName, "query", query, "result", result)
-	if len(result) == 0 {
-		return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get any query results in .data.result")}
-	}
-	if len(result) > 1 {
-		klog.InfoS("More than one query result in .data.result", "namespace", ns, "resource", resourceName, "query", query, "result", result)
-		// Proceed for now and just use the first result. Will need to fine-tune the query if so.
-	}
-	firstResult, ok := (result[0]).(map[string]interface{})
-	if !ok {
-		return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get first element from .data.result from response")}
-	}
-	value, ok := (firstResult["value"]).([]interface{})
-	if !ok {
-		return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get .data.result[0].value from response")}
-	}
-	if len(value) < 2 {
-		return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get .data.result[0].value[1] from response")}
-	}
-	resourceValue, ok := (value[1]).(string)
-	if !ok {
-		return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get .data.result[0].value[1] from response")}
-	}
-	resourceQuantity, err := resource.ParseQuantity(resourceValue)
-	if err != nil {
-		return nsQueryResults{namespace: ns, err: err}
-	}
-	klog.InfoS("Resource value from M3", "namespace", ns, "resource", resourceName, "query", query, "value", resourceQuantity)
+	klog.InfoS("Response from M3", "namespace", ns, "resource", resourceName, "query", query, "response", m3Response)
+	// data, ok := (responseBody["data"]).(map[string]interface{})
+	// if !ok {
+	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to parse .data from response")}
+	// }
+	// klog.InfoS("Data from M3", "namespace", ns, "resource", resourceName, "query", query, "data", data)
+	// result, ok := (data["result"]).([]interface{})
+	// if !ok {
+	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get .data.result from response")}
+	// }
+	// klog.InfoS("Result from M3", "namespace", ns, "resource", resourceName, "query", query, "result", result)
+	// if len(result) == 0 {
+	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get any query results in .data.result")}
+	// }
+	// if len(result) > 1 {
+	// 	klog.InfoS("More than one query result in .data.result", "namespace", ns, "resource", resourceName, "query", query, "result", result)
+	// 	// Proceed for now and just use the first result. Will need to fine-tune the query if so.
+	// }
+	// firstResult, ok := (result[0]).(map[string]interface{})
+	// if !ok {
+	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get first element from .data.result from response")}
+	// }
+	// value, ok := (firstResult["value"]).([]interface{})
+	// if !ok {
+	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get .data.result[0].value from response")}
+	// }
+	// if len(value) < 2 {
+	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get .data.result[0].value[1] from response")}
+	// }
+	// resourceValue, ok := (value[1]).(string)
+	// if !ok {
+	// 	return nsQueryResults{namespace: ns, err: fmt.Errorf("Failed to get .data.result[0].value[1] from response")}
+	// }
+	// resourceQuantity, err := resource.ParseQuantity(resourceValue)
+	// if err != nil {
+	// 	return nsQueryResults{namespace: ns, err: err}
+	// }
+	// klog.InfoS("Resource value from M3", "namespace", ns, "resource", resourceName, "query", query, "value", resourceQuantity)
 	return nsQueryResults{namespace: ns, err: nil}
 }
 
