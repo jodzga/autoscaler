@@ -50,15 +50,14 @@ type patchRecord struct {
 	Value interface{} `json:"value"`
 }
 
-// patchVpaStatus patches the VPA status for a specific resource.
-func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, status *vpa_types.VerticalPodAutoscalerStatus, resource core.ResourceName) (result *vpa_types.VerticalPodAutoscaler, err error) {
+func patchVpaStatus2(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, status vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
 	// Construct the desired status within the context of a complete VerticalPodAutoscaler resource
 	statusUpdate := &vpa_types.VerticalPodAutoscaler{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
 			Kind:       "VerticalPodAutoscaler",
 		},
-		Status: *status,
+		Status: status,
 	}
 
 	// Marshal the status update into JSON
@@ -70,7 +69,7 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 
 	// Define patch options with Server-Side Apply and Force set to true
 	opts := meta.PatchOptions{
-		FieldManager: fmt.Sprintf("vpa-controller-%s", resource),
+		FieldManager: fmt.Sprintf("vpa-controller"),
 		Force:        pointer.Bool(true),
 	}
 
@@ -78,8 +77,44 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
+// patchVpaStatus patches the VPA status for a specific resource.
+func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, status *vpa_types.VerticalPodAutoscalerStatus, resource core.ResourceName) (result *vpa_types.VerticalPodAutoscaler, err error) {
+	// Construct the desired status within the context of a complete VerticalPodAutoscaler resource
+	statusUpdate := &vpa_types.VerticalPodAutoscaler{
+		TypeMeta: meta.TypeMeta{
+			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
+			Kind:       "VerticalPodAutoscaler",
+		},
+		Status: *status,
+	}
+
+	// log statusUpdate serialized to JSON
+	klog.Infof("Update status for resource %s: %#v", resource, statusUpdate)
+
+	// // Marshal the status update into JSON
+	// bytes, err := json.Marshal(statusUpdate)
+	// if err != nil {
+	// 	klog.Errorf("Cannot marshal VPA status %+v. Reason: %+v", statusUpdate, err)
+	// 	return
+	// }
+
+	// // Define patch options with Server-Side Apply and Force set to true
+	// opts := meta.PatchOptions{
+	// 	FieldManager: fmt.Sprintf("vpa-controller-%s", resource),
+	// 	Force:        pointer.Bool(true),
+	// }
+
+	// Apply the patch using Server-Side Apply
+	//return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
+	return nil, nil
+}
+
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
 func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus, oldStatus *vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
+
+	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
+		patchVpaStatus2(vpaClient, vpaName, *newStatus)
+	}
 
 	if !apiequality.Semantic.DeepEqual(oldStatus.Conditions, newStatus.Conditions) {
 		partialStatus := &vpa_types.VerticalPodAutoscalerStatus{
@@ -88,7 +123,6 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 		_, err := patchVpaStatus(vpaClient, vpaName, partialStatus, "conditions")
 		if err != nil {
 			klog.Errorf("Failed to patch VPA status conditions. Reason: %+v", err)
-			return nil, err
 		}
 	}
 	// Extract resources from the newStatus object
@@ -103,7 +137,6 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 		_, err := patchVpaStatus(vpaClient, vpaName, partialStatus, resource)
 		if err != nil {
 			klog.Errorf("Failed to patch VPA status for resource %s. Reason: %+v", resource, err)
-			return nil, err
 		}
 	}
 
@@ -132,7 +165,7 @@ func createPartialStatus(newStatus *vpa_types.VerticalPodAutoscalerStatus, resou
 			ContainerRecommendations: make([]vpa_types.RecommendedContainerResources, len(newStatus.Recommendation.ContainerRecommendations)),
 		},
 	}
-	for i, containerRecommendation := range partialStatus.Recommendation.ContainerRecommendations {
+	for i, containerRecommendation := range newStatus.Recommendation.ContainerRecommendations {
 		partialRecommendation := &vpa_types.RecommendedContainerResources{
 			ContainerName: containerRecommendation.ContainerName,
 		}
