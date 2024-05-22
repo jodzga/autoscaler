@@ -88,8 +88,10 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 		Status: *status,
 	}
 
+	jsonString, _ := json.Marshal(statusUpdate)
+
 	// log statusUpdate serialized to JSON
-	klog.Infof("Update status for resource %s: %#v", resource, statusUpdate)
+	klog.Infof("Update status for resource %s: %s", resource, jsonString)
 
 	// // Marshal the status update into JSON
 	// bytes, err := json.Marshal(statusUpdate)
@@ -130,13 +132,14 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 
 	// Iterate over each resource and make a separate server-side-apply update
 	for _, resource := range resources {
-		// Create a partial status update for the specific resource
-		partialStatus := createPartialStatus(newStatus, resource)
-
-		// Patch the VPA status for the specific resource
-		_, err := patchVpaStatus(vpaClient, vpaName, partialStatus, resource)
-		if err != nil {
-			klog.Errorf("Failed to patch VPA status for resource %s. Reason: %+v", resource, err)
+		partialOldStatus := createPartialStatus(oldStatus, resource)
+		partialNewStatus := createPartialStatus(newStatus, resource)
+		if !apiequality.Semantic.DeepEqual(*partialOldStatus, *partialNewStatus) {
+			// Patch the VPA status for the specific resource
+			_, err := patchVpaStatus(vpaClient, vpaName, partialNewStatus, resource)
+			if err != nil {
+				klog.Errorf("Failed to patch VPA status for resource %s. Reason: %+v", resource, err)
+			}
 		}
 	}
 
