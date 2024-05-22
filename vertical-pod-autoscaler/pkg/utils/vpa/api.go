@@ -50,14 +50,15 @@ type patchRecord struct {
 	Value interface{} `json:"value"`
 }
 
-func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, status vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
+// patchVpaStatus patches the VPA status for a specific resource.
+func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, status *vpa_types.VerticalPodAutoscalerStatus, resource core.ResourceName) (result *vpa_types.VerticalPodAutoscaler, err error) {
 	// Construct the desired status within the context of a complete VerticalPodAutoscaler resource
 	statusUpdate := &vpa_types.VerticalPodAutoscaler{
 		TypeMeta: meta.TypeMeta{
 			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
 			Kind:       "VerticalPodAutoscaler",
 		},
-		Status: status,
+		Status: *status,
 	}
 
 	// Marshal the status update into JSON
@@ -69,7 +70,7 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 
 	// Define patch options with Server-Side Apply and Force set to true
 	opts := meta.PatchOptions{
-		FieldManager: "vpa-controller",
+		FieldManager: fmt.Sprintf("vpa-controller-%s", resource),
 		Force:        pointer.Bool(true),
 	}
 
@@ -78,13 +79,79 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
-func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus,
-	oldStatus *vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
+func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus, oldStatus *vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
 
-	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
-		return patchVpaStatus(vpaClient, vpaName, *newStatus)
+	if !apiequality.Semantic.DeepEqual(oldStatus.Conditions, newStatus.Conditions) {
+		partialStatus := &vpa_types.VerticalPodAutoscalerStatus{
+			Conditions: newStatus.Conditions,
+		}
+		_, err := patchVpaStatus(vpaClient, vpaName, partialStatus, "conditions")
+		if err != nil {
+			klog.Errorf("Failed to patch VPA status conditions. Reason: %+v", err)
+			return nil, err
+		}
 	}
+	// Extract resources from the newStatus object
+	resources := extractResources(newStatus)
+
+	// Iterate over each resource and make a separate server-side-apply update
+	for _, resource := range resources {
+		// Create a partial status update for the specific resource
+		partialStatus := createPartialStatus(newStatus, resource)
+
+		// Patch the VPA status for the specific resource
+		_, err := patchVpaStatus(vpaClient, vpaName, partialStatus, resource)
+		if err != nil {
+			klog.Errorf("Failed to patch VPA status for resource %s. Reason: %+v", resource, err)
+			return nil, err
+		}
+	}
+
 	return nil, nil
+}
+
+// extractResources extracts the resource names from the newStatus object.
+func extractResources(newStatus *vpa_types.VerticalPodAutoscalerStatus) []core.ResourceName {
+	resourceSet := make(map[core.ResourceName]struct{})
+	for _, containerRecommendation := range newStatus.Recommendation.ContainerRecommendations {
+		for resource := range containerRecommendation.Target {
+			resourceSet[resource] = struct{}{}
+		}
+	}
+	resources := make([]core.ResourceName, 0, len(resourceSet))
+	for resource := range resourceSet {
+		resources = append(resources, resource)
+	}
+	return resources
+}
+
+// createPartialStatus creates a partial status update for a specific resource.
+func createPartialStatus(newStatus *vpa_types.VerticalPodAutoscalerStatus, resource core.ResourceName) *vpa_types.VerticalPodAutoscalerStatus {
+	partialStatus := &vpa_types.VerticalPodAutoscalerStatus{
+		Recommendation: &vpa_types.RecommendedPodResources{
+			ContainerRecommendations: make([]vpa_types.RecommendedContainerResources, len(newStatus.Recommendation.ContainerRecommendations)),
+		},
+	}
+	for i, containerRecommendation := range partialStatus.Recommendation.ContainerRecommendations {
+		partialRecommendation := &vpa_types.RecommendedContainerResources{
+			ContainerName: containerRecommendation.ContainerName,
+		}
+		partialRecommendation.LowerBound = filterResource(containerRecommendation.LowerBound, resource)
+		partialRecommendation.Target = filterResource(containerRecommendation.Target, resource)
+		partialRecommendation.UncappedTarget = filterResource(containerRecommendation.UncappedTarget, resource)
+		partialRecommendation.UpperBound = filterResource(containerRecommendation.UpperBound, resource)
+		partialStatus.Recommendation.ContainerRecommendations[i] = *partialRecommendation
+	}
+	return partialStatus
+}
+
+// filterResource filters the resource map to include only the specified resource.
+func filterResource(resourceMap core.ResourceList, resource core.ResourceName) core.ResourceList {
+	filtered := make(core.ResourceList)
+	if value, exists := resourceMap[resource]; exists {
+		filtered[resource] = value
+	}
+	return filtered
 }
 
 // NewVpasLister returns VerticalPodAutoscalerLister configured to fetch all VPA objects from namespace,
