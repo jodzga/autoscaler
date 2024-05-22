@@ -69,7 +69,7 @@ func patchVpaStatus2(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName s
 
 	// Define patch options with Server-Side Apply and Force set to true
 	opts := meta.PatchOptions{
-		FieldManager: fmt.Sprintf("vpa-controller"),
+		FieldManager: "vpa-controller",
 		Force:        pointer.Bool(true),
 	}
 
@@ -88,35 +88,29 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 		Status: *status,
 	}
 
-	jsonString, _ := json.Marshal(statusUpdate)
+	// Marshal the status update into JSON
+	bytes, err := json.Marshal(statusUpdate)
+	if err != nil {
+		klog.Errorf("Cannot marshal VPA status %+v. Reason: %+v", statusUpdate, err)
+		return
+	}
 
-	// log statusUpdate serialized to JSON
-	klog.Infof("Update status for resource %s: %s", resource, jsonString)
+	// Define patch options with Server-Side Apply and Force set to true
+	opts := meta.PatchOptions{
+		FieldManager: fmt.Sprintf("vpa-controller-%s", resource),
+		Force:        pointer.Bool(true),
+	}
 
-	// // Marshal the status update into JSON
-	// bytes, err := json.Marshal(statusUpdate)
-	// if err != nil {
-	// 	klog.Errorf("Cannot marshal VPA status %+v. Reason: %+v", statusUpdate, err)
-	// 	return
-	// }
-
-	// // Define patch options with Server-Side Apply and Force set to true
-	// opts := meta.PatchOptions{
-	// 	FieldManager: fmt.Sprintf("vpa-controller-%s", resource),
-	// 	Force:        pointer.Bool(true),
-	// }
-
-	// Apply the patch using Server-Side Apply
-	//return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
-	return nil, nil
+	//Apply the patch using Server-Side Apply
+	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
 func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus, oldStatus *vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
 
-	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
-		patchVpaStatus2(vpaClient, vpaName, *newStatus)
-	}
+	// if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
+	// 	patchVpaStatus2(vpaClient, vpaName, *newStatus)
+	// }
 
 	if !apiequality.Semantic.DeepEqual(oldStatus.Conditions, newStatus.Conditions) {
 		partialStatus := &vpa_types.VerticalPodAutoscalerStatus{
@@ -135,6 +129,10 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 		partialOldStatus := createPartialStatus(oldStatus, resource)
 		partialNewStatus := createPartialStatus(newStatus, resource)
 		if !apiequality.Semantic.DeepEqual(*partialOldStatus, *partialNewStatus) {
+			jsonStringOld, _ := json.Marshal(partialOldStatus)
+			jsonStringNew, _ := json.Marshal(partialNewStatus)
+			klog.Infof("Update %s recommendation for %s, old: %s, new: %s", resource, vpaName, jsonStringOld, jsonStringNew)
+
 			// Patch the VPA status for the specific resource
 			_, err := patchVpaStatus(vpaClient, vpaName, partialNewStatus, resource)
 			if err != nil {
