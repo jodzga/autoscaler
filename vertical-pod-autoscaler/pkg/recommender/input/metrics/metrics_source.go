@@ -159,6 +159,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 		}
 	}
 
+	klog.Infof("Fetched pod metrics: %+v", podsAllMetrics.Items)
 	return podsAllMetrics, nil
 }
 
