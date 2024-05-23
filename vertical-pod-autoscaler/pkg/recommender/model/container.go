@@ -103,7 +103,6 @@ func (container *ContainerState) addCPUSample(sample *ContainerUsageSample) bool
 	return true
 }
 
-// TODO: Add quality metrics for RSS and JVMHeapCommitted.
 func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isOOM bool, resource corev1.ResourceName) {
 	if !container.aggregator.NeedsRecommendation() {
 		return
@@ -114,6 +113,10 @@ func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isO
 	case corev1.ResourceCPU:
 		usageValue = CoresFromCPUAmount(usage)
 	case corev1.ResourceMemory:
+		usageValue = BytesFromMemoryAmount(usage)
+	case corev1.ResourceName(ResourceRSS):
+		usageValue = BytesFromMemoryAmount(usage)
+	case corev1.ResourceName(ResourceJVMHeapCommitted):
 		usageValue = BytesFromMemoryAmount(usage)
 	}
 	if container.aggregator.GetLastRecommendation() == nil {
@@ -130,6 +133,10 @@ func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isO
 	case corev1.ResourceCPU:
 		recommendationValue = float64(recommendation.MilliValue()) / 1000.0
 	case corev1.ResourceMemory:
+		recommendationValue = float64(recommendation.Value())
+	case corev1.ResourceName(ResourceRSS):
+		recommendationValue = float64(recommendation.Value())
+	case corev1.ResourceName(ResourceJVMHeapCommitted):
 		recommendationValue = float64(recommendation.Value())
 	default:
 		klog.Warningf("Unknown resource: %v", resource)
@@ -249,7 +256,8 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 		container.rssPeak = 0
 		addNewPeak = true
 	}
-	// TODO: Observe quality metrics once OOM is considered.
+	// TODO: Consider OOM.
+	container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceRSS))
 	if addNewPeak {
 		newPeak := ContainerUsageSample{
 			MeasureStart: container.RSSWindowEnd,
@@ -299,7 +307,8 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 		container.jvmHeapCommittedPeak = 0
 		addNewPeak = true
 	}
-	// TODO: Observe quality metrics once OOM is considered.
+	// TODO: Consider OOM.
+	container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceJVMHeapCommitted))
 	if addNewPeak {
 		newPeak := ContainerUsageSample{
 			MeasureStart: container.JVMHeapCommittedWindowEnd,
