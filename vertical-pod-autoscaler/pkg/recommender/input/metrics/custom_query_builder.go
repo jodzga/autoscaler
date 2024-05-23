@@ -1,5 +1,7 @@
-// Helper for building queries for custom metrics queries.
-// See custom_metrics_lister.go for usage.
+/*
+Helper for building queries for custom metrics queries.
+See custom_metrics_lister.go for usage.
+*/
 package metrics
 
 import (

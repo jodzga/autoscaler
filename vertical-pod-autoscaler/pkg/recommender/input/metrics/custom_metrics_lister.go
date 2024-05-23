@@ -1,5 +1,7 @@
-// Helper for querying custom per-container usage metrics from M3.
-// See metrics_source.go for usage.
+/*
+Helper for querying custom per-container usage metrics from M3.
+See metrics_source.go for usage.
+*/
 package metrics
 
 import (
