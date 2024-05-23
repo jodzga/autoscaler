@@ -145,71 +145,72 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 // query queries M3 for the specified custom resource metric and returns the result.
 func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
-	baseUrlParsed, err := url.Parse(c.baseUrl)
-	if err != nil {
-		return nsQueryResult{nsQuery: query, err: err}
-	}
-	baseUrlParsed.Path += "/api/v1/query"
+	klog.InfoS("QUERYING M3", "query", query.query, "namespace", query.namespace, "resource", query.resource, "pods", query.pods)
+	return nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
+	// params := url.Values{}
+	// params.Add("query", query.query)
+	// baseUrlParsed, err := url.Parse(c.baseUrl)
+	// if err != nil {
+	// 	return nsQueryResult{nsQuery: query, err: err}
+	// }
+	// baseUrlParsed.Path += "/api/v1/query"
+	// baseUrlParsed.RawQuery = params.Encode()
 
-	params := url.Values{}
-	params.Add("query", query.query)
-	baseUrlParsed.RawQuery = params.Encode()
+	// resp, err := c.client.Get(baseUrlParsed.String())
+	// if err != nil {
+	// 	return nsQueryResult{nsQuery: query, err: err}
+	// }
+	// if resp.StatusCode != http.StatusOK {
+	// 	return nsQueryResult{nsQuery: query, err: fmt.Errorf("Failed to get valid response (status: %s)", resp.Status)}
+	// }
 
-	resp, err := c.client.Get(baseUrlParsed.String())
-	if err != nil {
-		return nsQueryResult{nsQuery: query, err: err}
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nsQueryResult{nsQuery: query, err: fmt.Errorf("Failed to get valid response (status: %s)", resp.Status)}
-	}
+	// defer resp.Body.Close()
+	// body, err := ioutil.ReadAll(resp.Body)
+	// if err != nil {
+	// 	return nsQueryResult{nsQuery: query, err: err}
+	// }
 
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nsQueryResult{nsQuery: query, err: err}
-	}
+	// var response nsQueryResponse
+	// if err := json.Unmarshal(body, &response); err != nil {
+	// 	return nsQueryResult{nsQuery: query, err: err}
+	// }
 
-	var response nsQueryResponse
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nsQueryResult{nsQuery: query, err: err}
-	}
+	// nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
+	// for _, result := range response.Data.Result {
+	// 	podName, ok := result.Metric[query.podNameLabel]
+	// 	if !ok {
+	// 		klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value of pod name label", "targetLabel", query.podNameLabel, "allLabels", result.Metric)
+	// 		continue
+	// 	}
 
-	nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
-	for _, result := range response.Data.Result {
-		podName, ok := result.Metric[query.podNameLabel]
-		if !ok {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value of pod name label", "targetLabel", query.podNameLabel, "allLabels", result.Metric)
-			continue
-		}
+	// 	containerName, ok := result.Metric[query.containerNameLabel]
+	// 	if !ok {
+	// 		klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value of container name label", "targetLabel", query.containerNameLabel, "allLabels", result.Metric)
+	// 		continue
+	// 	}
 
-		containerName, ok := result.Metric[query.containerNameLabel]
-		if !ok {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value of container name label", "targetLabel", query.containerNameLabel, "allLabels", result.Metric)
-			continue
-		}
+	// 	if len(result.Value) < 2 {
+	// 		klog.ErrorS(fmt.Errorf("Not found"), "Failed to get result in expected [timestamp, value] format", "result", result.Value)
+	// 		continue
+	// 	}
 
-		if len(result.Value) < 2 {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get result in expected [timestamp, value] format", "result", result.Value)
-			continue
-		}
+	// 	value, ok := result.Value[1].(string)
+	// 	if !ok {
+	// 		klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value as resource quantity string", "result", result.Value[1])
+	// 		continue
+	// 	}
 
-		value, ok := result.Value[1].(string)
-		if !ok {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value as resource quantity string", "result", result.Value[1])
-			continue
-		}
+	// 	resourceQuantity, err := resource.ParseQuantity(value)
+	// 	if err != nil {
+	// 		klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
+	// 		continue
+	// 	}
 
-		resourceQuantity, err := resource.ParseQuantity(value)
-		if err != nil {
-			klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
-			continue
-		}
+	// 	if _, ok := nsQueryResult.podUsages[podName]; !ok {
+	// 		nsQueryResult.podUsages[podName] = make(containerUsages)
+	// 	}
+	// 	nsQueryResult.podUsages[podName][containerName] = resourceQuantity
+	// }
 
-		if _, ok := nsQueryResult.podUsages[podName]; !ok {
-			nsQueryResult.podUsages[podName] = make(containerUsages)
-		}
-		nsQueryResult.podUsages[podName][containerName] = resourceQuantity
-	}
-
-	return nsQueryResult
+	// return nsQueryResult
 }
