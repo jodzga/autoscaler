@@ -45,6 +45,7 @@ type customPodMetricsLister struct {
 }
 
 // nsQueryResponse is for unmarshaling the response from M3.
+// TODO(leekathy): Use prom client to avoid unmarshalling.
 type nsQueryResponse struct {
 	Status string `json:"status"`
 	Data   struct {
