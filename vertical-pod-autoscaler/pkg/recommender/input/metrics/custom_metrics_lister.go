@@ -134,6 +134,8 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 		}
 	}
 
+	klog.InfoS("Indexed custom pod metrics", "indexedCustomPodMetrics", indexedCustomPodMetrics)
+
 	// Convert the indexed results back to a PodMetricsList.
 	podsCustomMetrics := &v1beta1.PodMetricsList{}
 	for namespace, pods := range indexedCustomPodMetrics {
@@ -151,6 +153,8 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 			podsCustomMetrics.Items = append(podsCustomMetrics.Items, podMetrics)
 		}
 	}
+
+	klog.InfoS("Returning custom pod metrics", "podsCustomMetrics", podsCustomMetrics)
 
 	return podsCustomMetrics, nil
 }
