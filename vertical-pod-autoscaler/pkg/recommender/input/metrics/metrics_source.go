@@ -55,14 +55,14 @@ var customQueries = []nsQueryBuilder{
 // Added custom metrics lister for M3 queries.
 func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter, podLister v1lister.PodLister, m3Url string) PodMetricsLister {
 	if m3Url == "" {
-		klog.Info("No M3 URL provided - skipping custom pod usage metrics")
+		klog.Info("No M3 URL provided - skipping pod custom resource usage metrics")
 		return podMetricsSource{
 			metricsGetter:       source,
 			customMetricsLister: nil,
 		}
 	}
 
-	klog.Infof("Using M3 URL %s for custom pod usage metrics", m3Url)
+	klog.Infof("Using M3 URL %s for pod custom resource usage metrics", m3Url)
 	return podMetricsSource{
 		metricsGetter:       source,
 		customMetricsLister: newCustomPodMetricsLister(m3Url, customQueries, podLister),
@@ -98,7 +98,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			podsCustomMetrics, err := s.customMetricsLister.List(ctx, namespace, opts)
 			if err != nil {
 				// TODO(leekathy): Emit metrics and setup alerting.
-				klog.ErrorS(err, "Failed to query custom pod usage metrics from M3")
+				klog.ErrorS(err, "Failed to query pod custom usage metrics from M3")
 				resChan <- nil
 				return
 			}
@@ -112,6 +112,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 
 	// Index the results by namespace then pod name then container name then resource.
 	indexedAllPodMetrics := make(map[string]map[string]map[string]v1beta1.ContainerMetrics)
+	indexedAllPodTimestamps := make(map[string]map[string]v1.Time)
 	for res := range resChan {
 		if res == nil {
 			continue
@@ -121,9 +122,16 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			if _, ok := indexedAllPodMetrics[podMetrics.Namespace]; !ok {
 				indexedAllPodMetrics[podMetrics.Namespace] = make(map[string]map[string]v1beta1.ContainerMetrics)
 			}
-
 			if _, ok := indexedAllPodMetrics[podMetrics.Namespace][podMetrics.Name]; !ok {
 				indexedAllPodMetrics[podMetrics.Namespace][podMetrics.Name] = make(map[string]v1beta1.ContainerMetrics)
+			}
+
+			if _, ok := indexedAllPodTimestamps[podMetrics.Namespace]; !ok {
+				indexedAllPodTimestamps[podMetrics.Namespace] = make(map[string]v1.Time)
+			}
+			// Use timestamp returned from the Metrics API if available.
+			if !podMetrics.Timestamp.IsZero() {
+				indexedAllPodTimestamps[podMetrics.Namespace][podMetrics.Name] = podMetrics.Timestamp
 			}
 
 			for _, containerMetrics := range podMetrics.Containers {
@@ -146,9 +154,10 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 	for namespace, pods := range indexedAllPodMetrics {
 		for pod, containers := range pods {
 			podMetrics := v1beta1.PodMetrics{
+				Timestamp:  indexedAllPodTimestamps[namespace][pod],
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: pod},
-				Window:     v1.Duration{},
+				Window:     v1.Duration{5 * time.Minute},
 				Containers: make([]v1beta1.ContainerMetrics, 0),
 			}
 			for _, container := range containers {
@@ -159,7 +168,6 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 		}
 	}
 
-	klog.Infof("Fetched pod metrics: %+v", podsAllMetrics.Items)
 	return podsAllMetrics, nil
 }
 

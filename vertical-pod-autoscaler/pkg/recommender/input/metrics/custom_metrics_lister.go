@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	k8sapiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -134,8 +135,6 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 		}
 	}
 
-	klog.InfoS("Indexed custom pod metrics", "indexedCustomPodMetrics", indexedCustomPodMetrics)
-
 	// Convert the indexed results back to a PodMetricsList.
 	podsCustomMetrics := &v1beta1.PodMetricsList{}
 	for namespace, pods := range indexedCustomPodMetrics {
@@ -143,7 +142,7 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 			podMetrics := v1beta1.PodMetrics{
 				TypeMeta:   v1.TypeMeta{},
 				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: pod},
-				Window:     v1.Duration{},
+				Window:     v1.Duration{5 * time.Minute},
 				Containers: make([]v1beta1.ContainerMetrics, 0),
 			}
 			for _, container := range containers {
@@ -153,8 +152,6 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 			podsCustomMetrics.Items = append(podsCustomMetrics.Items, podMetrics)
 		}
 	}
-
-	klog.InfoS("Returning custom pod metrics", "podsCustomMetrics", podsCustomMetrics)
 
 	return podsCustomMetrics, nil
 }
