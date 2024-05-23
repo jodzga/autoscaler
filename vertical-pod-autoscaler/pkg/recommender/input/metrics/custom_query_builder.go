@@ -1,8 +1,6 @@
-/*
-Helper for building queries for custom metrics queries.
-See custom_metrics_lister.go for usage.
-*/
-
+// Package metrics includes custom per-container usage metrics from M3.
+// Helper for building queries for custom metrics queries.
+// See custom_metrics_lister.go for usage.
 package metrics
 
 import (
