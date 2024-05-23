@@ -74,7 +74,8 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 
 	// Dispatch queries to Metrics API (for CPU/memory usage) and queries to M3 (for custom resource usage) concurrently.
 	var wg sync.WaitGroup
-	resChan := make(chan *v1beta1.PodMetricsList, 2)
+	resChan := make(chan *v1beta1.PodMetricsList, 1)
+	customResChan := make(chan *v1beta1.PodMetricsList, 1)
 
 	wg.Add(1)
 	go func() {
@@ -103,74 +104,62 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 				return
 			}
 
-			resChan <- podsCustomMetrics
+			customResChan <- podsCustomMetrics
 		}()
 	}
 
 	wg.Wait()
 	close(resChan)
+	close(customResChan)
 
-	// Index the results by namespace then pod name then container name then resource.
-	indexedAllPodMetrics := make(map[string]map[string]map[string]v1beta1.ContainerMetrics)
-	indexedAllPodTimestamps := make(map[string]map[string]v1.Time)
-	for res := range resChan {
-		if res == nil {
-			continue
+	podMetrics := <-resChan
+	customPodMetrics := <-customResChan
+	if s.customMetricsLister == nil || customPodMetrics == nil {
+		return podMetrics, nil
+	}
+
+	// Index the custom query results by namespace then pod name then container name then resource.
+	indexedCustomPodMetrics := make(map[string]map[string]map[string]v1beta1.ContainerMetrics)
+	for _, customPodMetric := range customPodMetrics.Items {
+		if _, ok := indexedCustomPodMetrics[customPodMetric.Namespace]; !ok {
+			indexedCustomPodMetrics[customPodMetric.Namespace] = make(map[string]map[string]v1beta1.ContainerMetrics)
+		}
+		if _, ok := indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name]; !ok {
+			indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name] = make(map[string]v1beta1.ContainerMetrics)
 		}
 
-		for _, podMetrics := range res.Items {
-			if _, ok := indexedAllPodMetrics[podMetrics.Namespace]; !ok {
-				indexedAllPodMetrics[podMetrics.Namespace] = make(map[string]map[string]v1beta1.ContainerMetrics)
-			}
-			if _, ok := indexedAllPodMetrics[podMetrics.Namespace][podMetrics.Name]; !ok {
-				indexedAllPodMetrics[podMetrics.Namespace][podMetrics.Name] = make(map[string]v1beta1.ContainerMetrics)
+		for _, containerMetrics := range customPodMetric.Containers {
+			if _, ok := indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name]; !ok {
+				indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name] = make(map[string]v1beta1.ContainerMetrics)
 			}
 
-			if _, ok := indexedAllPodTimestamps[podMetrics.Namespace]; !ok {
-				indexedAllPodTimestamps[podMetrics.Namespace] = make(map[string]v1.Time)
+			indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name][containerMetrics.Name] = containerMetrics
+		}
+	}
+
+	// Augment the query results from the Metrics API with the custom query results from M3.
+	for i, podMetric := range podMetrics.Items {
+		for j, containerMetrics := range podMetric.Containers {
+			customNamespaceMetrics, ok := indexedCustomPodMetrics[podMetric.Namespace]
+			if !ok {
+				continue
 			}
-			// TODO(leekathy): Consider the timestamp from M3.
-			// The current implementation assumes CPU/memory will succeed for every pod with custom metrics.
-			// Use timestamp returned from the Metrics API if available.
-			if !podMetrics.Timestamp.IsZero() {
-				indexedAllPodTimestamps[podMetrics.Namespace][podMetrics.Name] = podMetrics.Timestamp
+			customPodMetrics, ok := customNamespaceMetrics[podMetric.Name]
+			if !ok {
+				continue
+			}
+			customContainerMetrics, ok := customPodMetrics[containerMetrics.Name]
+			if !ok {
+				continue
 			}
 
-			for _, containerMetrics := range podMetrics.Containers {
-				if _, ok := indexedAllPodMetrics[podMetrics.Namespace][podMetrics.Name][containerMetrics.Name]; !ok {
-					indexedAllPodMetrics[podMetrics.Namespace][podMetrics.Name][containerMetrics.Name] = v1beta1.ContainerMetrics{
-						Name:  containerMetrics.Name,
-						Usage: make(k8sapiv1.ResourceList),
-					}
-				}
-
-				for resourceName, quantity := range containerMetrics.Usage {
-					indexedAllPodMetrics[podMetrics.Namespace][podMetrics.Name][containerMetrics.Name].Usage[resourceName] = quantity
-				}
+			for resource, quantity := range customContainerMetrics.Usage {
+				podMetrics.Items[i].Containers[j].Usage[resource] = quantity
 			}
 		}
 	}
 
-	// Convert the indexed results back to a PodMetricsList.
-	podsAllMetrics := &v1beta1.PodMetricsList{}
-	for namespace, pods := range indexedAllPodMetrics {
-		for pod, containers := range pods {
-			podMetrics := v1beta1.PodMetrics{
-				Timestamp:  indexedAllPodTimestamps[namespace][pod],
-				TypeMeta:   v1.TypeMeta{},
-				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: pod},
-				Window:     v1.Duration{5 * time.Minute},
-				Containers: make([]v1beta1.ContainerMetrics, 0),
-			}
-			for _, container := range containers {
-				podMetrics.Containers = append(podMetrics.Containers, container)
-			}
-
-			podsAllMetrics.Items = append(podsAllMetrics.Items, podMetrics)
-		}
-	}
-
-	return podsAllMetrics, nil
+	return podMetrics, nil
 }
 
 // externalMetricsClient is the External Metrics source of metrics.
