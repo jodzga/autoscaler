@@ -172,6 +172,10 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 		return nsQueryResult{nsQuery: query, err: err}
 	}
 
+	if response.Status != "success" {
+		return nsQueryResult{nsQuery: query, err: fmt.Errorf("Failed to get successful response (status: %s)", response.Status)}
+	}
+
 	nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
 	for _, result := range response.Data.Result {
 		klog.InfoS("GOT RESULT", "result", result)
@@ -205,18 +209,18 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 			continue
 		}
 
-		resourceQuantity, err := resource.ParseQuantity(value)
-		if err != nil {
-			klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
-			continue
-		}
+		// resourceQuantity, err := resource.ParseQuantity(value)
+		// if err != nil {
+		// 	klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
+		// 	continue
+		// }
 
-		klog.InfoS("PARSED QUANTITY", "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName, "quantity", resourceQuantity)
+		klog.InfoS("PARSED QUANTITY", "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName, "quantity", value)
 
 		if _, ok := nsQueryResult.podUsages[podName]; !ok {
 			nsQueryResult.podUsages[podName] = make(containerUsages)
 		}
-		nsQueryResult.podUsages[podName][containerName] = resourceQuantity
+		nsQueryResult.podUsages[podName][containerName] = resource.Quantity{}
 	}
 
 	return nsQueryResult
