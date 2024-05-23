@@ -7,9 +7,9 @@ package metrics
 
 import (
 	"context"
-	// "encoding/json"
-	// "fmt"
-	// "io/ioutil"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
@@ -154,26 +154,26 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 	baseUrlParsed.Path += "/api/v1/query"
 	baseUrlParsed.RawQuery = params.Encode()
 
+	resp, err := c.client.Get(baseUrlParsed.String())
+	if err != nil {
+		return nsQueryResult{nsQuery: query, err: err}
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nsQueryResult{nsQuery: query, err: fmt.Errorf("Failed to get valid response (status: %s)", resp.Status)}
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nsQueryResult{nsQuery: query, err: err}
+	}
+
+	var response nsQueryResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nsQueryResult{nsQuery: query, err: err}
+	}
+
 	return nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
-
-	// resp, err := c.client.Get(baseUrlParsed.String())
-	// if err != nil {
-	// 	return nsQueryResult{nsQuery: query, err: err}
-	// }
-	// if resp.StatusCode != http.StatusOK {
-	// 	return nsQueryResult{nsQuery: query, err: fmt.Errorf("Failed to get valid response (status: %s)", resp.Status)}
-	// }
-
-	// defer resp.Body.Close()
-	// body, err := ioutil.ReadAll(resp.Body)
-	// if err != nil {
-	// 	return nsQueryResult{nsQuery: query, err: err}
-	// }
-
-	// var response nsQueryResponse
-	// if err := json.Unmarshal(body, &response); err != nil {
-	// 	return nsQueryResult{nsQuery: query, err: err}
-	// }
 
 	// nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
 	// for _, result := range response.Data.Result {
