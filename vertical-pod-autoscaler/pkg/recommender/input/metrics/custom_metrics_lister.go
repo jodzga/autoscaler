@@ -228,7 +228,7 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 		if _, ok := nsQueryResult.podUsages[podName]; !ok {
 			nsQueryResult.podUsages[podName] = make(containerUsages)
 		}
-		nsQueryResult.podUsages[podName][containerName] = resource.Quantity{}
+		nsQueryResult.podUsages[podName][containerName] = resourceQuantity
 	}
 
 	return nsQueryResult
