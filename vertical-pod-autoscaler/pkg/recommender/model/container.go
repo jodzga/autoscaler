@@ -256,7 +256,8 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 		container.rssPeak = 0
 		addNewPeak = true
 	}
-	// TODO: Observe quality metrics once OOM is considered.
+	// TODO: Consider OOM.
+	container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceRSS))
 	if addNewPeak {
 		newPeak := ContainerUsageSample{
 			MeasureStart: container.RSSWindowEnd,
@@ -306,7 +307,8 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 		container.jvmHeapCommittedPeak = 0
 		addNewPeak = true
 	}
-	// TODO: Observe quality metrics once OOM is considered.
+	// TODO: Consider OOM.
+	container.observeQualityMetrics(sample.Usage, false, corev1.ResourceName(ResourceJVMHeapCommitted))
 	if addNewPeak {
 		newPeak := ContainerUsageSample{
 			MeasureStart: container.JVMHeapCommittedWindowEnd,
