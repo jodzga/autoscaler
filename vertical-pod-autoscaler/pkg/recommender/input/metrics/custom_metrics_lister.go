@@ -95,7 +95,6 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 		go func(query nsQuery) {
 			defer wg.Done()
-			klog.InfoS("TRIGGERING QUERY TO M3", "query", query.query, "namespace", query.namespace, "resource", query.resource, "pods", query.pods)
 			resChan <- c.query(query)
 		}(query)
 	}
@@ -175,7 +174,11 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 
 	nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
 	for _, result := range response.Data.Result {
-		klog.InfoS("PARSED RESULT", "result", result)
+		if result.Metric == nil {
+			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get metric labels", "result", result)
+			continue
+		}
+
 		podName, ok := result.Metric[query.podNameLabel]
 		if !ok {
 			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value of pod name label", "targetLabel", query.podNameLabel, "allLabels", result.Metric)
@@ -188,7 +191,7 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 			continue
 		}
 
-		if len(result.Value) < 2 {
+		if result.Value == nil || len(result.Value) < 2 {
 			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get result in expected [timestamp, value] format", "result", result.Value)
 			continue
 		}
@@ -199,18 +202,16 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 			continue
 		}
 
-		// resourceQuantity, err := resource.ParseQuantity(value)
-		// if err != nil {
-		// 	klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
-		// 	continue
-		// }
-
-		klog.InfoS("PARSED VALUE", "value", value)
+		resourceQuantity, err := resource.ParseQuantity(value)
+		if err != nil {
+			klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
+			continue
+		}
 
 		if _, ok := nsQueryResult.podUsages[podName]; !ok {
 			nsQueryResult.podUsages[podName] = make(containerUsages)
 		}
-		nsQueryResult.podUsages[podName][containerName] = resource.Quantity{}
+		nsQueryResult.podUsages[podName][containerName] = resourceQuantity
 	}
 
 	return nsQueryResult
