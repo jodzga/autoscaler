@@ -19,7 +19,7 @@ package model
 import (
 	"sort"
 	"time"
-	"k8s.io/klog/v2"
+
 	autoscaling "k8s.io/api/autoscaling/v1"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -165,7 +165,6 @@ func (vpa *Vpa) UpdateRecommendation(recommendation *vpa_types.RecommendedPodRes
 	for _, containerRecommendation := range recommendation.ContainerRecommendations {
 		for container, state := range vpa.aggregateContainerStates {
 			if container.ContainerName() == containerRecommendation.ContainerName {
-				klog.InfoS("last recommendation", "lastRecommendation", state.LastRecommendation, "newRecommendation", containerRecommendation.UncappedTarget, "container", container.ContainerName(), "vpa", vpa.ID)
 				metrics_quality.ObserveRecommendationChange(state.LastRecommendation, containerRecommendation.UncappedTarget, vpa.UpdateMode, vpa.PodCount)
 				state.LastRecommendation = containerRecommendation.UncappedTarget
 			}
