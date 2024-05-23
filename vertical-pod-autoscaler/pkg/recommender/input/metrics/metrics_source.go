@@ -159,7 +159,6 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 		}
 	}
 
-	klog.InfoS("ALL POD METRICS", "podMetrics", podMetrics)
 	return podMetrics, nil
 }
 
