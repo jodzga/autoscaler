@@ -146,7 +146,7 @@ func main() {
 		source = input_metrics.NewExternalClient(config, clusterState, *externalClientOptions)
 	} else {
 		klog.V(1).Infof("Using Metrics Server.")
-		source = input_metrics.NewPodMetricsesSource(resourceclient.NewForConfigOrDie(config), *prometheusAddress)
+		source = input_metrics.NewPodMetricsesSource(resourceclient.NewForConfigOrDie(config), podLister, *prometheusAddress)
 	}
 
 	clusterStateFeeder := input.ClusterStateFeederFactory{
