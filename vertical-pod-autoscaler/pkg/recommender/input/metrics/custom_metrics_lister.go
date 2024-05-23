@@ -26,7 +26,7 @@ import (
 // rather than the resourceclient.PodMetricsesGetter interface, as only LIST is needed.
 type customPodMetricsLister struct {
 	client       *http.Client
-	baseQueryUrl string
+	baseUrl string
 	queries      []nsQueryBuilder
 	podLister    v1lister.PodLister
 }
@@ -55,10 +55,10 @@ type nsQueryResult struct {
 	err       error
 }
 
-func newCustomPodMetricsLister(baseQueryUrl string, queries []nsQueryBuilder, podLister v1lister.PodLister) PodMetricsLister {
+func newCustomPodMetricsLister(baseUrl string, queries []nsQueryBuilder, podLister v1lister.PodLister) PodMetricsLister {
 	return &customPodMetricsLister{
 		client:       &http.Client{},
-		baseQueryUrl: baseQueryUrl,
+		baseUrl: baseUrl,
 		queries:      queries,
 		podLister:    podLister,
 	}
@@ -145,17 +145,17 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 // query queries M3 for the specified custom resource metric and returns the result.
 func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
-	klog.InfoS("Querying M3", "query", query.query, "namespace", query.namespace, "resource", query.resource, "pods", query.pods)
-	params := url.Values{}
-	params.Add("query", query.query)
-	baseQueryUrl, err := url.Parse(c.baseQueryUrl)
+	baseUrlParsed, err := url.Parse(c.baseUrl)
 	if err != nil {
 		return nsQueryResult{nsQuery: query, err: err}
 	}
-	baseQueryUrl.RawQuery = params.Encode()
-	klog.InfoS("Querying M3", "url", baseQueryUrl.String())
+	baseUrlParsed.Path += "/api/v1/query"
 
-	resp, err := c.client.Get(baseQueryUrl.String())
+	params := url.Values{}
+	params.Add("query", query.query)
+	baseUrlParsed.RawQuery = params.Encode()
+
+	resp, err := c.client.Get(baseUrlParsed.String())
 	if err != nil {
 		return nsQueryResult{nsQuery: query, err: err}
 	}

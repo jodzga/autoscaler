@@ -63,10 +63,9 @@ func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter, podLister v
 	}
 
 	klog.Infof("Using M3 URL %s for custom pod usage metrics", m3Url)
-	m3QueryUrl := m3Url + "/api/v1/query"
 	return podMetricsSource{
 		metricsGetter:       source,
-		customMetricsLister: newCustomPodMetricsLister(m3QueryUrl, customQueries, podLister),
+		customMetricsLister: newCustomPodMetricsLister(m3Url, customQueries, podLister),
 	}
 }
 
