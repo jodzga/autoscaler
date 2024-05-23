@@ -129,6 +129,8 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			if _, ok := indexedAllPodTimestamps[podMetrics.Namespace]; !ok {
 				indexedAllPodTimestamps[podMetrics.Namespace] = make(map[string]v1.Time)
 			}
+			// TODO(leekathy): Consider the timestamp from M3.
+			// The current implementation assumes CPU/memory will succeed for every pod with custom metrics.
 			// Use timestamp returned from the Metrics API if available.
 			if !podMetrics.Timestamp.IsZero() {
 				indexedAllPodTimestamps[podMetrics.Namespace][podMetrics.Name] = podMetrics.Timestamp
