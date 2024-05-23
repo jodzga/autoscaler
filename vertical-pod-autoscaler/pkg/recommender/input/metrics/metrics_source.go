@@ -154,6 +154,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			for _, container := range containers {
 				podMetrics.Containers = append(podMetrics.Containers, container)
 			}
+
 			podsAllMetrics.Items = append(podsAllMetrics.Items, podMetrics)
 		}
 	}

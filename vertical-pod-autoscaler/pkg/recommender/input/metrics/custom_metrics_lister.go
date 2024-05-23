@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"sync"
 
+	k8sapiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -25,10 +26,10 @@ import (
 // customPodMetricsLister implements the PodMetricsLister interface in metrics_source.go,
 // rather than the resourceclient.PodMetricsesGetter interface, as only LIST is needed.
 type customPodMetricsLister struct {
-	client       *http.Client
-	baseUrl string
-	queries      []nsQueryBuilder
-	podLister    v1lister.PodLister
+	client    *http.Client
+	baseUrl   string
+	queries   []nsQueryBuilder
+	podLister v1lister.PodLister
 }
 
 // nsQueryResponse is for unmarshaling the response from M3.
@@ -57,10 +58,10 @@ type nsQueryResult struct {
 
 func newCustomPodMetricsLister(baseUrl string, queries []nsQueryBuilder, podLister v1lister.PodLister) PodMetricsLister {
 	return &customPodMetricsLister{
-		client:       &http.Client{},
-		baseUrl: baseUrl,
-		queries:      queries,
-		podLister:    podLister,
+		client:    &http.Client{},
+		baseUrl:   baseUrl,
+		queries:   queries,
+		podLister: podLister,
 	}
 }
 
@@ -102,8 +103,8 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 	wg.Wait()
 	close(resChan)
 
-	// Index the results by namespace.
-	resultsByNs := make(map[string][]nsQueryResult, len(allQueries))
+	// Index the results by namespace then pod name then container name then resource.
+	indexedCustomPodMetrics := make(map[string]map[string]map[string]v1beta1.ContainerMetrics)
 	for res := range resChan {
 		if res.err != nil {
 			// TODO(leekathy): Emit metrics and setup alerting.
@@ -111,35 +112,47 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 			continue
 		}
 
-		resultsByNs[res.nsQuery.namespace] = append(resultsByNs[res.nsQuery.namespace], res)
-	}
-
-	// Create a PodMetricsList with the custom resource metrics.
-	podMetrics := &v1beta1.PodMetricsList{}
-	for i, pod := range pods {
-		results, ok := resultsByNs[pod.Namespace]
-		if !ok {
-			continue
+		if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace]; !ok {
+			indexedCustomPodMetrics[res.nsQuery.namespace] = make(map[string]map[string]v1beta1.ContainerMetrics)
 		}
 
-		for _, result := range results {
-			containerUsages, ok := result.podUsages[pod.Name]
-			if !ok {
-				continue
+		for pod, containerUsages := range res.podUsages {
+			if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace][pod]; !ok {
+				indexedCustomPodMetrics[res.nsQuery.namespace][pod] = make(map[string]v1beta1.ContainerMetrics)
 			}
 
-			for j, container := range pod.Spec.Containers {
-				containerUsage, ok := containerUsages[container.Name]
-				if !ok {
-					continue
+			for container, usage := range containerUsages {
+				if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace][pod][container]; !ok {
+					indexedCustomPodMetrics[res.nsQuery.namespace][pod][container] = v1beta1.ContainerMetrics{
+						Name:  container,
+						Usage: make(k8sapiv1.ResourceList),
+					}
 				}
 
-				podMetrics.Items[i].Containers[j].Usage[result.nsQuery.resource] = containerUsage
+				indexedCustomPodMetrics[res.nsQuery.namespace][pod][container].Usage[res.nsQuery.resource] = usage
 			}
 		}
 	}
 
-	return podMetrics, nil
+	// Convert the indexed results back to a PodMetricsList.
+	podsCustomMetrics := &v1beta1.PodMetricsList{}
+	for namespace, pods := range indexedCustomPodMetrics {
+		for pod, containers := range pods {
+			podMetrics := v1beta1.PodMetrics{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: pod},
+				Window:     v1.Duration{},
+				Containers: make([]v1beta1.ContainerMetrics, 0),
+			}
+			for _, container := range containers {
+				podMetrics.Containers = append(podMetrics.Containers, container)
+			}
+
+			podsCustomMetrics.Items = append(podsCustomMetrics.Items, podMetrics)
+		}
+	}
+
+	return podsCustomMetrics, nil
 }
 
 // query queries M3 for the specified custom resource metric and returns the result.
@@ -178,7 +191,6 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 
 	nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
 	for _, result := range response.Data.Result {
-		klog.InfoS("GOT RESULT", "result", result)
 		if result.Metric == nil {
 			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get metric labels", "result", result)
 			continue
@@ -201,21 +213,17 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 			continue
 		}
 
-		klog.InfoS("PARSED RESULT", "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName, "value", result.Value)
-
 		value, ok := result.Value[1].(string)
 		if !ok {
 			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value as resource quantity string", "result", result.Value[1])
 			continue
 		}
 
-		// resourceQuantity, err := resource.ParseQuantity(value)
-		// if err != nil {
-		// 	klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
-		// 	continue
-		// }
-
-		klog.InfoS("PARSED QUANTITY", "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName, "quantity", value)
+		resourceQuantity, err := resource.ParseQuantity(value)
+		if err != nil {
+			klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
+			continue
+		}
 
 		if _, ok := nsQueryResult.podUsages[podName]; !ok {
 			nsQueryResult.podUsages[podName] = make(containerUsages)
