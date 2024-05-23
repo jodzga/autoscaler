@@ -95,8 +95,8 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 		go func(query nsQuery) {
 			defer wg.Done()
-			resChan <- nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
-			// resChan <- c.query(query)
+			klog.InfoS("TRIGGERING QUERY TO M3", "query", query.query, "namespace", query.namespace, "resource", query.resource, "pods", query.pods)
+			resChan <- c.query(query)
 		}(query)
 	}
 
@@ -145,6 +145,7 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 // query queries M3 for the specified custom resource metric and returns the result.
 func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
+	klog.InfoS("Querying M3", "query", query.query, "namespace", query.namespace, "resource", query.resource, "pods", query.pods)
 	params := url.Values{}
 	params.Add("query", query.query)
 	baseQueryUrl, err := url.Parse(c.baseQueryUrl)
@@ -152,6 +153,7 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 		return nsQueryResult{nsQuery: query, err: err}
 	}
 	baseQueryUrl.RawQuery = params.Encode()
+	klog.InfoS("Querying M3", "url", baseQueryUrl.String())
 
 	resp, err := c.client.Get(baseQueryUrl.String())
 	if err != nil {
