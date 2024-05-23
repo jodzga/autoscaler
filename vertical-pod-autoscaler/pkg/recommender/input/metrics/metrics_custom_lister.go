@@ -69,6 +69,7 @@ type nsQueryResult struct {
 	err       error
 }
 
+// TODO(leekathy): Replace with the prom client and add unit tests.
 func newCustomPodMetricsLister(baseUrl string, queries []nsQueryBuilder, podLister v1lister.PodLister) PodMetricsLister {
 	return &customPodMetricsLister{
 		client:    &http.Client{},
