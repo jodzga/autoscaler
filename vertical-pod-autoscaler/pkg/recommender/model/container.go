@@ -114,9 +114,9 @@ func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isO
 		usageValue = CoresFromCPUAmount(usage)
 	case corev1.ResourceMemory:
 		usageValue = BytesFromMemoryAmount(usage)
-	case corev1.ResourceName(model.ResourceRSS):
+	case corev1.ResourceName(ResourceRSS):
 		usageValue = BytesFromMemoryAmount(usage)
-	case corev1.ResourceName(model.ResourceJVMHeapCommitted):
+	case corev1.ResourceName(ResourceJVMHeapCommitted):
 		usageValue = BytesFromMemoryAmount(usage)
 	}
 	if container.aggregator.GetLastRecommendation() == nil {
@@ -134,9 +134,9 @@ func (container *ContainerState) observeQualityMetrics(usage ResourceAmount, isO
 		recommendationValue = float64(recommendation.MilliValue()) / 1000.0
 	case corev1.ResourceMemory:
 		recommendationValue = float64(recommendation.Value())
-	case corev1.ResourceName(model.ResourceRSS):
+	case corev1.ResourceName(ResourceRSS):
 		recommendationValue = float64(recommendation.Value())
-	case corev1.ResourceName(model.ResourceJVMHeapCommitted):
+	case corev1.ResourceName(ResourceJVMHeapCommitted):
 		recommendationValue = float64(recommendation.Value())
 	default:
 		klog.Warningf("Unknown resource: %v", resource)

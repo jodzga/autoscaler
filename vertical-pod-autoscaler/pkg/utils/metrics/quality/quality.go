@@ -32,6 +32,9 @@ import (
 
 const (
 	metricsNamespace = metrics.TopMetricsNamespace + "quality"
+	// Avoid circular deps from importing k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model
+	resourceRSS              = corev1.ResourceName("rss")
+	resourceJVMHeapCommitted = corev1.ResourceName("jvmHeapCommitted")
 )
 
 var (
@@ -76,6 +79,22 @@ var (
 			Buckets:   memoryBuckets,
 		}, []string{"update_mode", "recommendation_missing", "is_oom"},
 	)
+	rssRecommendationOverUsageDiff = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
+			Name:      "rss_recommendation_over_usage_diffs_bytes",
+			Help:      "Absolute diffs between recommendation and usage for RSS when recommendation > usage",
+			Buckets:   memoryBuckets,
+		}, []string{"update_mode", "recommendation_missing"},
+	)
+	jvmHeapCommittedRecommendationOverUsageDiff = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
+			Name:      "jvm_heap_committed_recommendation_over_usage_diffs_bytes",
+			Help:      "Absolute diffs between recommendation and usage for JVM Heap Committed when recommendation > usage",
+			Buckets:   memoryBuckets,
+		}, []string{"update_mode", "recommendation_missing"},
+	)
 	cpuRecommendationLowerOrEqualUsageDiff = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: metricsNamespace,
@@ -91,6 +110,22 @@ var (
 			Help:      "Absolute diffs between recommendation and usage for memory when recommendation <= usage",
 			Buckets:   memoryBuckets,
 		}, []string{"update_mode", "recommendation_missing", "is_oom"},
+	)
+	rssRecommendationLowerOrEqualUsageDiff = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
+			Name:      "rss_recommendation_lower_equal_usage_diffs_bytes",
+			Help:      "Absolute diffs between recommendation and usage for RSS when recommendation <= usage",
+			Buckets:   memoryBuckets,
+		}, []string{"update_mode", "recommendation_missing"},
+	)
+	jvmHeapCommittedRecommendationLowerOrEqualUsageDiff = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
+			Name:      "jvm_heap_committed_recommendation_lower_equal_usage_diffs_bytes",
+			Help:      "Absolute diffs between recommendation and usage for JVM Heap Committed when recommendation <= usage",
+			Buckets:   memoryBuckets,
+		}, []string{"update_mode", "recommendation_missing"},
 	)
 	cpuRecommendations = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -108,6 +143,22 @@ var (
 			Buckets:   memoryBuckets,
 		}, []string{"update_mode", "is_oom"},
 	)
+	rssRecommendations = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
+			Name:      "rss_recommendations_bytes",
+			Help:      "RSS recommendation values as observed on recorded usage sample",
+			Buckets:   memoryBuckets,
+		}, []string{"update_mode"},
+	)
+	jvmHeapCommittedRecommendations = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: metricsNamespace,
+			Name:      "jvm_heap_committed_recommendations_bytes",
+			Help:      "JVM Heap Committed recommendation values as observed on recorded usage sample",
+			Buckets:   memoryBuckets,
+		}, []string{"update_mode"},
+	)
 	relativeRecommendationChange = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: metricsNamespace,
@@ -124,10 +175,16 @@ func Register() {
 	prometheus.MustRegister(usageMissingRecommendationCounter)
 	prometheus.MustRegister(cpuRecommendationOverUsageDiff)
 	prometheus.MustRegister(memoryRecommendationOverUsageDiff)
+	prometheus.MustRegister(rssRecommendationOverUsageDiff)
+	prometheus.MustRegister(jvmHeapCommittedRecommendationOverUsageDiff)
 	prometheus.MustRegister(cpuRecommendationLowerOrEqualUsageDiff)
 	prometheus.MustRegister(memoryRecommendationLowerOrEqualUsageDiff)
+	prometheus.MustRegister(rssRecommendationLowerOrEqualUsageDiff)
+	prometheus.MustRegister(jvmHeapCommittedRecommendationLowerOrEqualUsageDiff)
 	prometheus.MustRegister(cpuRecommendations)
 	prometheus.MustRegister(memoryRecommendations)
+	prometheus.MustRegister(rssRecommendations)
+	prometheus.MustRegister(jvmHeapCommittedRecommendations)
 	prometheus.MustRegister(relativeRecommendationChange)
 }
 
@@ -166,6 +223,22 @@ func observeUsageRecommendationDiff(usage, recommendation float64, isRecommendat
 			memoryRecommendationLowerOrEqualUsageDiff.WithLabelValues(updateModeToString(updateMode),
 				strconv.FormatBool(isRecommendationMissing), strconv.FormatBool(isOOM)).Observe(diff)
 		}
+	case corev1.ResourceName(resourceRSS):
+		if recommendationOverUsage {
+			rssRecommendationOverUsageDiff.WithLabelValues(updateModeToString(updateMode),
+				strconv.FormatBool(isRecommendationMissing)).Observe(diff)
+		} else {
+			rssRecommendationLowerOrEqualUsageDiff.WithLabelValues(updateModeToString(updateMode),
+				strconv.FormatBool(isRecommendationMissing)).Observe(diff)
+		}
+	case corev1.ResourceName(resourceJVMHeapCommitted):
+		if recommendationOverUsage {
+			jvmHeapCommittedRecommendationOverUsageDiff.WithLabelValues(updateModeToString(updateMode),
+				strconv.FormatBool(isRecommendationMissing)).Observe(diff)
+		} else {
+			jvmHeapCommittedRecommendationLowerOrEqualUsageDiff.WithLabelValues(updateModeToString(updateMode),
+				strconv.FormatBool(isRecommendationMissing)).Observe(diff)
+		}
 	default:
 		klog.Warningf("Unknown resource: %v", resource)
 	}
@@ -178,6 +251,10 @@ func observeRecommendation(recommendation float64, isOOM bool, resource corev1.R
 		cpuRecommendations.WithLabelValues(updateModeToString(updateMode)).Observe(recommendation)
 	case corev1.ResourceMemory:
 		memoryRecommendations.WithLabelValues(updateModeToString(updateMode), strconv.FormatBool(isOOM)).Observe(recommendation)
+	case corev1.ResourceName(resourceRSS):
+		rssRecommendations.WithLabelValues(updateModeToString(updateMode)).Observe(recommendation)
+	case corev1.ResourceName(resourceJVMHeapCommitted):
+		jvmHeapCommittedRecommendations.WithLabelValues(updateModeToString(updateMode)).Observe(recommendation)
 	default:
 		klog.Warningf("Unknown resource: %v", resource)
 	}
@@ -228,6 +305,10 @@ func quantityAsFloat(resource corev1.ResourceName, quantity resource.Quantity) f
 	case corev1.ResourceCPU:
 		return float64(quantity.MilliValue())
 	case corev1.ResourceMemory:
+		return float64(quantity.Value())
+	case corev1.ResourceName(resourceRSS):
+		return float64(quantity.Value())
+	case corev1.ResourceName(resourceJVMHeapCommitted):
 		return float64(quantity.Value())
 	default:
 		klog.Warningf("Unknown resource: %v", resource)
