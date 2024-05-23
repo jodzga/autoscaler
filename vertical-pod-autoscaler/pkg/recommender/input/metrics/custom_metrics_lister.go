@@ -7,9 +7,9 @@ package metrics
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
+	// "encoding/json"
+	// "fmt"
+	// "io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
@@ -145,16 +145,16 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 // query queries M3 for the specified custom resource metric and returns the result.
 func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
-	klog.InfoS("QUERYING M3", "query", query.query, "namespace", query.namespace, "resource", query.resource, "pods", query.pods)
+	params := url.Values{}
+	params.Add("query", query.query)
+	baseUrlParsed, err := url.Parse(c.baseUrl)
+	if err != nil {
+		return nsQueryResult{nsQuery: query, err: err}
+	}
+	baseUrlParsed.Path += "/api/v1/query"
+	baseUrlParsed.RawQuery = params.Encode()
+
 	return nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
-	// params := url.Values{}
-	// params.Add("query", query.query)
-	// baseUrlParsed, err := url.Parse(c.baseUrl)
-	// if err != nil {
-	// 	return nsQueryResult{nsQuery: query, err: err}
-	// }
-	// baseUrlParsed.Path += "/api/v1/query"
-	// baseUrlParsed.RawQuery = params.Encode()
 
 	// resp, err := c.client.Get(baseUrlParsed.String())
 	// if err != nil {
