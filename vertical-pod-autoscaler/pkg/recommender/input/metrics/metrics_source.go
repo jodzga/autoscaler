@@ -18,24 +18,20 @@ package metrics
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
+	"sync"
+	"time"
 
 	k8sapiv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model"
+	v1lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	resourceclient "k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1"
 	"k8s.io/metrics/pkg/client/external_metrics"
-	"time"
 )
 
 // PodMetricsLister wraps both metrics-client and External Metrics
@@ -45,131 +41,129 @@ type PodMetricsLister interface {
 
 // podMetricsSource is the metrics-client source of metrics.
 type podMetricsSource struct {
-	metricsGetter resourceclient.PodMetricsesGetter
-	m3Url         string
+	metricsGetter       resourceclient.PodMetricsesGetter
+	customMetricsLister PodMetricsLister
+}
+
+// customQueries holds the custom resource query builders.
+var customQueries = []nsQueryBuilder{
+	getRSSQuery("container_name", "pod_name"),
+	getJVMHeapCommittedQuery("kubernetes_container_name", "kubernetes_pod_name"),
 }
 
 // NewPodMetricsesSource Returns a Source-wrapper around PodMetricsesGetter.
-func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter, m3Url string) PodMetricsLister {
+// Added custom metrics lister for M3 queries.
+func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter, podLister v1lister.PodLister, m3Url string) PodMetricsLister {
+	if m3Url == "" {
+		klog.Info("No M3 URL provided - skipping pod custom resource usage metrics")
+		return podMetricsSource{
+			metricsGetter:       source,
+			customMetricsLister: nil,
+		}
+	}
+
+	klog.Infof("Using M3 URL %s for pod custom resource usage metrics", m3Url)
 	return podMetricsSource{
-		metricsGetter: source,
-		m3Url:         m3Url,
+		metricsGetter:       source,
+		customMetricsLister: newCustomPodMetricsLister(m3Url, customQueries, podLister),
 	}
 }
 
-func getRSSQuery(containerName string, podName string, namespace string) string {
-	return fmt.Sprintf("max_over_time(container_memory_rss{container_name='%s', pod_name='%s', namespace='%s'}[5m])", containerName, podName, namespace)
-}
+func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.ListOptions) (*v1beta1.PodMetricsList, error) {
+	podMetricsInterface := s.metricsGetter.PodMetricses(namespace)
 
-func getJVMHeapCommittedQuery(containerName string, podName string, namespace string) string {
-	return fmt.Sprintf("max_over_time(jmx_Memory_HeapMemoryUsage_committed{kubernetes_container_name='%s', kubernetes_pod_name='%s', kubernetes_namespace='%s'}[5m])", containerName, podName, namespace)
-}
+	// Dispatch queries to Metrics API (for CPU/memory usage) and queries to M3 (for custom resource usage) concurrently.
+	var wg sync.WaitGroup
+	resChan := make(chan *v1beta1.PodMetricsList, 1)
+	customResChan := make(chan *v1beta1.PodMetricsList, 1)
 
-// Augments the PodMetricsList with custom metrics from M3.
-func (s podMetricsSource) withM3CustomMetrics(podMetrics *v1beta1.PodMetricsList) (*v1beta1.PodMetricsList, error) {
-	m3Url, err := url.Parse(s.m3Url)
-	if err != nil {
-		klog.ErrorS(err, "Failed to parse M3 URL")
-		return nil, err
-	}
-	m3Url.Path += "/api/v1/query"
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	for i, pod := range podMetrics.Items {
-		for j, container := range pod.Containers {
-			queries := map[string]k8sapiv1.ResourceName{
-				getRSSQuery(container.Name, pod.Name, pod.Namespace):              k8sapiv1.ResourceName(model.ResourceRSS),
-				getJVMHeapCommittedQuery(container.Name, pod.Name, pod.Namespace): k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted),
+		podsMetrics, err := podMetricsInterface.List(ctx, opts)
+		if err != nil {
+			// TODO(leekathy): Emit metrics and setup alerting.
+			klog.ErrorS(err, "Failed to query pod usage metrics from the Metrics API")
+			resChan <- nil
+			return
+		}
+
+		resChan <- podsMetrics
+	}()
+	if s.customMetricsLister != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			podsCustomMetrics, err := s.customMetricsLister.List(ctx, namespace, opts)
+			if err != nil {
+				// TODO(leekathy): Emit metrics and setup alerting.
+				klog.ErrorS(err, "Failed to query pod custom usage metrics from M3")
+				resChan <- nil
+				return
 			}
-			for query, resourceName := range queries {
-				params := url.Values{}
-				params.Add("query", query)
-				m3Url.RawQuery = params.Encode()
 
-				resp, err := http.Get(m3Url.String())
-				if err != nil {
-					klog.ErrorS(err, "Failed to query M3", "query", query)
-					continue
-				}
-				if resp.StatusCode != http.StatusOK {
-					klog.ErrorS(err, "Failed to get valid response", "query", query, "status", resp.Status)
-					continue
-				}
+			customResChan <- podsCustomMetrics
+		}()
+	}
 
-				defer resp.Body.Close()
-				body, err := ioutil.ReadAll(resp.Body)
-				if err != nil {
-					klog.ErrorS(err, "Failed to read response body", "query", query)
-					continue
-				}
+	wg.Wait()
+	close(resChan)
+	close(customResChan)
 
-				var responseBody map[string]interface{}
-				if err := json.Unmarshal(body, &responseBody); err != nil {
-					klog.ErrorS(err, "Failed to unmarshal JSON", "body", string(body))
-					continue
-				}
-				data, ok := (responseBody["data"]).(map[string]interface{})
-				if !ok {
-					klog.Errorf("Failed to get .data from JSON: %+v", responseBody)
-					continue
-				}
-				result, ok := (data["result"]).([]interface{})
-				if !ok {
-					klog.Errorf("Failed to get .data.result from JSON: %+v", responseBody)
-					continue
-				}
-				if len(result) == 0 {
-					klog.Errorf("Failed to get any query results in .data.result: %+v", responseBody)
-					continue
-				}
-				if len(result) > 1 {
-					klog.Errorf("More than one query result in .data.result: %+v", responseBody)
-					// Proceed for now and just use the first result. Will need to fine-tune the query if so.
-				}
-				firstResult, ok := (result[0]).(map[string]interface{})
-				if !ok {
-					klog.Errorf("Failed to get first element from .data.result: %+v", responseBody)
-					continue
-				}
-				value, ok := (firstResult["value"]).([]interface{})
-				if !ok {
-					klog.Errorf("Failed to get .data.result[0].value: %+v", responseBody)
-					continue
-				}
-				resourceValue, ok := (value[1]).(string)
-				if !ok {
-					klog.Errorf("Failed to get .data.result[0].value[1]: %+v", responseBody)
-					continue
-				}
+	podMetrics := <-resChan
+	if s.customMetricsLister == nil {
+		return podMetrics, nil
+	}
 
-				resourceQuantity, err := resource.ParseQuantity(resourceValue)
-				if err != nil {
-					klog.ErrorS(err, "Failed to parse as resource quantity", "resourceValue", resourceValue)
-					continue
-				}
+	customPodMetrics := <-customResChan
+	if customPodMetrics == nil {
+		return podMetrics, nil
+	}
 
-				podMetrics.Items[i].Containers[j].Usage[resourceName] = resourceQuantity
-				klog.InfoS("Added container usage data from M3", "resource", resourceName, "value", resourceQuantity, "container", container.Name, "pod", pod.Name, "namespace", pod.Namespace)
+	// Index the custom query results by namespace then pod name then container name then resource.
+	indexedCustomPodMetrics := make(map[string]map[string]map[string]v1beta1.ContainerMetrics)
+	for _, customPodMetric := range customPodMetrics.Items {
+		if _, ok := indexedCustomPodMetrics[customPodMetric.Namespace]; !ok {
+			indexedCustomPodMetrics[customPodMetric.Namespace] = make(map[string]map[string]v1beta1.ContainerMetrics)
+		}
+		if _, ok := indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name]; !ok {
+			indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name] = make(map[string]v1beta1.ContainerMetrics)
+		}
+
+		for _, containerMetrics := range customPodMetric.Containers {
+			if _, ok := indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name]; !ok {
+				indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name] = make(map[string]v1beta1.ContainerMetrics)
+			}
+
+			indexedCustomPodMetrics[customPodMetric.Namespace][customPodMetric.Name][containerMetrics.Name] = containerMetrics
+		}
+	}
+
+	// Augment the query results from the Metrics API with the custom query results from M3.
+	for i, podMetric := range podMetrics.Items {
+		for j, containerMetrics := range podMetric.Containers {
+			customNamespaceMetrics, ok := indexedCustomPodMetrics[podMetric.Namespace]
+			if !ok {
+				continue
+			}
+			customPodMetrics, ok := customNamespaceMetrics[podMetric.Name]
+			if !ok {
+				continue
+			}
+			customContainerMetrics, ok := customPodMetrics[containerMetrics.Name]
+			if !ok {
+				continue
+			}
+
+			for resource, quantity := range customContainerMetrics.Usage {
+				podMetrics.Items[i].Containers[j].Usage[resource] = quantity
 			}
 		}
 	}
 
 	return podMetrics, nil
-}
-
-func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.ListOptions) (*v1beta1.PodMetricsList, error) {
-	podMetricsInterface := s.metricsGetter.PodMetricses(namespace)
-	podsMetrics, err := podMetricsInterface.List(ctx, opts)
-	if err != nil {
-		klog.ErrorS(err, "Failed to query pod usage metrics from the Metrics API")
-		return nil, err
-	}
-
-	if s.m3Url == "" {
-		klog.Info("No M3 URL provided - skipping custom pod usage metrics")
-		return podsMetrics, nil
-	}
-
-	return s.withM3CustomMetrics(podsMetrics)
 }
 
 // externalMetricsClient is the External Metrics source of metrics.
