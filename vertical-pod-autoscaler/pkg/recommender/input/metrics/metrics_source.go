@@ -96,15 +96,17 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 		go func() {
 			defer wg.Done()
 
-			podsCustomMetrics, err := s.customMetricsLister.List(ctx, namespace, opts)
-			if err != nil {
-				// TODO(leekathy): Emit metrics and setup alerting.
-				klog.ErrorS(err, "Failed to query custom pod usage metrics from M3")
-				resChan <- nil
-				return
-			}
+			resChan <- nil
 
-			resChan <- podsCustomMetrics
+			// podsCustomMetrics, err := s.customMetricsLister.List(ctx, namespace, opts)
+			// if err != nil {
+			// 	// TODO(leekathy): Emit metrics and setup alerting.
+			// 	klog.ErrorS(err, "Failed to query custom pod usage metrics from M3")
+			// 	resChan <- nil
+			// 	return
+			// }
+
+			// resChan <- podsCustomMetrics
 		}()
 	}
 
