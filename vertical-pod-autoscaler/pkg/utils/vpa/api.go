@@ -35,6 +35,7 @@ import (
 	vpa_lister "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/listers/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/pointer"
 )
 
 // VpaWithSelector is a pair of VPA and its selector.
@@ -49,27 +50,39 @@ type patchRecord struct {
 	Value interface{} `json:"value"`
 }
 
-func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, patches []patchRecord) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	bytes, err := json.Marshal(patches)
+func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, status vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
+	// Construct the desired status within the context of a complete VerticalPodAutoscaler resource
+	statusUpdate := &vpa_types.VerticalPodAutoscaler{
+		TypeMeta: meta.TypeMeta{
+			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
+			Kind:       "VerticalPodAutoscaler",
+		},
+		Status: status,
+	}
+
+	// Marshal the status update into JSON
+	bytes, err := json.Marshal(statusUpdate)
 	if err != nil {
-		klog.Errorf("Cannot marshal VPA status patches %+v. Reason: %+v", patches, err)
+		klog.Errorf("Cannot marshal VPA status %+v. Reason: %+v", statusUpdate, err)
 		return
 	}
 
-	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{}, "status")
+	// Define patch options with Server-Side Apply and Force set to true
+	opts := meta.PatchOptions{
+		FieldManager: "vpa-controller",
+		Force:        pointer.Bool(true),
+	}
+
+	// Apply the patch using Server-Side Apply
+	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
 func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus,
 	oldStatus *vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	patches := []patchRecord{{
-		Op:    "add",
-		Path:  "/status",
-		Value: *newStatus,
-	}}
 
 	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
-		return patchVpaStatus(vpaClient, vpaName, patches)
+		return patchVpaStatus(vpaClient, vpaName, *newStatus)
 	}
 	return nil, nil
 }
