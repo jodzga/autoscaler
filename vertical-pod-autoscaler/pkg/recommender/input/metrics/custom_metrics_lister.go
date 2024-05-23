@@ -95,7 +95,8 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 		go func(query nsQuery) {
 			defer wg.Done()
-			resChan <- c.query(query)
+			resChan <- nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
+			// resChan <- c.query(query)
 		}(query)
 	}
 
