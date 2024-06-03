@@ -186,7 +186,7 @@ func (c *customPodMetricsLister) query(ctx context.Context, query nsQuery) nsQue
 		value := sample.Value.String()
 		resourceQuantity, err := resource.ParseQuantity(value)
 		if err != nil {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value as resource quantity string", "value", value)
+			klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)
 			continue
 		}
 
