@@ -149,11 +149,7 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 		}
 	}
 
-	fmt.Printf("podsCustomMetrics: %+v\n", podsCustomMetrics)
-
-	return nil, nil
-
-	// return podsCustomMetrics, nil
+	return podsCustomMetrics, nil
 }
 
 // query queries M3 for the specified custom resource metric and returns the result.

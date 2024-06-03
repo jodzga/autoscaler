@@ -71,7 +71,7 @@ func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter, podLister v
 		Address: m3Url,
 	})
 	if err != nil {
-		klog.Infof("Failed to initialize M3 client: %v", err)
+		klog.Infof("Failed to initialize M3 client - skipping pod custom resource usage metrics: %v", err)
 		return podMetricsSource{
 			metricsGetter:       source,
 			customMetricsLister: nil,
