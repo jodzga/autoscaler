@@ -162,17 +162,14 @@ func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 		return nsQueryResult{nsQuery: query, err: err}
 	}
 
-	if res.Type() != prommodel.ValMatrix {
+	if res.Type() != prommodel.ValVector {
 		fmt.Println(res.Type())
 		return nsQueryResult{nsQuery: query, err: fmt.Errorf("unexpected response type %s", res.Type())}
 	}
 
-	response := res.(prommodel.Matrix)
-	for _, stream := range response {
-		fmt.Println(stream)
-		for _, sample := range stream.Values {
-			fmt.Printf("  Value: %v, Timestamp: %v, Whole: %v\n", sample.Value, sample.Timestamp, sample)
-		}
+	response := res.(prommodel.Vector)
+	for _, sample := range response {
+		fmt.Printf("  Value: %v, Timestamp: %v, Whole: %v\n", sample.Value, sample.Timestamp, sample)
 	}
 
 	return nsQueryResult{nsQuery: query, err: fmt.Errorf("hello %s", res.Type())}
