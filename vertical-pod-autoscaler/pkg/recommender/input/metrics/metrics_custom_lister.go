@@ -45,7 +45,7 @@ type customPodMetricsLister struct {
 // containerUsages maps containers to their resource usages.
 type containerUsages map[string]resource.Quantity
 
-// nsQueryResult holds the parsed result (from nsQueryResponse) of a custom resource query for a namespace.
+// nsQueryResult holds the parsed result of a custom resource query for a namespace.
 type nsQueryResult struct {
 	// Maps pods to their containers' resource usages.
 	podUsages map[string]containerUsages
@@ -53,7 +53,7 @@ type nsQueryResult struct {
 	err       error
 }
 
-// TODO(leekathy): Replace with the prom client and add unit tests.
+// TODO(leekathy): Add unit tests.
 func newCustomPodMetricsLister(promClient prometheusv1.API, queries []nsQueryBuilder, podLister v1lister.PodLister) PodMetricsLister {
 	return &customPodMetricsLister{
 		client:    promClient,
@@ -158,10 +158,12 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 	res, _, err := c.client.Query(context.Background(), query.query, time.Now())
 	if err != nil {
+		fmt.Println(err)
 		return nsQueryResult{nsQuery: query, err: err}
 	}
 
 	if res.Type() != prommodel.ValMatrix {
+		fmt.Println(res.Type())
 		return nsQueryResult{nsQuery: query, err: fmt.Errorf("unexpected response type %s", res.Type())}
 	}
 
