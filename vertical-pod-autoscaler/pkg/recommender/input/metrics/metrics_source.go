@@ -23,6 +23,7 @@ import (
 
 	promapi "github.com/prometheus/client_golang/api"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	prommodel "github.com/prometheus/common/model"
 
 	k8sapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,8 +51,8 @@ type podMetricsSource struct {
 
 // customQueries holds the custom resource query builders.
 var customQueries = []nsQueryBuilder{
-	getRSSQuery("container_name", "pod_name"),
-	getJVMHeapCommittedQuery("kubernetes_container_name", "kubernetes_pod_name"),
+	getRSSQuery(prommodel.LabelName("container_name"), prommodel.LabelName("pod_name")),
+	getJVMHeapCommittedQuery(prommodel.LabelName("kubernetes_container_name"), prommodel.LabelName("kubernetes_pod_name")),
 }
 
 // NewPodMetricsesSource Returns a Source-wrapper around PodMetricsesGetter.

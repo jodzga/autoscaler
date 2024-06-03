@@ -25,12 +25,12 @@ import (
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	prommodel "github.com/prometheus/common/model"
 
-	// k8sapiv1 "k8s.io/api/core/v1"
+	k8sapiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	v1lister "k8s.io/client-go/listers/core/v1"
-	// "k8s.io/klog/v2"
+	"k8s.io/klog/v2"
 	"k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
 
@@ -43,12 +43,12 @@ type customPodMetricsLister struct {
 }
 
 // containerUsages maps containers to their resource usages.
-type containerUsages map[string]resource.Quantity
+type containerUsages map[prommodel.LabelValue]resource.Quantity
 
 // nsQueryResult holds the parsed result of a custom resource query for a namespace.
 type nsQueryResult struct {
 	// Maps pods to their containers' resource usages.
-	podUsages map[string]containerUsages
+	podUsages map[prommodel.LabelValue]containerUsages
 	nsQuery   nsQuery
 	err       error
 }
@@ -100,56 +100,58 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 	wg.Wait()
 	close(resChan)
 
+	// Index the results by namespace then pod name then container name then resource.
+	indexedCustomPodMetrics := make(map[string]map[prommodel.LabelValue]map[prommodel.LabelValue]v1beta1.ContainerMetrics)
+	for res := range resChan {
+		if res.err != nil {
+			// TODO(leekathy): Emit metrics and setup alerting.
+			klog.ErrorS(res.err, "Failed to query custom resource metrics", "query", res.nsQuery.query, "namespace", res.nsQuery.namespace, "resource", res.nsQuery.resource, "pods", res.nsQuery.pods)
+			continue
+		}
+
+		if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace]; !ok {
+			indexedCustomPodMetrics[res.nsQuery.namespace] = make(map[prommodel.LabelValue]map[prommodel.LabelValue]v1beta1.ContainerMetrics)
+		}
+
+		for pod, containerUsages := range res.podUsages {
+			if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace][pod]; !ok {
+				indexedCustomPodMetrics[res.nsQuery.namespace][pod] = make(map[prommodel.LabelValue]v1beta1.ContainerMetrics)
+			}
+
+			for container, usage := range containerUsages {
+				if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace][pod][container]; !ok {
+					indexedCustomPodMetrics[res.nsQuery.namespace][pod][container] = v1beta1.ContainerMetrics{
+						Name:  string(container),
+						Usage: make(k8sapiv1.ResourceList),
+					}
+				}
+
+				indexedCustomPodMetrics[res.nsQuery.namespace][pod][container].Usage[res.nsQuery.resource] = usage
+			}
+		}
+	}
+
+	// Convert the indexed results back to a PodMetricsList.
+	podsCustomMetrics := &v1beta1.PodMetricsList{}
+	for namespace, pods := range indexedCustomPodMetrics {
+		for pod, containers := range pods {
+			podMetrics := v1beta1.PodMetrics{
+				TypeMeta:   v1.TypeMeta{},
+				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: string(pod)},
+				Window:     v1.Duration{5 * time.Minute},
+				Containers: make([]v1beta1.ContainerMetrics, 0),
+			}
+			for _, container := range containers {
+				podMetrics.Containers = append(podMetrics.Containers, container)
+			}
+
+			podsCustomMetrics.Items = append(podsCustomMetrics.Items, podMetrics)
+		}
+	}
+
+	fmt.Printf("podsCustomMetrics: %+v\n", podsCustomMetrics)
+
 	return nil, nil
-
-	// // Index the results by namespace then pod name then container name then resource.
-	// indexedCustomPodMetrics := make(map[string]map[string]map[string]v1beta1.ContainerMetrics)
-	// for res := range resChan {
-	// 	if res.err != nil {
-	// 		// TODO(leekathy): Emit metrics and setup alerting.
-	// 		klog.ErrorS(res.err, "Failed to query custom resource metrics", "query", res.nsQuery.query, "namespace", res.nsQuery.namespace, "resource", res.nsQuery.resource, "pods", res.nsQuery.pods)
-	// 		continue
-	// 	}
-
-	// 	if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace]; !ok {
-	// 		indexedCustomPodMetrics[res.nsQuery.namespace] = make(map[string]map[string]v1beta1.ContainerMetrics)
-	// 	}
-
-	// 	for pod, containerUsages := range res.podUsages {
-	// 		if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace][pod]; !ok {
-	// 			indexedCustomPodMetrics[res.nsQuery.namespace][pod] = make(map[string]v1beta1.ContainerMetrics)
-	// 		}
-
-	// 		for container, usage := range containerUsages {
-	// 			if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace][pod][container]; !ok {
-	// 				indexedCustomPodMetrics[res.nsQuery.namespace][pod][container] = v1beta1.ContainerMetrics{
-	// 					Name:  container,
-	// 					Usage: make(k8sapiv1.ResourceList),
-	// 				}
-	// 			}
-
-	// 			indexedCustomPodMetrics[res.nsQuery.namespace][pod][container].Usage[res.nsQuery.resource] = usage
-	// 		}
-	// 	}
-	// }
-
-	// // Convert the indexed results back to a PodMetricsList.
-	// podsCustomMetrics := &v1beta1.PodMetricsList{}
-	// for namespace, pods := range indexedCustomPodMetrics {
-	// 	for pod, containers := range pods {
-	// 		podMetrics := v1beta1.PodMetrics{
-	// 			TypeMeta:   v1.TypeMeta{},
-	// 			ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: pod},
-	// 			Window:     v1.Duration{5 * time.Minute},
-	// 			Containers: make([]v1beta1.ContainerMetrics, 0),
-	// 		}
-	// 		for _, container := range containers {
-	// 			podMetrics.Containers = append(podMetrics.Containers, container)
-	// 		}
-
-	// 		podsCustomMetrics.Items = append(podsCustomMetrics.Items, podMetrics)
-	// 	}
-	// }
 
 	// return podsCustomMetrics, nil
 }
@@ -158,29 +160,40 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
 	res, _, err := c.client.Query(context.Background(), query.query, time.Now())
 	if err != nil {
-		fmt.Println(err)
 		return nsQueryResult{nsQuery: query, err: err}
 	}
 
-	if res.Type() != prommodel.ValVector {
-		fmt.Println(res.Type())
-		return nsQueryResult{nsQuery: query, err: fmt.Errorf("unexpected response type %s", res.Type())}
+	samples, ok := res.(prommodel.Vector)
+	if !ok {
+		return nsQueryResult{nsQuery: query, err: fmt.Errorf("expected vector response type but got %s", res.Type())}
 	}
 
-	response := res.(prommodel.Vector)
-	for _, sample := range response {
-		fmt.Printf("  Value: %v, Timestamp: %v, Whole: %v\n", sample.Value, sample.Timestamp, sample)
+	nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[prommodel.LabelValue]containerUsages)}
+	for _, sample := range samples {
+		podName, ok := sample.Metric[query.podNameLabel]
+		if !ok {
+			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get pod name from labels", "podNameLabel", query.podNameLabel, "labels", sample.Metric)
+			continue
+		}
+
+		containerName, ok := sample.Metric[query.containerNameLabel]
+		if !ok {
+			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get container name from labels", "containerNameLabel", query.containerNameLabel, "labels", sample.Metric)
+			continue
+		}
+
+		value := sample.Value.String()
+		resourceQuantity, err := resource.ParseQuantity(value)
+		if err != nil {
+			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value as resource quantity string", "value", value)
+			continue
+		}
+
+		if _, ok := nsQueryResult.podUsages[podName]; !ok {
+			nsQueryResult.podUsages[podName] = make(containerUsages)
+		}
+		nsQueryResult.podUsages[podName][containerName] = resourceQuantity
 	}
 
-	return nsQueryResult{nsQuery: query, err: fmt.Errorf("hello %s", res.Type())}
-
-	// nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
-
-	// 	if _, ok := nsQueryResult.podUsages[podName]; !ok {
-	// 		nsQueryResult.podUsages[podName] = make(containerUsages)
-	// 	}
-	// 	nsQueryResult.podUsages[podName][containerName] = resourceQuantity
-	// }
-
-	// return nsQueryResult
+	return nsQueryResult
 }
