@@ -93,7 +93,12 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 		go func(query nsQuery) {
 			defer wg.Done()
-			resChan <- c.query(query)
+
+			// Time out the query after 45 seconds.
+			queryCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+			defer cancel()
+
+			resChan <- c.query(queryCtx, query)
 		}(query)
 	}
 
@@ -153,8 +158,8 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 }
 
 // query queries M3 for the specified custom resource metric and returns the result.
-func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
-	res, _, err := c.client.Query(context.Background(), query.query, time.Now())
+func (c *customPodMetricsLister) query(ctx context.Context, query nsQuery) nsQueryResult {
+	res, _, err := c.client.Query(ctx, query.query, time.Now())
 	if err != nil {
 		return nsQueryResult{nsQuery: query, err: err}
 	}
