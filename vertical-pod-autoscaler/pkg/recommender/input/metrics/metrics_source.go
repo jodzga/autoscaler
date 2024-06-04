@@ -21,6 +21,10 @@ import (
 	"sync"
 	"time"
 
+	promapi "github.com/prometheus/client_golang/api"
+	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	prommodel "github.com/prometheus/common/model"
+
 	k8sapiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -47,8 +51,8 @@ type podMetricsSource struct {
 
 // customQueries holds the custom resource query builders.
 var customQueries = []nsQueryBuilder{
-	getRSSQuery("container_name", "pod_name"),
-	getJVMHeapCommittedQuery("kubernetes_container_name", "kubernetes_pod_name"),
+	getRSSQuery(prommodel.LabelName("container_name"), prommodel.LabelName("pod_name")),
+	getJVMHeapCommittedQuery(prommodel.LabelName("kubernetes_container_name"), prommodel.LabelName("kubernetes_pod_name")),
 }
 
 // NewPodMetricsesSource Returns a Source-wrapper around PodMetricsesGetter.
@@ -63,9 +67,20 @@ func NewPodMetricsesSource(source resourceclient.PodMetricsesGetter, podLister v
 	}
 
 	klog.Infof("Using M3 URL %s for pod custom resource usage metrics", m3Url)
+	promClient, err := promapi.NewClient(promapi.Config{
+		Address: m3Url,
+	})
+	if err != nil {
+		klog.Infof("Failed to initialize M3 client - skipping pod custom resource usage metrics: %v", err)
+		return podMetricsSource{
+			metricsGetter:       source,
+			customMetricsLister: nil,
+		}
+	}
+
 	return podMetricsSource{
 		metricsGetter:       source,
-		customMetricsLister: newCustomPodMetricsLister(m3Url, customQueries, podLister),
+		customMetricsLister: newCustomPodMetricsLister(prometheusv1.NewAPI(promClient), customQueries, podLister),
 	}
 }
 

@@ -18,13 +18,12 @@ package metrics
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"net/url"
 	"sync"
 	"time"
+
+	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
+	prommodel "github.com/prometheus/common/model"
 
 	k8sapiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -38,42 +37,26 @@ import (
 // customPodMetricsLister implements the PodMetricsLister interface in metrics_source.go,
 // rather than the resourceclient.PodMetricsesGetter interface, as only LIST is needed.
 type customPodMetricsLister struct {
-	client    *http.Client
-	baseUrl   string
+	client    prometheusv1.API
 	queries   []nsQueryBuilder
 	podLister v1lister.PodLister
 }
 
-// nsQueryResponse is for unmarshaling the response from M3.
-// TODO(leekathy): Use prom client to avoid unmarshalling.
-type nsQueryResponse struct {
-	Status string `json:"status"`
-	Data   struct {
-		ResultType string `json:"resultType"`
-		Result     []struct {
-			Metric map[string]string `json:"metric"`
-			// First value is the unix timestamp, second value is the metric value.
-			Value []interface{} `json:"value"`
-		} `json:"result"`
-	} `json:"data"`
-}
-
 // containerUsages maps containers to their resource usages.
-type containerUsages map[string]resource.Quantity
+type containerUsages map[prommodel.LabelValue]resource.Quantity
 
-// nsQueryResult holds the parsed result (from nsQueryResponse) of a custom resource query for a namespace.
+// nsQueryResult holds the parsed result of a custom resource query for a namespace.
 type nsQueryResult struct {
 	// Maps pods to their containers' resource usages.
-	podUsages map[string]containerUsages
+	podUsages map[prommodel.LabelValue]containerUsages
 	nsQuery   nsQuery
 	err       error
 }
 
-// TODO(leekathy): Replace with the prom client and add unit tests.
-func newCustomPodMetricsLister(baseUrl string, queries []nsQueryBuilder, podLister v1lister.PodLister) PodMetricsLister {
+// TODO(leekathy): Add unit tests.
+func newCustomPodMetricsLister(promClient prometheusv1.API, queries []nsQueryBuilder, podLister v1lister.PodLister) PodMetricsLister {
 	return &customPodMetricsLister{
-		client:    &http.Client{},
-		baseUrl:   baseUrl,
+		client:    promClient,
 		queries:   queries,
 		podLister: podLister,
 	}
@@ -110,7 +93,12 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 
 		go func(query nsQuery) {
 			defer wg.Done()
-			resChan <- c.query(query)
+
+			// Time out the query after 45 seconds.
+			queryCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+			defer cancel()
+
+			resChan <- c.query(queryCtx, query)
 		}(query)
 	}
 
@@ -118,7 +106,7 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 	close(resChan)
 
 	// Index the results by namespace then pod name then container name then resource.
-	indexedCustomPodMetrics := make(map[string]map[string]map[string]v1beta1.ContainerMetrics)
+	indexedCustomPodMetrics := make(map[string]map[prommodel.LabelValue]map[prommodel.LabelValue]v1beta1.ContainerMetrics)
 	for res := range resChan {
 		if res.err != nil {
 			// TODO(leekathy): Emit metrics and setup alerting.
@@ -127,18 +115,18 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 		}
 
 		if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace]; !ok {
-			indexedCustomPodMetrics[res.nsQuery.namespace] = make(map[string]map[string]v1beta1.ContainerMetrics)
+			indexedCustomPodMetrics[res.nsQuery.namespace] = make(map[prommodel.LabelValue]map[prommodel.LabelValue]v1beta1.ContainerMetrics)
 		}
 
 		for pod, containerUsages := range res.podUsages {
 			if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace][pod]; !ok {
-				indexedCustomPodMetrics[res.nsQuery.namespace][pod] = make(map[string]v1beta1.ContainerMetrics)
+				indexedCustomPodMetrics[res.nsQuery.namespace][pod] = make(map[prommodel.LabelValue]v1beta1.ContainerMetrics)
 			}
 
 			for container, usage := range containerUsages {
 				if _, ok := indexedCustomPodMetrics[res.nsQuery.namespace][pod][container]; !ok {
 					indexedCustomPodMetrics[res.nsQuery.namespace][pod][container] = v1beta1.ContainerMetrics{
-						Name:  container,
+						Name:  string(container),
 						Usage: make(k8sapiv1.ResourceList),
 					}
 				}
@@ -154,7 +142,7 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 		for pod, containers := range pods {
 			podMetrics := v1beta1.PodMetrics{
 				TypeMeta:   v1.TypeMeta{},
-				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: pod},
+				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: string(pod)},
 				Window:     v1.Duration{5 * time.Minute},
 				Containers: make([]v1beta1.ContainerMetrics, 0),
 			}
@@ -170,69 +158,32 @@ func (c *customPodMetricsLister) List(ctx context.Context, namespace string, opt
 }
 
 // query queries M3 for the specified custom resource metric and returns the result.
-func (c *customPodMetricsLister) query(query nsQuery) nsQueryResult {
-	params := url.Values{}
-	params.Add("query", query.query)
-	baseUrlParsed, err := url.Parse(c.baseUrl)
-	if err != nil {
-		return nsQueryResult{nsQuery: query, err: err}
-	}
-	baseUrlParsed.Path += "/api/v1/query"
-	baseUrlParsed.RawQuery = params.Encode()
-
-	resp, err := c.client.Get(baseUrlParsed.String())
-	if err != nil {
-		return nsQueryResult{nsQuery: query, err: err}
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nsQueryResult{nsQuery: query, err: fmt.Errorf("Failed to get valid response (status: %s)", resp.Status)}
-	}
-
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+func (c *customPodMetricsLister) query(ctx context.Context, query nsQuery) nsQueryResult {
+	res, _, err := c.client.Query(ctx, query.query, time.Now())
 	if err != nil {
 		return nsQueryResult{nsQuery: query, err: err}
 	}
 
-	var response nsQueryResponse
-	if err := json.Unmarshal(body, &response); err != nil {
-		return nsQueryResult{nsQuery: query, err: err}
+	samples, ok := res.(prommodel.Vector)
+	if !ok {
+		return nsQueryResult{nsQuery: query, err: fmt.Errorf("expected vector response type but got %s", res.Type())}
 	}
 
-	if response.Status != "success" {
-		return nsQueryResult{nsQuery: query, err: fmt.Errorf("Failed to get successful response (status: %s)", response.Status)}
-	}
-
-	nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[string]containerUsages)}
-	for _, result := range response.Data.Result {
-		if result.Metric == nil {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get metric labels", "result", result)
-			continue
-		}
-
-		podName, ok := result.Metric[query.podNameLabel]
+	nsQueryResult := nsQueryResult{nsQuery: query, podUsages: make(map[prommodel.LabelValue]containerUsages)}
+	for _, sample := range samples {
+		podName, ok := sample.Metric[query.podNameLabel]
 		if !ok {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value of pod name label", "targetLabel", query.podNameLabel, "allLabels", result.Metric)
+			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get pod name from labels", "podNameLabel", query.podNameLabel, "labels", sample.Metric)
 			continue
 		}
 
-		containerName, ok := result.Metric[query.containerNameLabel]
+		containerName, ok := sample.Metric[query.containerNameLabel]
 		if !ok {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value of container name label", "targetLabel", query.containerNameLabel, "allLabels", result.Metric)
+			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get container name from labels", "containerNameLabel", query.containerNameLabel, "labels", sample.Metric)
 			continue
 		}
 
-		if result.Value == nil || len(result.Value) < 2 {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get result in expected [timestamp, value] format", "result", result.Value)
-			continue
-		}
-
-		value, ok := result.Value[1].(string)
-		if !ok {
-			klog.ErrorS(fmt.Errorf("Not found"), "Failed to get value as resource quantity string", "result", result.Value[1])
-			continue
-		}
-
+		value := sample.Value.String()
 		resourceQuantity, err := resource.ParseQuantity(value)
 		if err != nil {
 			klog.ErrorS(err, "Failed to parse resource quantity", "value", value, "resource", query.resource, "namespace", query.namespace, "pod", podName, "container", containerName)

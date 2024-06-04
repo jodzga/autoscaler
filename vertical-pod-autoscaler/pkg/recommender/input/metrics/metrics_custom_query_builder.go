@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	prommodel "github.com/prometheus/common/model"
+
 	k8sapiv1 "k8s.io/api/core/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model"
 )
@@ -38,8 +40,8 @@ type nsQuery struct {
 	resource           k8sapiv1.ResourceName
 	pods               podsBatch
 	namespace          string
-	containerNameLabel string
-	podNameLabel       string
+	containerNameLabel prommodel.LabelName
+	podNameLabel       prommodel.LabelName
 }
 
 // nsQueryBuilder is an interface for building a custom resource query.
@@ -53,22 +55,22 @@ type nsQueryBuilder interface {
 // rssQueryBuilder implements the nsQueryBuilder interface for the RSS metric.
 type rssQueryBuilder struct {
 	resource           k8sapiv1.ResourceName
-	containerNameLabel string
-	podNameLabel       string
+	containerNameLabel prommodel.LabelName
+	podNameLabel       prommodel.LabelName
 }
 
 // jvmHeapCommittedQueryBuilder implements the nsQueryBuilder interface for the JVM Heap Committed metric.
 type jvmHeapCommittedQueryBuilder struct {
 	resource           k8sapiv1.ResourceName
-	containerNameLabel string
-	podNameLabel       string
+	containerNameLabel prommodel.LabelName
+	podNameLabel       prommodel.LabelName
 }
 
 func regexOr(values []string) string {
 	return strings.Join(values, "|")
 }
 
-func getRSSQuery(containerNameLabel string, podNameLabel string) nsQueryBuilder {
+func getRSSQuery(containerNameLabel prommodel.LabelName, podNameLabel prommodel.LabelName) nsQueryBuilder {
 	return &rssQueryBuilder{
 		resource:           k8sapiv1.ResourceName(model.ResourceRSS),
 		containerNameLabel: containerNameLabel,
@@ -76,7 +78,7 @@ func getRSSQuery(containerNameLabel string, podNameLabel string) nsQueryBuilder 
 	}
 }
 
-func getJVMHeapCommittedQuery(containerNameLabel string, podNameLabel string) nsQueryBuilder {
+func getJVMHeapCommittedQuery(containerNameLabel prommodel.LabelName, podNameLabel prommodel.LabelName) nsQueryBuilder {
 	return &jvmHeapCommittedQueryBuilder{
 		resource:           k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted),
 		containerNameLabel: containerNameLabel,
