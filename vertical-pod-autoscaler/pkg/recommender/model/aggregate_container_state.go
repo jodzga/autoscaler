@@ -57,8 +57,8 @@ const (
 	// previous version of the recommender binary can't initialize from the new checkpoint format.
 	SupportedCheckpointVersion = "v3"
 
-	// Last<>SampleTimestamp is the annotation key used to store the timestamp of the last sample
-	// contributed to the AggregateContainerState.
+	// LastCPUSampleTimestamp, LastMemorySampleTimestamp, LastRSSSampleTimestamp, LastJVMHeapCommittedSampleTimestamp 
+	// are annotation keys used to store timestamps of the last samples that contributed to the AggregateContainerState.
 	// This is saved to the VPA Checkpoint, and propagated to the VPA object.
 	LastCPUSampleTimestamp              = "cpu_last_updated"
 	LastMemorySampleTimestamp           = "memory_last_updated"
@@ -122,7 +122,7 @@ type AggregateContainerState struct {
 	lastMemorySampleStart           time.Time
 	lastRSSSampleStart              time.Time
 	lastJVMHeapCommittedSampleStart time.Time
-	// Tracks whether the last sample timestamps were saved to the annotations.
+	// MissingTimestampAnnotations tracks whether the last sample timestamps had been saved to annotations.
 	MissingTimestampAnnotations bool
 
 	// Following fields are needed to correctly report quality metrics

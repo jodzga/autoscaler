@@ -203,6 +203,7 @@ func CreateOrUpdateVpaCheckpoint(vpaCheckpointClient vpa_api.VerticalPodAutoscal
 				Path:  "/metadata/annotations",
 				Value: vpaCheckpoint.ObjectMeta.Annotations,
 			})
+			fmt.Println("vpaCheckpoint.ObjectMeta.Annotations", vpaCheckpoint.ObjectMeta.Annotations)
 		} else {
 			for annotationKey, lastSampleTimestamp := range vpaCheckpoint.ObjectMeta.Annotations {
 				patches = append(patches, patchRecord{
@@ -211,6 +212,7 @@ func CreateOrUpdateVpaCheckpoint(vpaCheckpointClient vpa_api.VerticalPodAutoscal
 					Value: lastSampleTimestamp,
 				})
 			}
+			fmt.Println("vpaCheckpoint.ObjectMeta.Annotations", vpaCheckpoint.ObjectMeta.Annotations)
 		}
 	}
 	bytes, err := json.Marshal(patches)
