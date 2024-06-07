@@ -109,10 +109,7 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 				},
 				Status: *containerCheckpoint,
 			}
-			if checkpointName == "vpa-test-service-deployment-high-vpa-vpa-test-service" {
-				klog.Infof("missingTimestampAnnotations: %v", aggregatedContainerState.MissingTimestampAnnotations)
-			}
-			err = api_util.CreateOrUpdateVpaCheckpoint(writer.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(vpa.ID.Namespace), &vpaCheckpoint, aggregatedContainerState.MissingTimestampAnnotations)
+			err = api_util.CreateOrUpdateVpaCheckpoint(writer.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(vpa.ID.Namespace), &vpaCheckpoint)
 			if err != nil {
 				klog.Errorf("Cannot save VPA %s/%s checkpoint for %s. Reason: %+v",
 					vpa.ID.Namespace, vpaCheckpoint.Spec.VPAObjectName, vpaCheckpoint.Spec.ContainerName, err)

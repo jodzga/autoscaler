@@ -122,9 +122,6 @@ type AggregateContainerState struct {
 	lastMemorySampleStart           time.Time
 	lastRSSSampleStart              time.Time
 	lastJVMHeapCommittedSampleStart time.Time
-	// MissingTimestampAnnotations tracks whether the last sample timestamps had been saved to annotations.
-	// Allows for patching timestamp annotations without reading in the VPA Checkpoints.
-	MissingTimestampAnnotations bool
 
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
@@ -181,8 +178,6 @@ func (a *AggregateContainerState) MarkNotAutoscaled() {
 
 // MergeContainerState merges two AggregateContainerStates.
 func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerState) {
-	a.MissingTimestampAnnotations = a.MissingTimestampAnnotations && other.MissingTimestampAnnotations
-
 	a.AggregateCPUUsage.Merge(other.AggregateCPUUsage)
 	a.AggregateMemoryPeaks.Merge(other.AggregateMemoryPeaks)
 	a.AggregateRSSPeaks.Merge(other.AggregateRSSPeaks)
@@ -372,12 +367,6 @@ func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.Verti
 	if checkpoint.ObjectMeta.Name == "vpa-test-service-deployment-high-vpa-vpa-test-service" {
 		fmt.Printf("last sample starts: %v %v %v %v\n", a.lastCPUSampleStart, a.lastMemorySampleStart, a.lastRSSSampleStart, a.lastJVMHeapCommittedSampleStart)
 		fmt.Printf("if they are zero: %v %v %v %v\n", a.lastCPUSampleStart.IsZero(), a.lastMemorySampleStart.IsZero(), a.lastRSSSampleStart.IsZero(), a.lastJVMHeapCommittedSampleStart.IsZero())
-	}
-	if a.lastCPUSampleStart.IsZero() && a.lastMemorySampleStart.IsZero() && a.lastRSSSampleStart.IsZero() && a.lastJVMHeapCommittedSampleStart.IsZero() {
-		a.MissingTimestampAnnotations = true
-		if checkpoint.ObjectMeta.Name == "vpa-test-service-deployment-high-vpa-vpa-test-service" {
-			fmt.Println("MISSING TIMESTAMP ANNOTATIONS")
-		}
 	}
 	err := a.AggregateMemoryPeaks.LoadFromCheckpoint(&checkpoint.Status.MemoryHistogram)
 	if err != nil {

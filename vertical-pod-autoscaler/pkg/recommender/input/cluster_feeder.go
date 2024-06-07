@@ -252,12 +252,19 @@ func (feeder *clusterStateFeeder) InitFromCheckpoints() {
 
 	for namespace := range namespaces {
 		klog.V(3).Infof("Fetching checkpoints from namespace %s", namespace)
-		checkpointList, err := feeder.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(namespace).List(context.TODO(), metav1.ListOptions{})
+		checkpointClient := feeder.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(namespace)
+		checkpointList, err := checkpointClient.List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			klog.Errorf("Cannot list VPA checkpoints from namespace %v. Reason: %+v", namespace, err)
 		}
 		for _, checkpoint := range checkpointList.Items {
-
+			// If the checkpoint has no annotations yet, prepare it for last updated timestamp annotation patches.
+			if checkpoint.ObjectMeta.Annotations == nil && namespace == "vpa-test-service" {
+				_, err := checkpointClient.Patch(context.TODO(), checkpoint.Name, metav1.MergePatchType, []byte(`{"metadata": {"annotations": {}}}`), metav1.PatchOptions{})
+				if err != nil {
+					klog.Errorf("Cannot patch VPA checkpoint %v/%v to add empty /metadata/annotations. Reason: %+v", namespace, checkpoint.ObjectMeta.Name, err)
+				}
+			}
 			klog.V(3).Infof("Loading VPA %s/%s checkpoint for %s", checkpoint.ObjectMeta.Namespace, checkpoint.Spec.VPAObjectName, checkpoint.Spec.ContainerName)
 			err = feeder.setVpaCheckpoint(&checkpoint)
 			if err != nil {
