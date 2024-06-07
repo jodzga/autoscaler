@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	kube_client "k8s.io/client-go/kubernetes"
@@ -260,7 +261,7 @@ func (feeder *clusterStateFeeder) InitFromCheckpoints() {
 		for _, checkpoint := range checkpointList.Items {
 			// If the checkpoint has no annotations yet, prepare it for last updated timestamp annotation patches.
 			if checkpoint.ObjectMeta.Annotations == nil && namespace == "vpa-test-service" {
-				_, err := checkpointClient.Patch(context.TODO(), checkpoint.Name, metav1.MergePatchType, []byte(`{"metadata": {"annotations": {}}}`), metav1.PatchOptions{})
+				_, err := checkpointClient.Patch(context.TODO(), checkpoint.Name, types.MergePatchType, []byte(`{"metadata": {"annotations": {}}}`), metav1.PatchOptions{})
 				if err != nil {
 					klog.Errorf("Cannot patch VPA checkpoint %v/%v to add empty /metadata/annotations. Reason: %+v", namespace, checkpoint.ObjectMeta.Name, err)
 				}
