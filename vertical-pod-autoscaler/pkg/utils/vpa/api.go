@@ -186,7 +186,7 @@ func GetContainerControlledValues(name string, vpaResourcePolicy *vpa_types.PodR
 	return *containerPolicy.ControlledValues
 }
 
-// CreateOrUpdateVpaCheckpoint updates the status field of the VPA Checkpoint API object.
+// CreateOrUpdateVpaCheckpoint updates the annotations and status fields of the VPA Checkpoint API object.
 // If object doesn't exits it is created.
 func CreateOrUpdateVpaCheckpoint(vpaCheckpointClient vpa_api.VerticalPodAutoscalerCheckpointInterface,
 	vpaCheckpoint *vpa_types.VerticalPodAutoscalerCheckpoint, missingTimestampAnnotations bool) error {

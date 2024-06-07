@@ -366,8 +366,15 @@ func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.Verti
 	if ok {
 		a.lastJVMHeapCommittedSampleStart, _ = time.Parse(time.RFC3339, lastJVMHeapCommittedSampleStart)
 	}
+	if checkpoint.ObjectMeta.Name == "vpa-test-service-deployment-high-vpa-vpa-test-service" {
+		fmt.Printf("last sample starts: %v %v %v %v\n", a.lastCPUSampleStart, a.lastMemorySampleStart, a.lastRSSSampleStart, a.lastJVMHeapCommittedSampleStart)
+		fmt.Printf("if they are zero: %v %v %v %v\n", a.lastCPUSampleStart.IsZero(), a.lastMemorySampleStart.IsZero(), a.lastRSSSampleStart.IsZero(), a.lastJVMHeapCommittedSampleStart.IsZero())
+	}
 	if a.lastCPUSampleStart.IsZero() && a.lastMemorySampleStart.IsZero() && a.lastRSSSampleStart.IsZero() && a.lastJVMHeapCommittedSampleStart.IsZero() {
 		a.MissingTimestampAnnotations = true
+		if checkpoint.ObjectMeta.Name == "vpa-test-service-deployment-high-vpa-vpa-test-service" {
+			fmt.Println("MISSING TIMESTAMP ANNOTATIONS")
+		}
 	}
 	err := a.AggregateMemoryPeaks.LoadFromCheckpoint(&checkpoint.Status.MemoryHistogram)
 	if err != nil {
