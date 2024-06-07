@@ -260,7 +260,12 @@ func (feeder *clusterStateFeeder) InitFromCheckpoints() {
 		}
 		for _, checkpoint := range checkpointList.Items {
 			// If the checkpoint has no annotations yet, prepare it for last updated timestamp annotation patches.
-			if checkpoint.ObjectMeta.Annotations == nil && namespace == "vpa-test-service" {
+			if namespace == "vpa-test-service" {
+				if checkpoint.ObjectMeta.Annotations == nil {
+					klog.Infof("Patching VPA checkpoint %v/%v to add empty /metadata/annotations", namespace, checkpoint.ObjectMeta.Name)
+				} else {
+					klog.Infof("IT IS NOT NIL Patching VPA checkpoint %v/%v to add empty /metadata/annotations", namespace, checkpoint.ObjectMeta.Name)
+				}
 				_, err := checkpointClient.Patch(context.TODO(), checkpoint.Name, types.MergePatchType, []byte(`{"metadata": {"annotations": {}}}`), metav1.PatchOptions{})
 				if err != nil {
 					klog.Errorf("Cannot patch VPA checkpoint %v/%v to add empty /metadata/annotations. Reason: %+v", namespace, checkpoint.ObjectMeta.Name, err)
