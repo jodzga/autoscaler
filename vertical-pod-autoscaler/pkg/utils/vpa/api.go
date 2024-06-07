@@ -196,6 +196,15 @@ func CreateOrUpdateVpaCheckpoint(vpaCheckpointClient vpa_api.VerticalPodAutoscal
 		Path:  "/status",
 		Value: vpaCheckpoint.Status,
 	})
+	if vpaCheckpoint.ObjectMeta.Name == "vpa-test-service-deployment-high-vpa-vpa-test-service" {
+		for annotationKey, lastSampleTimestamp := range vpaCheckpoint.ObjectMeta.Annotations {
+			patches = append(patches, patchRecord{
+				Op:    "add",
+				Path:  "/metadata/annotations/" + annotationKey,
+				Value: lastSampleTimestamp,
+			})
+		}
+	}
 	bytes, err := json.Marshal(patches)
 	if err != nil {
 		return fmt.Errorf("Cannot marshal VPA checkpoint status patches %+v. Reason: %+v", patches, err)

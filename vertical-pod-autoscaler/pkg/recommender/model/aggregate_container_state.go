@@ -56,6 +56,14 @@ const (
 	// version of the recommender binary can't initialize from the old checkpoint format or the
 	// previous version of the recommender binary can't initialize from the new checkpoint format.
 	SupportedCheckpointVersion = "v3"
+
+	// Last<>SampleTimestamp is the annotation key used to store the timestamp of the last sample
+	// contributed to the AggregateContainerState.
+	// This is saved to the VPA Checkpoint, and propagated to the VPA object.
+	LastCPUSampleTimestamp              = "cpu_last_updated"
+	LastMemorySampleTimestamp           = "memory_last_updated"
+	LastRSSSampleTimestamp              = "rss_last_updated"
+	LastJVMHeapCommittedSampleTimestamp = "jvmheapcommitted_last_updated"
 )
 
 var (
@@ -106,6 +114,14 @@ type AggregateContainerState struct {
 	LastSampleStart   time.Time
 	TotalSamplesCount int
 	CreationTime      time.Time
+
+	// Following fields are needed to track staleness of VPA resource recommendations.
+	// When we record a new sample in an AggregateContainerState, we set this.
+	// This is saved to the VPA Checkpoint, and propagated to the VPA object.
+	lastCPUSampleStart              time.Time
+	lastMemorySampleStart           time.Time
+	lastRSSSampleStart              time.Time
+	lastJVMHeapCommittedSampleStart time.Time
 
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
@@ -167,6 +183,35 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	a.AggregateRSSPeaks.Merge(other.AggregateRSSPeaks)
 	a.AggregateJVMHeapCommittedPeaks.Merge(other.AggregateJVMHeapCommittedPeaks)
 
+	if a.lastCPUSampleStart.IsZero() ||
+		(!other.lastCPUSampleStart.IsZero() && other.lastCPUSampleStart.After(a.lastCPUSampleStart)) {
+		a.lastCPUSampleStart = other.lastCPUSampleStart
+	}
+	if other.lastCPUSampleStart.After(a.lastCPUSampleStart) {
+		a.lastCPUSampleStart = other.lastCPUSampleStart
+	}
+	if a.lastMemorySampleStart.IsZero() ||
+		(!other.lastMemorySampleStart.IsZero() && other.lastMemorySampleStart.After(a.lastMemorySampleStart)) {
+		a.lastMemorySampleStart = other.lastMemorySampleStart
+	}
+	if other.lastMemorySampleStart.After(a.lastMemorySampleStart) {
+		a.lastMemorySampleStart = other.lastMemorySampleStart
+	}
+	if a.lastRSSSampleStart.IsZero() ||
+		(!other.lastRSSSampleStart.IsZero() && other.lastRSSSampleStart.After(a.lastRSSSampleStart)) {
+		a.lastRSSSampleStart = other.lastRSSSampleStart
+	}
+	if other.lastRSSSampleStart.After(a.lastRSSSampleStart) {
+		a.lastRSSSampleStart = other.lastRSSSampleStart
+	}
+	if a.lastJVMHeapCommittedSampleStart.IsZero() ||
+		(!other.lastJVMHeapCommittedSampleStart.IsZero() && other.lastJVMHeapCommittedSampleStart.After(a.lastJVMHeapCommittedSampleStart)) {
+		a.lastJVMHeapCommittedSampleStart = other.lastJVMHeapCommittedSampleStart
+	}
+	if other.lastJVMHeapCommittedSampleStart.After(a.lastJVMHeapCommittedSampleStart) {
+		a.lastJVMHeapCommittedSampleStart = other.lastJVMHeapCommittedSampleStart
+	}
+
 	if a.FirstSampleStart.IsZero() ||
 		(!other.FirstSampleStart.IsZero() && other.FirstSampleStart.Before(a.FirstSampleStart)) {
 		a.FirstSampleStart = other.FirstSampleStart
@@ -195,12 +240,16 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	switch sample.Resource {
 	case ResourceCPU:
 		a.addCPUSample(sample)
+		a.lastCPUSampleStart = sample.MeasureStart
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.lastMemorySampleStart = sample.MeasureStart
 	case ResourceRSS:
 		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.lastRSSSampleStart = sample.MeasureStart
 	case ResourceJVMHeapCommitted:
 		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.lastJVMHeapCommittedSampleStart = sample.MeasureStart
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -239,6 +288,23 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 		a.FirstSampleStart = sample.MeasureStart
 	}
 	a.TotalSamplesCount++
+}
+
+func (a *AggregateContainerState) SaveToAnnotations() map[string]string {
+	annotations := make(map[string]string)
+	if !a.lastCPUSampleStart.IsZero() {
+		annotations[LastCPUSampleTimestamp] = a.lastCPUSampleStart.Format(time.RFC3339)
+	}
+	if !a.lastMemorySampleStart.IsZero() {
+		annotations[LastMemorySampleTimestamp] = a.lastMemorySampleStart.Format(time.RFC3339)
+	}
+	if !a.lastRSSSampleStart.IsZero() {
+		annotations[LastRSSSampleTimestamp] = a.lastRSSSampleStart.Format(time.RFC3339)
+	}
+	if !a.lastJVMHeapCommittedSampleStart.IsZero() {
+		annotations[LastJVMHeapCommittedSampleTimestamp] = a.lastJVMHeapCommittedSampleStart.Format(time.RFC3339)
+	}
+	return annotations
 }
 
 // SaveToCheckpoint serializes AggregateContainerState as VerticalPodAutoscalerCheckpointStatus.
