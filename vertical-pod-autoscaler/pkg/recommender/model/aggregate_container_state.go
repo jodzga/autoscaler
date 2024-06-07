@@ -57,7 +57,7 @@ const (
 	// previous version of the recommender binary can't initialize from the new checkpoint format.
 	SupportedCheckpointVersion = "v3"
 
-	// LastCPUSampleTimestamp, LastMemorySampleTimestamp, LastRSSSampleTimestamp, LastJVMHeapCommittedSampleTimestamp 
+	// LastCPUSampleTimestamp, LastMemorySampleTimestamp, LastRSSSampleTimestamp, LastJVMHeapCommittedSampleTimestamp
 	// are annotation keys used to store timestamps of the last samples that contributed to the AggregateContainerState.
 	// This is saved to the VPA Checkpoint, and propagated to the VPA object.
 	LastCPUSampleTimestamp              = "cpu_last_updated"
@@ -123,6 +123,7 @@ type AggregateContainerState struct {
 	lastRSSSampleStart              time.Time
 	lastJVMHeapCommittedSampleStart time.Time
 	// MissingTimestampAnnotations tracks whether the last sample timestamps had been saved to annotations.
+	// Allows for patching timestamp annotations without reading in the VPA Checkpoints.
 	MissingTimestampAnnotations bool
 
 	// Following fields are needed to correctly report quality metrics
@@ -180,6 +181,8 @@ func (a *AggregateContainerState) MarkNotAutoscaled() {
 
 // MergeContainerState merges two AggregateContainerStates.
 func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerState) {
+	a.MissingTimestampAnnotations = a.MissingTimestampAnnotations && other.MissingTimestampAnnotations
+
 	a.AggregateCPUUsage.Merge(other.AggregateCPUUsage)
 	a.AggregateMemoryPeaks.Merge(other.AggregateMemoryPeaks)
 	a.AggregateRSSPeaks.Merge(other.AggregateRSSPeaks)
