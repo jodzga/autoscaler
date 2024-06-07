@@ -122,6 +122,8 @@ type AggregateContainerState struct {
 	lastMemorySampleStart           time.Time
 	lastRSSSampleStart              time.Time
 	lastJVMHeapCommittedSampleStart time.Time
+	// Tracks whether the last sample timestamps were saved to the annotations.
+	MissingTimestampAnnotations bool
 
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
@@ -341,26 +343,45 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 
 // LoadFromCheckpoint deserializes data from VerticalPodAutoscalerCheckpointStatus
 // into the AggregateContainerState.
-func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.VerticalPodAutoscalerCheckpointStatus) error {
-	if checkpoint.Version != SupportedCheckpointVersion {
-		return fmt.Errorf("unsupported checkpoint version %s", checkpoint.Version)
+func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.VerticalPodAutoscalerCheckpoint) error {
+	if checkpoint.Status.Version != SupportedCheckpointVersion {
+		return fmt.Errorf("unsupported checkpoint version %s", checkpoint.Status.Version)
 	}
-	a.TotalSamplesCount = checkpoint.TotalSamplesCount
-	a.FirstSampleStart = checkpoint.FirstSampleStart.Time
-	a.LastSampleStart = checkpoint.LastSampleStart.Time
-	err := a.AggregateMemoryPeaks.LoadFromCheckpoint(&checkpoint.MemoryHistogram)
+	a.TotalSamplesCount = checkpoint.Status.TotalSamplesCount
+	a.FirstSampleStart = checkpoint.Status.FirstSampleStart.Time
+	a.LastSampleStart = checkpoint.Status.LastSampleStart.Time
+	lastCPUSampleStart, ok := checkpoint.ObjectMeta.Annotations[LastCPUSampleTimestamp]
+	if ok {
+		a.lastCPUSampleStart, _ = time.Parse(time.RFC3339, lastCPUSampleStart)
+	}
+	lastMemorySampleStart, ok := checkpoint.ObjectMeta.Annotations[LastMemorySampleTimestamp]
+	if ok {
+		a.lastMemorySampleStart, _ = time.Parse(time.RFC3339, lastMemorySampleStart)
+	}
+	lastRSSSampleStart, ok := checkpoint.ObjectMeta.Annotations[LastRSSSampleTimestamp]
+	if ok {
+		a.lastRSSSampleStart, _ = time.Parse(time.RFC3339, lastRSSSampleStart)
+	}
+	lastJVMHeapCommittedSampleStart, ok := checkpoint.ObjectMeta.Annotations[LastJVMHeapCommittedSampleTimestamp]
+	if ok {
+		a.lastJVMHeapCommittedSampleStart, _ = time.Parse(time.RFC3339, lastJVMHeapCommittedSampleStart)
+	}
+	if a.lastCPUSampleStart.IsZero() && a.lastMemorySampleStart.IsZero() && a.lastRSSSampleStart.IsZero() && a.lastJVMHeapCommittedSampleStart.IsZero() {
+		a.MissingTimestampAnnotations = true
+	}
+	err := a.AggregateMemoryPeaks.LoadFromCheckpoint(&checkpoint.Status.MemoryHistogram)
 	if err != nil {
 		return err
 	}
-	err = a.AggregateCPUUsage.LoadFromCheckpoint(&checkpoint.CPUHistogram)
+	err = a.AggregateCPUUsage.LoadFromCheckpoint(&checkpoint.Status.CPUHistogram)
 	if err != nil {
 		return err
 	}
-	err = a.AggregateRSSPeaks.LoadFromCheckpoint(&checkpoint.RSSHistogram)
+	err = a.AggregateRSSPeaks.LoadFromCheckpoint(&checkpoint.Status.RSSHistogram)
 	if err != nil {
 		return err
 	}
-	err = a.AggregateJVMHeapCommittedPeaks.LoadFromCheckpoint(&checkpoint.JVMHeapCommittedHistogram)
+	err = a.AggregateJVMHeapCommittedPeaks.LoadFromCheckpoint(&checkpoint.Status.JVMHeapCommittedHistogram)
 	if err != nil {
 		return err
 	}

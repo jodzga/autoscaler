@@ -189,7 +189,7 @@ func GetContainerControlledValues(name string, vpaResourcePolicy *vpa_types.PodR
 // CreateOrUpdateVpaCheckpoint updates the status field of the VPA Checkpoint API object.
 // If object doesn't exits it is created.
 func CreateOrUpdateVpaCheckpoint(vpaCheckpointClient vpa_api.VerticalPodAutoscalerCheckpointInterface,
-	vpaCheckpoint *vpa_types.VerticalPodAutoscalerCheckpoint) error {
+	vpaCheckpoint *vpa_types.VerticalPodAutoscalerCheckpoint, missingTimestampAnnotations bool) error {
 	patches := make([]patchRecord, 0)
 	patches = append(patches, patchRecord{
 		Op:    "replace",
@@ -197,12 +197,20 @@ func CreateOrUpdateVpaCheckpoint(vpaCheckpointClient vpa_api.VerticalPodAutoscal
 		Value: vpaCheckpoint.Status,
 	})
 	if vpaCheckpoint.ObjectMeta.Name == "vpa-test-service-deployment-high-vpa-vpa-test-service" {
-		for annotationKey, lastSampleTimestamp := range vpaCheckpoint.ObjectMeta.Annotations {
+		if missingTimestampAnnotations {
 			patches = append(patches, patchRecord{
 				Op:    "add",
-				Path:  "/metadata/annotations/" + annotationKey,
-				Value: lastSampleTimestamp,
+				Path:  "/metadata/annotations",
+				Value: vpaCheckpoint.ObjectMeta.Annotations,
 			})
+		} else {
+			for annotationKey, lastSampleTimestamp := range vpaCheckpoint.ObjectMeta.Annotations {
+				patches = append(patches, patchRecord{
+					Op:    "add",
+					Path:  "/metadata/annotations/" + annotationKey,
+					Value: lastSampleTimestamp,
+				})
+			}
 		}
 	}
 	bytes, err := json.Marshal(patches)
