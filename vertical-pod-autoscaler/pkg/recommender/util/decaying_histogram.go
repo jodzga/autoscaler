@@ -28,7 +28,7 @@ import (
 var (
 	// When the decay factor exceeds 2^maxDecayExponent the histogram is
 	// renormalized by shifting the decay start time forward.
-	maxDecayExponent = 100
+	maxDecayExponent = 1
 )
 
 // A histogram that gives newer samples a higher weight than the old samples,
