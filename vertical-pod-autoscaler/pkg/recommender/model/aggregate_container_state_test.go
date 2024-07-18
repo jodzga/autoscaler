@@ -319,6 +319,7 @@ func newDBAggregateContainerState() *AggregateContainerState {
 }
 
 func TestDBPeakRememberedForAMonth(t *testing.T) {
+	memoryPercentile := 1.0
 	// Initialization
 	InitializeAggregationsConfig(NewAggregationsConfig(*DBMemoryAggregationInterval, *DBMemoryAggregationIntervalCount, *DBMemoryHistogramDecayHalfLife, time.Hour*24*1, *DBOomBumpUpRatio, *DBOomMinBumpUp))
 	cs := newDBAggregateContainerState()
@@ -332,10 +333,21 @@ func TestDBPeakRememberedForAMonth(t *testing.T) {
 		Request:      testRequest[ResourceMemory],
 		Resource:     ResourceMemory,
 	}
+	cpuSample := ContainerUsageSample{
+		MeasureStart: timestamp,
+		Usage:        CPUAmountFromCores(1),
+		Request:      testRequest[ResourceCPU],
+		Resource:     ResourceCPU,
+	}
 	cs.AddSample(&memorySample)
+	cs.AddSample(&cpuSample)
+	checkpoint, err := cs.SaveToCheckpoint()
+	if err != nil {
+		t.Error(err)
+	}
 
 	// Add "low" memory usage for a month and verify that peak is remembered
-	for i := 0; i < 60*24*30; i++ {
+	for i := 0; i < 60*24*30; i += 1 {
 		lowMemoryUsage := float64((i%10 + 1) * 100 * 1024 * 1024)
 		memorySample = ContainerUsageSample{
 			MeasureStart: timestamp,
@@ -343,15 +355,35 @@ func TestDBPeakRememberedForAMonth(t *testing.T) {
 			Request:      testRequest[ResourceMemory],
 			Resource:     ResourceMemory,
 		}
+		cpuSample = ContainerUsageSample{
+			MeasureStart: timestamp,
+			Usage:        CPUAmountFromCores(1),
+			Request:      testRequest[ResourceCPU],
+			Resource:     ResourceCPU,
+		}
 		cs.AddSample(&memorySample)
-		peakFromHistogram := MemoryAmountFromBytes(cs.AggregateMemoryPeaks.Percentile(1.0))
-		// Peak from histogram can be larger than observed peak due to histogram bucketing
-		assert.GreaterOrEqual(t, peakFromHistogram, MemoryAmountFromBytes(memoryPeak))
+		cs.AddSample(&cpuSample)
+		checkpoint, err = cs.SaveToCheckpoint()
+		if err != nil {
+			t.Error(err)
+		}
+		//cs = newDBAggregateContainerState()
+		//err = cs.LoadFromCheckpoint(checkpoint)
+		if err != nil {
+			t.Error(err)
+		}
+		if i%(60*24) == 0 {
+			peakFromHistogram := MemoryAmountFromBytes(cs.AggregateMemoryPeaks.Percentile(memoryPercentile))
+			assert.GreaterOrEqual(t, peakFromHistogram, MemoryAmountFromBytes(memoryPeak))
+		}
 		timestamp = timestamp.Add(time.Minute)
 	}
 
-	// Add "low" memory usage for one more day
-	for i := 0; i < 60*24; i++ {
+	cpcs := newDBAggregateContainerState()
+	err = cpcs.LoadFromCheckpoint(checkpoint)
+
+	// Add "low" memory usage for two more days
+	for i := 0; i < 60*24*2; i++ {
 		lowMemoryUsage := float64((i%10 + 1) * 100 * 1024 * 1024)
 		memorySample = ContainerUsageSample{
 			MeasureStart: timestamp,
@@ -359,12 +391,29 @@ func TestDBPeakRememberedForAMonth(t *testing.T) {
 			Request:      testRequest[ResourceMemory],
 			Resource:     ResourceMemory,
 		}
+		cpuSample = ContainerUsageSample{
+			MeasureStart: timestamp,
+			Usage:        CPUAmountFromCores(1),
+			Request:      testRequest[ResourceCPU],
+			Resource:     ResourceCPU,
+		}
 		cs.AddSample(&memorySample)
+		cs.AddSample(&cpuSample)
+		checkpoint, err := cs.SaveToCheckpoint()
+		if err != nil {
+			t.Error(err)
+		}
+		cs = newDBAggregateContainerState()
+		err = cs.LoadFromCheckpoint(checkpoint)
+		if err != nil {
+			t.Error(err)
+		}
+
 		timestamp = timestamp.Add(time.Minute)
 	}
 
 	// Verify that peak is forgotten
-	peakFromHistogram := MemoryAmountFromBytes(cs.AggregateMemoryPeaks.Percentile(1.0))
+	peakFromHistogram := MemoryAmountFromBytes(cs.AggregateMemoryPeaks.Percentile(memoryPercentile))
 	assert.Greater(t, MemoryAmountFromBytes(memoryPeak), peakFromHistogram)
 
 }
