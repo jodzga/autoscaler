@@ -241,6 +241,9 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 		return fmt.Errorf("cannot load checkpoint for VPA %+v. Reason: %v", vpa.ID, err)
 	}
 	vpa.ContainersInitialAggregateState[checkpoint.Spec.ContainerName] = cs
+	if checkpoint.Spec.ContainerName == "kube-event-mon" {
+		klog.Infof("checkpoint KEM %+v with container state %+v", checkpoint, cs)
+	}
 	return nil
 }
 
