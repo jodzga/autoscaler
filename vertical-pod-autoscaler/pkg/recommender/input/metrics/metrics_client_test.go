@@ -44,3 +44,18 @@ func TestGetContainersMetricsReturnsResults(t *testing.T) {
 		assert.Contains(t, tc.getAllSnaps(), snap, "One of returned ContainerMetricsSnapshot is different then expected ")
 	}
 }
+
+func TestCalculateUsageReturnsResults(t *testing.T) {
+	containerUsage := []k8sapiv1.ResourceList{
+		k8sapiv1.ResourceCPU:    resource.MustParse("100m"),
+		k8sapiv1.ResourceMemory: resource.MustParse("100Mi"),
+		k8sapiv1.ResourceRSS:    resource.MustParse("100Mi"),
+		// Missing k8sapiv1.ResourceJVMHeapCommitted
+	}
+
+	result := calculateUsage(containerUsage)
+	assert.Len(t, result, 3, "It should return 3 results")
+	assert.Equal(t, int64(100), result[ResourceCPU], "CPU usage should be 100 millicores")
+	assert.Equal(t, int64(104857600), result[ResourceMemory], "Memory usage should be 104857600 bytes")
+	assert.Equal(t, int64(104857600), result[ResourceRSS], "RSS usage should be 104857600 bytes")
+}
