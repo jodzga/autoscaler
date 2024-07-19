@@ -212,9 +212,6 @@ func (feeder *clusterStateFeeder) InitFromHistoryProvider(historyProvider histor
 				klog.Warningf("Failed to add container %+v. Reason: %+v", containerID, err)
 			}
 			klog.V(4).Infof("Adding %d samples for container %v", len(sampleList), containerID)
-			if containerName == "kube-event-mon" {
-				klog.Infof("sampleList KEM %+v", sampleList)
-			}
 			for _, sample := range sampleList {
 				if err := feeder.clusterState.AddSample(
 					&model.ContainerUsageSampleWithKey{
@@ -439,6 +436,9 @@ func (feeder *clusterStateFeeder) LoadRealTimeMetrics() {
 				klog.Warningf("Error adding metric sample for container %v: %v", sample.Container, err)
 				droppedSampleCount++
 			} else {
+				if containerMetrics.ID.ContainerName == "kube-event-mon" {
+					klog.Infof("sampleList KEM %+v", sample)
+				}
 				sampleCount++
 			}
 		}
