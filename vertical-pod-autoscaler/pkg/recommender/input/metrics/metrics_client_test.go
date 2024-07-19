@@ -52,6 +52,7 @@ func TestGetContainersMetricsIgnoresNoUsage(t *testing.T) {
 	snapshots, err := fakeMetricsClient.GetContainersMetrics()
 
 	assert.NoError(t, err)
+	assert.Len(t, snapshots, len(tc.getAllSnaps()), "It should return right number of snapshots")
 	for _, snap := range snapshots {
 		assert.Contains(t, snap.Usage, model.ResourceCPU, "CPU usage should be present")
 		assert.Contains(t, snap.Usage, model.ResourceMemory, "Memory usage should be present")
