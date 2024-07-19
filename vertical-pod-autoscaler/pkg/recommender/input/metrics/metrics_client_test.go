@@ -45,17 +45,18 @@ func TestGetContainersMetricsReturnsResults(t *testing.T) {
 	}
 }
 
-func TestCalculateUsageReturnsResults(t *testing.T) {
-	containerUsage := []k8sapiv1.ResourceList{
-		k8sapiv1.ResourceCPU:    resource.MustParse("100m"),
-		k8sapiv1.ResourceMemory: resource.MustParse("100Mi"),
-		k8sapiv1.ResourceRSS:    resource.MustParse("100Mi"),
-		// Missing k8sapiv1.ResourceJVMHeapCommitted
-	}
+func TestGetContainersMetricsIgnoresNoUsage(t *testing.T) {
+	tc := newMetricsClientTestCase()
+	fakeMetricsClient := tc.createFakeMetricsClient()
 
-	result := calculateUsage(containerUsage)
-	assert.Len(t, result, 3, "It should return 3 results")
-	assert.Equal(t, int64(100), result[ResourceCPU], "CPU usage should be 100 millicores")
-	assert.Equal(t, int64(104857600), result[ResourceMemory], "Memory usage should be 104857600 bytes")
-	assert.Equal(t, int64(104857600), result[ResourceRSS], "RSS usage should be 104857600 bytes")
+	snapshots, err := fakeMetricsClient.GetContainersMetrics()
+
+	assert.NoError(t, err)
+	assert.Len(t, snapshots, len(tc.getAllSnaps()), "It should return right number of snapshots")
+	for _, snap := range snapshots {
+		assert.Contains(t, snap.Usage, model.ResourceCPU, "CPU usage should be present")
+		assert.Contains(t, snap.Usage, model.ResourceMemory, "Memory usage should be present")
+		assert.Contains(t, snap.Usage, model.ResourceRSS, "RSS usage should be present")
+		assert.NotContains(t, snap.Usage, model.ResourceJVMHeapCommitted, "JVM Heap Committed usage should not be present")
+	}
 }
