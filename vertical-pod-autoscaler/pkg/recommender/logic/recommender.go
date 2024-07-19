@@ -22,6 +22,8 @@ import (
 
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model"
+
+	klog "k8s.io/klog/v2"
 )
 
 var (
@@ -80,6 +82,9 @@ func (r *podResourceRecommender) GetRecommendedPodResources(containerNameToAggre
 
 	for containerName, aggregatedContainerState := range containerNameToAggregateStateMap {
 		recommendation[containerName] = recommender.estimateContainerResources(aggregatedContainerState)
+	}
+	if containerName == "kube-event-mon" {
+		klog.Infof("recommendation KEM %+v", recommendation)
 	}
 	return recommendation
 }
