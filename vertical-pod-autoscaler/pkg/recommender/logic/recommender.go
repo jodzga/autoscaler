@@ -83,7 +83,7 @@ func (r *podResourceRecommender) GetRecommendedPodResources(containerNameToAggre
 	for containerName, aggregatedContainerState := range containerNameToAggregateStateMap {
 		recommendation[containerName] = recommender.estimateContainerResources(aggregatedContainerState)
 		if containerName == "kube-event-mon" {
-			klog.Infof("recommendation KEM %+v", recommendation[containerName])
+			klog.Infof("recommendation KEM %+v AND %v", recommendation[containerName], aggregatedContainerState)
 		}
 	}
 	return recommendation
