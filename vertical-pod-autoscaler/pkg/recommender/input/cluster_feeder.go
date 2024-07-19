@@ -238,9 +238,6 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 		return fmt.Errorf("cannot load checkpoint for VPA %+v. Reason: %v", vpa.ID, err)
 	}
 	vpa.ContainersInitialAggregateState[checkpoint.Spec.ContainerName] = cs
-	if checkpoint.Spec.ContainerName == "kube-event-mon" {
-		klog.Infof("checkpoint KEM %+v with container state %+v", checkpoint, cs)
-	}
 	return nil
 }
 
@@ -436,9 +433,6 @@ func (feeder *clusterStateFeeder) LoadRealTimeMetrics() {
 				klog.Warningf("Error adding metric sample for container %v: %v", sample.Container, err)
 				droppedSampleCount++
 			} else {
-				if containerMetrics.ID.ContainerName == "kube-event-mon" {
-					klog.Infof("sampleList KEM %+v", sample)
-				}
 				sampleCount++
 			}
 		}
