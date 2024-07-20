@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model"
 )
 
 func TestGetContainersMetricsReturnsEmptyList(t *testing.T) {
