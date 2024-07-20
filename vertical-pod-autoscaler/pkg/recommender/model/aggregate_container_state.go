@@ -252,11 +252,11 @@ func (a *AggregateContainerState) SaveToCheckpoint(containerName string) (*vpa_t
 	if err != nil {
 		return nil, err
 	}
-	rss, err := a.AggregateRSSPeaks.SaveToChekpoint()
-	if err != nil {
-		return nil, err
-	}
 	if containerName == "vpa-test-service" {
+		rss, err := a.AggregateRSSPeaks.SaveToChekpoint()
+		if err != nil {
+			return nil, err
+		}
 		jvmHeapCommitted, err := a.AggregateJVMHeapCommittedPeaks.SaveToChekpoint()
 		if err != nil {
 			return nil, err
@@ -280,7 +280,7 @@ func (a *AggregateContainerState) SaveToCheckpoint(containerName string) (*vpa_t
 			TotalSamplesCount: a.TotalSamplesCount,
 			MemoryHistogram:   *memory,
 			CPUHistogram:      *cpu,
-			RSSHistogram:      *rss,
+			// RSSHistogram:      *rss,
 			// JVMHeapCommittedHistogram: *jvmHeapCommitted,
 			Version: SupportedCheckpointVersion,
 		}, nil
