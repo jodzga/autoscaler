@@ -105,22 +105,27 @@ func newContainerMetricsSnapshot(containerMetrics v1beta1.ContainerMetrics, podM
 }
 
 func calculateUsage(containerUsage k8sapiv1.ResourceList) model.Resources {
-	cpuQuantity := containerUsage[k8sapiv1.ResourceCPU]
-	cpuMillicores := cpuQuantity.MilliValue()
+	resources := map[model.ResourceName]model.ResourceAmount{}
 
-	memoryQuantity := containerUsage[k8sapiv1.ResourceMemory]
-	memoryBytes := memoryQuantity.Value()
-
-	rssQuantity := containerUsage[k8sapiv1.ResourceName(model.ResourceRSS)]
-	rssBytes := rssQuantity.Value()
-
-	jvmHeapCommittedQuantity := containerUsage[k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted)]
-	jvmHeapCommittedBytes := jvmHeapCommittedQuantity.Value()
-
-	return model.Resources{
-		model.ResourceCPU:              model.ResourceAmount(cpuMillicores),
-		model.ResourceMemory:           model.ResourceAmount(memoryBytes),
-		model.ResourceRSS:              model.ResourceAmount(rssBytes),
-		model.ResourceJVMHeapCommitted: model.ResourceAmount(jvmHeapCommittedBytes),
+	cpuQuantity, ok := containerUsage[k8sapiv1.ResourceCPU]
+	if ok {
+		resources[model.ResourceCPU] = model.ResourceAmount(cpuQuantity.MilliValue())
 	}
+
+	memoryQuantity, ok := containerUsage[k8sapiv1.ResourceMemory]
+	if ok {
+		resources[model.ResourceMemory] = model.ResourceAmount(memoryQuantity.Value())
+	}
+
+	rssQuantity, ok := containerUsage[k8sapiv1.ResourceName(model.ResourceRSS)]
+	if ok {
+		resources[model.ResourceRSS] = model.ResourceAmount(rssQuantity.Value())
+	}
+
+	jvmHeapCommittedQuantity, ok := containerUsage[k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted)]
+	if ok {
+		resources[model.ResourceJVMHeapCommitted] = model.ResourceAmount(jvmHeapCommittedQuantity.Value())
+	}
+
+	return resources
 }

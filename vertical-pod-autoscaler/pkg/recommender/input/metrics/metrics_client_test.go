@@ -20,6 +20,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model"
 )
 
 func TestGetContainersMetricsReturnsEmptyList(t *testing.T) {
@@ -42,5 +44,22 @@ func TestGetContainersMetricsReturnsResults(t *testing.T) {
 	assert.Len(t, snapshots, len(tc.getAllSnaps()), "It should return right number of snapshots")
 	for _, snap := range snapshots {
 		assert.Contains(t, tc.getAllSnaps(), snap, "One of returned ContainerMetricsSnapshot is different then expected ")
+	}
+}
+
+func TestGetContainersMetricsIgnoresNoUsage(t *testing.T) {
+	tc := newMetricsClientTestCase()
+	fakeMetricsClient := tc.createFakeMetricsClient()
+
+	snapshots, err := fakeMetricsClient.GetContainersMetrics()
+
+	assert.NoError(t, err)
+	assert.Len(t, snapshots, len(tc.getAllSnaps()), "It should return right number of snapshots")
+	for _, snap := range snapshots {
+		assert.Len(t, snap.Usage, 3, "It should return only CPU, Memory and RSS usage")
+		assert.Contains(t, snap.Usage, model.ResourceCPU, "CPU usage should be present")
+		assert.Contains(t, snap.Usage, model.ResourceMemory, "Memory usage should be present")
+		assert.Contains(t, snap.Usage, model.ResourceRSS, "RSS usage should be present")
+		assert.NotContains(t, snap.Usage, model.ResourceJVMHeapCommitted, "JVM Heap Committed usage should not be present")
 	}
 }

@@ -74,10 +74,10 @@ func (tc *metricsClientTestCase) newContainerMetricsSnapshot(id model.ContainerI
 		SnapshotTime:   tc.snapshotTimestamp,
 		SnapshotWindow: tc.snapshotWindow,
 		Usage: model.Resources{
-			model.ResourceCPU:              model.ResourceAmount(cpuUsage),
-			model.ResourceMemory:           model.ResourceAmount(memUsage),
-			model.ResourceRSS:              0,
-			model.ResourceJVMHeapCommitted: 0,
+			model.ResourceCPU:    model.ResourceAmount(cpuUsage),
+			model.ResourceMemory: model.ResourceAmount(memUsage),
+			model.ResourceRSS:    0,
+			// Missing model.ResourceJVMHeapCommitted
 		},
 	}
 }
@@ -131,14 +131,11 @@ func calculateResourceList(usage model.Resources) k8sapiv1.ResourceList {
 	rssBytes := big.NewInt(int64(usage[model.ResourceRSS]))
 	rssQuantityString := rssBytes.String()
 
-	jvmHeapCommittedBytes := big.NewInt(int64(usage[model.ResourceJVMHeapCommitted]))
-	jvmHeapCommittedQuantityString := jvmHeapCommittedBytes.String()
-
 	resourceMap := map[k8sapiv1.ResourceName]resource.Quantity{
-		k8sapiv1.ResourceCPU:                                  resource.MustParse(cpuQuantityString),
-		k8sapiv1.ResourceMemory:                               resource.MustParse(memoryQuantityString),
-		k8sapiv1.ResourceName(model.ResourceRSS):              resource.MustParse(rssQuantityString),
-		k8sapiv1.ResourceName(model.ResourceJVMHeapCommitted): resource.MustParse(jvmHeapCommittedQuantityString),
+		k8sapiv1.ResourceCPU:                     resource.MustParse(cpuQuantityString),
+		k8sapiv1.ResourceMemory:                  resource.MustParse(memoryQuantityString),
+		k8sapiv1.ResourceName(model.ResourceRSS): resource.MustParse(rssQuantityString),
+		// Missing k8sapiv1.ResourceJVMHeapCommitted
 	}
 	return k8sapiv1.ResourceList(resourceMap)
 }
