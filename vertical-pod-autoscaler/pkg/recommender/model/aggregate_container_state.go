@@ -256,10 +256,10 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 	if err != nil {
 		return nil, err
 	}
-	jvmHeapCommitted, err := a.AggregateJVMHeapCommittedPeaks.SaveToChekpoint()
-	if err != nil {
-		return nil, err
-	}
+	// jvmHeapCommitted, err := a.AggregateJVMHeapCommittedPeaks.SaveToChekpoint()
+	// if err != nil {
+	// 	return nil, err
+	// }
 	return &vpa_types.VerticalPodAutoscalerCheckpointStatus{
 		LastUpdateTime:            metav1.NewTime(time.Now()),
 		FirstSampleStart:          metav1.NewTime(a.FirstSampleStart),
@@ -268,7 +268,7 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 		MemoryHistogram:           *memory,
 		CPUHistogram:              *cpu,
 		RSSHistogram:              *rss,
-		JVMHeapCommittedHistogram: *jvmHeapCommitted,
+		// JVMHeapCommittedHistogram: *jvmHeapCommitted,
 		Version:                   SupportedCheckpointVersion,
 	}, nil
 }
