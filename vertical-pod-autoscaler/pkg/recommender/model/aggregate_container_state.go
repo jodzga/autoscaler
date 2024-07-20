@@ -243,7 +243,7 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 
 // SaveToCheckpoint serializes AggregateContainerState as VerticalPodAutoscalerCheckpointStatus.
 // The serialization may result in loss of precission of the histograms.
-func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAutoscalerCheckpointStatus, error) {
+func (a *AggregateContainerState) SaveToCheckpoint(containerName string) (*vpa_types.VerticalPodAutoscalerCheckpointStatus, error) {
 	memory, err := a.AggregateMemoryPeaks.SaveToChekpoint()
 	if err != nil {
 		return nil, err
@@ -256,21 +256,35 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 	if err != nil {
 		return nil, err
 	}
-	// jvmHeapCommitted, err := a.AggregateJVMHeapCommittedPeaks.SaveToChekpoint()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	return &vpa_types.VerticalPodAutoscalerCheckpointStatus{
-		LastUpdateTime:            metav1.NewTime(time.Now()),
-		FirstSampleStart:          metav1.NewTime(a.FirstSampleStart),
-		LastSampleStart:           metav1.NewTime(a.LastSampleStart),
-		TotalSamplesCount:         a.TotalSamplesCount,
-		MemoryHistogram:           *memory,
-		CPUHistogram:              *cpu,
-		RSSHistogram:              *rss,
-		// JVMHeapCommittedHistogram: *jvmHeapCommitted,
-		Version:                   SupportedCheckpointVersion,
-	}, nil
+	if containerName == "vpa-test-service" {
+		jvmHeapCommitted, err := a.AggregateJVMHeapCommittedPeaks.SaveToChekpoint()
+		if err != nil {
+			return nil, err
+		}
+		return &vpa_types.VerticalPodAutoscalerCheckpointStatus{
+			LastUpdateTime:            metav1.NewTime(time.Now()),
+			FirstSampleStart:          metav1.NewTime(a.FirstSampleStart),
+			LastSampleStart:           metav1.NewTime(a.LastSampleStart),
+			TotalSamplesCount:         a.TotalSamplesCount,
+			MemoryHistogram:           *memory,
+			CPUHistogram:              *cpu,
+			RSSHistogram:              *rss,
+			JVMHeapCommittedHistogram: *jvmHeapCommitted,
+			Version:                   SupportedCheckpointVersion,
+		}, nil
+	} else {
+		return &vpa_types.VerticalPodAutoscalerCheckpointStatus{
+			LastUpdateTime:    metav1.NewTime(time.Now()),
+			FirstSampleStart:  metav1.NewTime(a.FirstSampleStart),
+			LastSampleStart:   metav1.NewTime(a.LastSampleStart),
+			TotalSamplesCount: a.TotalSamplesCount,
+			MemoryHistogram:   *memory,
+			CPUHistogram:      *cpu,
+			RSSHistogram:      *rss,
+			// JVMHeapCommittedHistogram: *jvmHeapCommitted,
+			Version: SupportedCheckpointVersion,
+		}, nil
+	}
 }
 
 // LoadFromCheckpoint deserializes data from VerticalPodAutoscalerCheckpointStatus
