@@ -427,4 +427,9 @@ type HistogramCheckpoint struct {
 
 	// Sum of samples to be used as denominator for weights from BucketWeights.
 	TotalWeight float64 `json:"totalWeight,omitempty" protobuf:"bytes,3,opt,name=totalWeight"`
+
+	// Map from bucket index to bucket weight using floating point.
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:validation:XPreserveUnknownFields
+	FPBucketWeights map[int]float64 `json:"fpBucketWeights,omitempty" protobuf:"bytes,2,opt,name=fpBucketWeights"`
 }

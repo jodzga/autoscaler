@@ -58,6 +58,10 @@ func NewDecayingHistogram(options HistogramOptions, halfLife time.Duration) Hist
 	}
 }
 
+func (h *decayingHistogram) Max(epsilon float64, time time.Time) float64 {
+	return h.histogram.Max(epsilon*h.decayFactor(time), time)
+}
+
 func (h *decayingHistogram) Percentile(percentile float64) float64 {
 	return h.histogram.Percentile(percentile)
 }

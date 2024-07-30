@@ -34,6 +34,16 @@ func (m *MockHistogram) Percentile(percentile float64) float64 {
 	return args.Get(0).(float64)
 }
 
+func (m *MockHistogram) Epsilon() float64 {
+	args := m.Called()
+	return args.Get(0).(float64)
+}
+
+func (m *MockHistogram) Max(epsilon float64, time time.Time) float64 {
+	args := m.Called(epsilon, time)
+	return args.Get(0).(float64)
+}
+
 // AddSample is a mock implementation of Histogram.AddSample.
 func (m *MockHistogram) AddSample(value float64, weight float64, time time.Time) {
 	m.Called(value, weight, time)

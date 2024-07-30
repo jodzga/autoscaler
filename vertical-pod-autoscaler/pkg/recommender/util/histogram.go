@@ -39,6 +39,10 @@ type Histogram interface {
 	// If the histogram is empty, Percentile() returns 0.0.
 	Percentile(percentile float64) float64
 
+	Epsilon() float64
+
+	Max(epsilon float64, time time.Time) float64
+
 	// Add a sample with a given value and weight.
 	AddSample(value float64, weight float64, time time.Time)
 
@@ -156,6 +160,28 @@ func (h *histogram) Merge(other Histogram) {
 	}
 }
 
+func (h *histogram) Epsilon() float64 {
+	return h.options.Epsilon()
+}
+
+func (h *histogram) Max(epsilon float64, time time.Time) float64 {
+	if h.IsEmpty() {
+		return 0.0
+	}
+	lastBucket := h.options.NumBuckets() - 1
+	bucket := h.maxBucket
+	for h.bucketWeight[bucket] < epsilon && bucket > 0 {
+		bucket--
+	}
+	if bucket < lastBucket {
+		// Return the end of the bucket.
+		return h.options.GetBucketStart(bucket + 1)
+	}
+	// Return the start of the last bucket (note that the last bucket
+	// doesn't have an upper bound).
+	return h.options.GetBucketStart(bucket)
+}
+
 func (h *histogram) Percentile(percentile float64) float64 {
 	if h.IsEmpty() {
 		return 0.0
@@ -190,6 +216,11 @@ func (h *histogram) String() string {
 	}
 	for i := 0; i <= 100; i += 5 {
 		lines = append(lines, fmt.Sprintf("%d\t%.3f", i, h.Percentile(0.01*float64(i))))
+	}
+	// Add raw bucket weights.
+	lines = append(lines, "bucket\tweight")
+	for bucket := h.minBucket; bucket <= h.maxBucket; bucket++ {
+		lines = append(lines, fmt.Sprintf("%d\t%.3f", bucket, h.bucketWeight[bucket]))
 	}
 	return strings.Join(lines, "\n")
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package model
 
 import (
+	"flag"
 	"testing"
 	"time"
 
@@ -293,4 +294,124 @@ func TestUpdateFromPolicyControlledResources(t *testing.T) {
 			assert.Equal(t, tc.expected, cs.GetControlledResources())
 		})
 	}
+}
+
+// Flags chosen for DB memory recommendation algorithm
+var (
+	DBMemoryAggregationInterval      = flag.Duration("memory-aggregation-interval", time.Minute*3251, `The length of a single interval, for which the peak memory usage is computed. Memory usage peaks are aggregated in multiples of this interval. In other words there is one memory usage sample per interval (the maximum usage over that interval)`)
+	DBMemoryAggregationIntervalCount = flag.Int64("memory-aggregation-interval-count", DefaultMemoryAggregationIntervalCount, `The number of consecutive memory-aggregation-intervals which make up the MemoryAggregationWindowLength which in turn is the period for memory usage aggregation by VPA. In other words, MemoryAggregationWindowLength = memory-aggregation-interval * memory-aggregation-interval-count.`)
+	DBMemoryHistogramDecayHalfLife   = flag.Duration("memory-histogram-decay-half-life", time.Minute*3251, `The amount of time it takes a historical memory usage sample to lose half of its weight. In other words, a fresh usage sample is twice as 'important' as one with age equal to the half life period.`)
+	// TODO: add a flag for memory histogram target percentile or other custom flags
+	DBCpuHistogramDecayHalfLife = flag.Duration("cpu-histogram-decay-half-life", DefaultCPUHistogramDecayHalfLife, `The amount of time it takes a historical CPU usage sample to lose half of its weight.`)
+	DBOomBumpUpRatio            = flag.Float64("oom-bump-up-ratio", DefaultOOMBumpUpRatio, `The memory bump up ratio when OOM occurred, default is 1.2.`)
+	DBOomMinBumpUp              = flag.Float64("oom-min-bump-up-bytes", DefaultOOMMinBumpUp, `The minimal increase of memory when OOM occurred in bytes, default is 100 * 1024 * 1024`)
+)
+
+func newDBAggregateContainerState() *AggregateContainerState {
+	state := NewAggregateContainerState()
+	state.IsUnderVPA = true
+	state.ControlledResources = &DefaultControlledResources
+	scalingModeAuto := vpa_types.ContainerScalingModeAuto
+	state.ScalingMode = &scalingModeAuto
+	updteModeInitial := vpa_types.UpdateModeInitial
+	state.UpdateMode = &updteModeInitial
+	return state
+}
+
+func TestDBPeakRememberedForAMonth(t *testing.T) {
+	// Initialization
+	InitializeAggregationsConfig(NewAggregationsConfig(*DBMemoryAggregationInterval, *DBMemoryAggregationIntervalCount, *DBMemoryHistogramDecayHalfLife, time.Hour*24*1, *DBOomBumpUpRatio, *DBOomMinBumpUp))
+	cs := newDBAggregateContainerState()
+	timestamp := time.Now()
+
+	// Add peak at time 0
+	memoryPeak := float64(2 * 1024 * 1024 * 1024) // 2 Gi peak
+	memorySample := ContainerUsageSample{
+		MeasureStart: timestamp,
+		Usage:        MemoryAmountFromBytes(memoryPeak),
+		Request:      testRequest[ResourceMemory],
+		Resource:     ResourceMemory,
+	}
+	cs.AddSample(&memorySample)
+
+	// Add "low" memory usage for a month and verify that peak is remembered
+	for i := 0; i < 60*24*30-1; i++ {
+		lowMemoryUsage := float64((i%10 + 1) * 100 * 1024 * 1024)
+		memorySample = ContainerUsageSample{
+			MeasureStart: timestamp,
+			Usage:        MemoryAmountFromBytes(lowMemoryUsage),
+			Request:      testRequest[ResourceMemory],
+			Resource:     ResourceMemory,
+		}
+		cs.AddSample(&memorySample)
+		peakFromHistogram := MemoryAmountFromBytes(cs.AggregateMemoryPeaks.Max(cs.AggregateMemoryPeaks.Epsilon(), timestamp))
+		// Peak from histogram can be larger than observed peak due to histogram bucketing
+		assert.GreaterOrEqual(t, peakFromHistogram, MemoryAmountFromBytes(memoryPeak))
+		timestamp = timestamp.Add(time.Minute)
+	}
+
+	// Add "low" memory usage for one more day
+	for i := 0; i < 60*24; i++ {
+		lowMemoryUsage := float64((i%10 + 1) * 100 * 1024 * 1024)
+		memorySample = ContainerUsageSample{
+			MeasureStart: timestamp,
+			Usage:        MemoryAmountFromBytes(lowMemoryUsage),
+			Request:      testRequest[ResourceMemory],
+			Resource:     ResourceMemory,
+		}
+		cs.AddSample(&memorySample)
+		timestamp = timestamp.Add(time.Minute)
+	}
+
+	// Verify that peak is forgotten
+	peakFromHistogram := MemoryAmountFromBytes(cs.AggregateMemoryPeaks.Max(cs.AggregateMemoryPeaks.Epsilon(), timestamp))
+	assert.Greater(t, MemoryAmountFromBytes(memoryPeak), peakFromHistogram)
+
+}
+
+func addDBTestCPUSample(cluster *ClusterState, container ContainerID, cpuCores float64, timestamp time.Time) error {
+	sample := ContainerUsageSampleWithKey{
+		Container: container,
+		ContainerUsageSample: ContainerUsageSample{
+			MeasureStart: timestamp,
+			Usage:        CPUAmountFromCores(cpuCores),
+			Request:      testRequest[ResourceCPU],
+			Resource:     ResourceCPU,
+		},
+	}
+	return cluster.AddSample(&sample)
+}
+
+func addDBTestMemorySample(cluster *ClusterState, container ContainerID, memoryBytes float64, timestamp time.Time) error {
+	sample := ContainerUsageSampleWithKey{
+		Container: container,
+		ContainerUsageSample: ContainerUsageSample{
+			MeasureStart: timestamp,
+			Usage:        MemoryAmountFromBytes(memoryBytes),
+			Request:      testRequest[ResourceMemory],
+			Resource:     ResourceMemory,
+		},
+	}
+	return cluster.AddSample(&sample)
+}
+
+func TestAggregateStatetDBPeakRememberedForAMonth(t *testing.T) {
+	// Initialization
+	InitializeAggregationsConfig(NewAggregationsConfig(*DBMemoryAggregationInterval, *DBMemoryAggregationIntervalCount, *DBMemoryHistogramDecayHalfLife, time.Hour*24*1, *DBOomBumpUpRatio, *DBOomMinBumpUp))
+	timestamp := time.Now()
+
+	cluster := NewClusterState(time.Hour)
+	cluster.AddOrUpdatePod(testPodID1, testLabels, apiv1.PodRunning)
+
+	container := ContainerID{testPodID1, "app-A"}
+	assert.NoError(t, cluster.AddOrUpdateContainer(container, testRequest))
+
+	addDBTestCPUSample(cluster, container, 1.0, timestamp)
+	addDBTestMemorySample(cluster, container, 1.0, timestamp)
+
+	aggregateResources := AggregateStateByContainerName(cluster.aggregateStateMap)
+	assert.Contains(t, aggregateResources, "app-A")
+
+	// Expect samples from all containers to be grouped by the container name.
+	assert.Equal(t, 1, aggregateResources["app-A"].TotalSamplesCount)
 }
