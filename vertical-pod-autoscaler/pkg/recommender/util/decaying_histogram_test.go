@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -36,6 +37,34 @@ func TestPercentilesEmptyDecayingHistogram(t *testing.T) {
 	for p := -0.5; p <= 1.5; p += 0.5 {
 		assert.Equal(t, 0.0, h.Percentile(p))
 	}
+}
+
+func TestMax(t *testing.T) {
+	histogramOptions, _ := NewLinearHistogramOptions(10.0, 1.0, 0.0001)
+	h := NewDecayingHistogram(histogramOptions, time.Hour)
+	// Add a sample with a very large weight.
+	h.AddSample(2, 1, startTime)
+	h.AddSample(1, 1, startTime.Add(time.Hour*2))
+	assert.InEpsilon(t, 3, h.Max(h.Epsilon(), startTime), valueEpsilon)
+
+	// Solution to 1/(2^n-1) = 0.0001 is n = 13.2877
+	// So, after 14 half life periods, the weight of the first sample
+	// should be lower than the epsilon 0.0001.
+	assert.InEpsilon(t, 3, h.Max(h.Epsilon(), startTime.Add(time.Hour*13)), valueEpsilon)
+	assert.InEpsilon(t, 2, h.Max(h.Epsilon(), startTime.Add(time.Hour*14)), valueEpsilon)
+}
+
+func TestMax30d(t *testing.T) {
+	histogramOptions, _ := NewLinearHistogramOptions(10.0, 1.0, 0.0001)
+	// 60*24*30/13.2877 = 3251
+	h := NewDecayingHistogram(histogramOptions, time.Minute*3251)
+	// Add a sample with a very large weight.
+	h.AddSample(2, 1, startTime)
+	h.AddSample(1, 1, startTime.Add(time.Hour*24*2))
+	assert.InEpsilon(t, 3, h.Max(h.Epsilon(), startTime), valueEpsilon)
+	assert.InEpsilon(t, 2, h.Max(h.Epsilon(), startTime.Add(time.Hour*24*30)), valueEpsilon)
+	assert.InEpsilon(t, 2, h.Max(h.Epsilon(), startTime.Add(time.Hour*24*31)), valueEpsilon)
+	assert.InEpsilon(t, 1, h.Max(h.Epsilon(), startTime.Add(time.Hour*24*32)), valueEpsilon)
 }
 
 // Verify that a sample with a large weight is almost entirely (but not 100%)
@@ -168,4 +197,251 @@ func TestDecayingHistogramLoadFromCheckpoint(t *testing.T) {
 
 	assert.False(t, d.histogram.IsEmpty())
 	assert.Equal(t, timestamp, d.referenceTimestamp)
+}
+
+func TestDecayingHistogramLoadFromDBCheckpoint(t *testing.T) {
+	/*
+	   apiVersion: autoscaling.k8s.io/v1
+	   kind: VerticalPodAutoscalerCheckpoint
+	   metadata:
+	     creationTimestamp: '2023-10-25T11:41:45Z'
+	     generation: 354639
+	     managedFields:
+	       - apiVersion: autoscaling.k8s.io/v1
+	         fieldsType: FieldsV1
+	         fieldsV1:
+	           f:spec:
+	             .: {}
+	             f:containerName: {}
+	             f:vpaObjectName: {}
+	           f:status:
+	             .: {}
+	             f:cpuHistogram:
+	               .: {}
+	               f:bucketWeights:
+	                 .: {}
+	                 f:10: {}
+	                 f:11: {}
+	                 f:12: {}
+	                 f:13: {}
+	                 f:14: {}
+	                 f:15: {}
+	                 f:16: {}
+	                 f:17: {}
+	                 f:18: {}
+	                 f:19: {}
+	                 f:2: {}
+	                 f:20: {}
+	                 f:21: {}
+	                 f:22: {}
+	                 f:23: {}
+	                 f:24: {}
+	                 f:25: {}
+	                 f:26: {}
+	                 f:27: {}
+	                 f:28: {}
+	                 f:29: {}
+	                 f:3: {}
+	                 f:30: {}
+	                 f:31: {}
+	                 f:32: {}
+	                 f:33: {}
+	                 f:34: {}
+	                 f:35: {}
+	                 f:36: {}
+	                 f:37: {}
+	                 f:38: {}
+	                 f:39: {}
+	                 f:4: {}
+	                 f:40: {}
+	                 f:41: {}
+	                 f:42: {}
+	                 f:43: {}
+	                 f:5: {}
+	                 f:6: {}
+	                 f:7: {}
+	                 f:8: {}
+	                 f:9: {}
+	               f:referenceTimestamp: {}
+	               f:totalWeight: {}
+	             f:firstSampleStart: {}
+	             f:jvmHeapCommittedHistogram:
+	               .: {}
+	               f:referenceTimestamp: {}
+	             f:lastSampleStart: {}
+	             f:lastUpdateTime: {}
+	             f:memoryHistogram:
+	               .: {}
+	               f:bucketWeights:
+	                 .: {}
+	                 f:76: {}
+	                 f:77: {}
+	                 f:78: {}
+	                 f:79: {}
+	                 f:80: {}
+	               f:referenceTimestamp: {}
+	               f:totalWeight: {}
+	             f:rssHistogram:
+	               .: {}
+	               f:bucketWeights:
+	                 .: {}
+	                 f:76: {}
+	                 f:77: {}
+	                 f:78: {}
+	                 f:79: {}
+	               f:referenceTimestamp: {}
+	               f:totalWeight: {}
+	             f:totalSamplesCount: {}
+	             f:version: {}
+	         manager: recommender-amd64
+	         operation: Update
+	         time: '2024-07-26T16:46:05Z'
+	     name: cmapiserver-deployment-high-vpa-cmapiserver
+	     namespace: cmapiserver
+	     resourceVersion: '2904247470'
+	     uid: 02b92c5d-cc88-4376-a5d7-e007484a46a7
+	     selfLink: >-
+	       /apis/autoscaling.k8s.io/v1/namespaces/cmapiserver/verticalpodautoscalercheckpoints/cmapiserver-deployment-high-vpa-cmapiserver
+	   status:
+	     cpuHistogram:
+	       bucketWeights:
+	         '2': 1
+	         '3': 4
+	         '4': 504
+	         '5': 7507
+	         '6': 10000
+	         '7': 7139
+	         '8': 4339
+	         '9': 3155
+	         '10': 3546
+	         '11': 2243
+	         '12': 1404
+	         '13': 879
+	         '14': 772
+	         '15': 649
+	         '16': 573
+	         '17': 501
+	         '18': 486
+	         '19': 397
+	         '20': 301
+	         '21': 258
+	         '22': 191
+	         '23': 100
+	         '24': 84
+	         '25': 53
+	         '26': 41
+	         '27': 32
+	         '28': 27
+	         '29': 25
+	         '30': 22
+	         '31': 23
+	         '32': 25
+	         '33': 19
+	         '34': 10
+	         '35': 8
+	         '36': 8
+	         '37': 3
+	         '38': 5
+	         '39': 1
+	         '40': 1
+	         '41': 3
+	         '42': 1
+	         '43': 1
+	       referenceTimestamp: '2024-07-29T00:00:00Z'
+	       totalWeight: 2678.9068695782944
+	     firstSampleStart: '2023-10-25T04:09:53Z'
+	     jvmHeapCommittedHistogram:
+	       referenceTimestamp: null
+	     lastSampleStart: '2024-07-28T04:30:44Z'
+	     lastUpdateTime: '2024-07-28T04:31:12Z'
+	     memoryHistogram:
+	       bucketWeights:
+	         '76': 130
+	         '77': 1837
+	         '78': 10000
+	         '79': 1399
+	         '80': 617
+	       referenceTimestamp: '2024-07-26T00:00:00Z'
+	       totalWeight: 320.04235388263606
+	     rssHistogram:
+	       bucketWeights:
+	         '76': 148
+	         '77': 2493
+	         '78': 10000
+	         '79': 775
+	       referenceTimestamp: '2024-07-26T00:00:00Z'
+	       totalWeight: 309.41187082249957
+	     totalSamplesCount: 819544
+	     version: v3
+	   spec:
+	     containerName: cmapiserver
+	     vpaObjectName: cmapiserver-deployment-high-vpa
+
+	*/
+
+	location, _ := time.LoadLocation("UTC")
+	timestamp := time.Date(2024, time.July, 29, 0, 0, 0, 0, location)
+
+	checkpoint := vpa_types.HistogramCheckpoint{
+		TotalWeight: 2678.9068695782944,
+		BucketWeights: map[int]uint32{
+			2:  1,
+			3:  4,
+			4:  504,
+			5:  7507,
+			6:  10000,
+			7:  7139,
+			8:  4339,
+			9:  3155,
+			10: 3546,
+			11: 2243,
+			12: 1404,
+			13: 879,
+			14: 772,
+			15: 649,
+			16: 573,
+			17: 501,
+			18: 486,
+			19: 397,
+			20: 301,
+			21: 258,
+			22: 191,
+			23: 100,
+			24: 84,
+			25: 53,
+			26: 41,
+			27: 32,
+			28: 27,
+			29: 25,
+			30: 22,
+			31: 23,
+			32: 25,
+			33: 19,
+			34: 10,
+			35: 8,
+			36: 8,
+			37: 3,
+			38: 5,
+			39: 1,
+			40: 1,
+			41: 3,
+			42: 1,
+			43: 1,
+		},
+		ReferenceTimestamp: metav1.NewTime(timestamp),
+	}
+	options, err := NewExponentialHistogramOptions(1000.0, 0.01, 1.+0.05, epsilon)
+	assert.NoError(t, err)
+	d := &decayingHistogram{
+		histogram:          *NewHistogram(options).(*histogram),
+		halfLife:           time.Hour * 24 * 7,
+		referenceTimestamp: time.Time{},
+	}
+	err = d.LoadFromCheckpoint(&checkpoint)
+	assert.NoError(t, err)
+
+	assert.False(t, d.histogram.IsEmpty())
+	assert.Equal(t, timestamp, d.referenceTimestamp)
+
+	fmt.Println(d.String())
 }

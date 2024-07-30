@@ -35,6 +35,8 @@ type HistogramOptions interface {
 	GetBucketStart(bucket int) float64
 	// Returns the minimum weight for a bucket to be considered non-empty.
 	Epsilon() float64
+	// Whether to use floating point bucket weights
+	UseFPBucketWeights() bool
 }
 
 // NewLinearHistogramOptions returns HistogramOptions describing a histogram
@@ -47,7 +49,7 @@ func NewLinearHistogramOptions(
 		return nil, errors.New("maxValue and bucketSize must both be positive")
 	}
 	numBuckets := int(math.Ceil(maxValue/bucketSize)) + 1
-	return &linearHistogramOptions{numBuckets, bucketSize, epsilon}, nil
+	return &linearHistogramOptions{numBuckets, bucketSize, epsilon, false}, nil
 }
 
 // NewExponentialHistogramOptions returns HistogramOptions describing a
@@ -67,20 +69,22 @@ func NewExponentialHistogramOptions(
 			"maxValue, firstBucketSize and epsilon must be > 0.0, ratio must be > 1.0")
 	}
 	numBuckets := int(math.Ceil(log(ratio, maxValue*(ratio-1)/firstBucketSize+1))) + 1
-	return &exponentialHistogramOptions{numBuckets, firstBucketSize, ratio, epsilon}, nil
+	return &exponentialHistogramOptions{numBuckets, firstBucketSize, ratio, epsilon, false}, nil
 }
 
 type linearHistogramOptions struct {
-	numBuckets int
-	bucketSize float64
-	epsilon    float64
+	numBuckets         int
+	bucketSize         float64
+	epsilon            float64
+	useFPBucketWeights bool
 }
 
 type exponentialHistogramOptions struct {
-	numBuckets      int
-	firstBucketSize float64
-	ratio           float64
-	epsilon         float64
+	numBuckets         int
+	firstBucketSize    float64
+	ratio              float64
+	epsilon            float64
+	useFPBucketWeights bool
 }
 
 func (o *linearHistogramOptions) NumBuckets() int {
@@ -107,6 +111,10 @@ func (o *linearHistogramOptions) GetBucketStart(bucket int) float64 {
 
 func (o *linearHistogramOptions) Epsilon() float64 {
 	return o.epsilon
+}
+
+func (o *linearHistogramOptions) UseFPBucketWeights() bool {
+	return o.useFPBucketWeights
 }
 
 func (o *exponentialHistogramOptions) NumBuckets() int {
@@ -143,6 +151,10 @@ func (o *exponentialHistogramOptions) GetBucketStart(bucket int) float64 {
 
 func (o *exponentialHistogramOptions) Epsilon() float64 {
 	return o.epsilon
+}
+
+func (o *exponentialHistogramOptions) UseFPBucketWeights() bool {
+	return o.useFPBucketWeights
 }
 
 // Returns the logarithm of x to given base, so that: base^log(base, x) == x.
