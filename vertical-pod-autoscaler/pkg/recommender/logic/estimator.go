@@ -101,8 +101,8 @@ func (e *percentileEstimator) GetResourceEstimation(s *model.AggregateContainerS
 		model.ResourceMemory: model.MemoryAmountFromBytes(
 			s.AggregateMemoryPeaks.Percentile(e.memoryPercentile)),
 		// TODO: Use individual config for RSS and JVMHeapCommitted.
-		model.ResourceRSS:              model.MemoryAmountFromBytes(s.AggregateRSSPeaks.Percentile(e.memoryPercentile)),
-		model.ResourceJVMHeapCommitted: model.MemoryAmountFromBytes(s.AggregateJVMHeapCommittedPeaks.Percentile(e.memoryPercentile)),
+		model.ResourceRSS:              model.MemoryAmountFromBytes(s.AggregateRSSPeaks.Percentile(1.0)),
+		model.ResourceJVMHeapCommitted: model.MemoryAmountFromBytes(s.AggregateJVMHeapCommittedPeaks.Percentile(1.0)),
 	}
 }
 

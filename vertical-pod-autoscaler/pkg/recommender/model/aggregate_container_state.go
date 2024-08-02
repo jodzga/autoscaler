@@ -96,10 +96,10 @@ type AggregateContainerState struct {
 	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
 	AggregateMemoryPeaks util.Histogram
 	// AggregateRSSPeaks is a distribution of RSS peaks from all containers:
-	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
+	// each container should add one peak per day.
 	AggregateRSSPeaks util.Histogram
 	// AggregateJVMHeapCommittedPeaks is a distribution of committed JVM heap peaks from all containers:
-	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
+	// each container should add one peak per day.
 	AggregateJVMHeapCommittedPeaks util.Histogram
 	// Note: first/last sample timestamps as well as the sample count are based only on CPU samples.
 	FirstSampleStart  time.Time
