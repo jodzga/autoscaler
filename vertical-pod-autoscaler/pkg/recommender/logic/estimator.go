@@ -95,15 +95,18 @@ func (e *constEstimator) GetResourceEstimation(s *model.AggregateContainerState)
 
 // Returns specific percentiles of CPU and memory peaks distributions.
 func (e *percentileEstimator) GetResourceEstimation(s *model.AggregateContainerState) model.Resources {
-	return model.Resources{
+	resourceEstimations := model.Resources{
 		model.ResourceCPU: model.CPUAmountFromCores(
 			s.AggregateCPUUsage.Percentile(e.cpuPercentile)),
 		model.ResourceMemory: model.MemoryAmountFromBytes(
 			s.AggregateMemoryPeaks.Percentile(e.memoryPercentile)),
-		// TODO: Use individual config for RSS and JVMHeapCommitted.
 		model.ResourceRSS:              model.MemoryAmountFromBytes(s.AggregateRSSPeaks.Percentile(1.0)),
 		model.ResourceJVMHeapCommitted: model.MemoryAmountFromBytes(s.AggregateJVMHeapCommittedPeaks.Percentile(1.0)),
 	}
+	if !s.AggregateJVMHeapCommittedPeaks.IsEmpty() {
+		resourceEstimations[model.ResourceJVMHeapCommitted] = model.MemoryAmountFromBytes(s.AggregateJVMHeapCommittedPeaks.Percentile(1.0))
+	}
+	return resourceEstimations
 }
 
 // Returns a non-negative real number that heuristically measures how much
