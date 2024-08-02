@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 )
 
 var (
@@ -292,6 +293,18 @@ func TestBinaryDecayingHistogramSaveToCheckpointEmpty(t *testing.T) {
 			assert.Equal(t, 0., s.TotalWeight)
 			assert.Len(t, s.BucketWeights, 0)
 			assert.Equal(t, time.Unix(0, 0), s.ReferenceTimestamp.Time)
+		})
+	}
+}
+
+func TestBinaryDecayingHistogramLoadFromEmptyCheckpoint(t *testing.T) {
+	for _, retentionDays := range retentionsToTest {
+		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
+			h := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
+			s := vpa_types.HistogramCheckpoint{}
+			err := h.LoadFromCheckpoint(&s)
+			assert.NoError(t, err)
+			assert.True(t, h.IsEmpty())
 		})
 	}
 }

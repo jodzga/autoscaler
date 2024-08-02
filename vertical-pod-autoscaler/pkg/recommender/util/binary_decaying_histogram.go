@@ -204,10 +204,6 @@ func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.Histo
 	if checkpoint == nil {
 		return fmt.Errorf("cannot load from empty checkpoint")
 	}
-	h.lastDayIndex = h.dayIndex(checkpoint.ReferenceTimestamp.Time)
-	if h.lastDayIndex < 0 {
-		return fmt.Errorf("cannot load checkpoint with negative reference timestamp %v", checkpoint.ReferenceTimestamp.Time)
-	}
 	h.bucketForDay = make([]uint16, h.retentionDays)
 	if checkpoint.TotalWeight > 0 {
 		// Loading from checkpoint saved by a different histogram type.
@@ -216,15 +212,20 @@ func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.Histo
 		basicHistogram.LoadFromCheckpoint(checkpoint)
 		h.AddSample(basicHistogram.Percentile(1.0), 1, time.Now())
 	} else {
-		for day := h.lastDayIndex; day > h.lastDayIndex-h.retentionDays && day >= 0; day-- {
-			intIndex := (h.lastDayIndex - day) / 32
-			bucketBase := intIndex * h.options.NumBuckets()
-			bitIndex := (h.lastDayIndex - day) % 32
-			for bucket := 1; bucket <= h.options.NumBuckets(); bucket++ {
-				bucketIndex := bucketBase + bucket - 1
-				if (checkpoint.BucketWeights[bucketIndex] & (1 << bitIndex)) != 0 {
-					h.bucketForDay[day%h.retentionDays] = uint16(bucket)
-					break
+		if checkpoint.ReferenceTimestamp.Time.IsZero() {
+			h.lastDayIndex = 0
+		} else {
+			h.lastDayIndex = h.dayIndex(checkpoint.ReferenceTimestamp.Time)
+			for day := h.lastDayIndex; day > h.lastDayIndex-h.retentionDays && day >= 0; day-- {
+				intIndex := (h.lastDayIndex - day) / 32
+				bucketBase := intIndex * h.options.NumBuckets()
+				bitIndex := (h.lastDayIndex - day) % 32
+				for bucket := 1; bucket <= h.options.NumBuckets(); bucket++ {
+					bucketIndex := bucketBase + bucket - 1
+					if (checkpoint.BucketWeights[bucketIndex] & (1 << bitIndex)) != 0 {
+						h.bucketForDay[day%h.retentionDays] = uint16(bucket)
+						break
+					}
 				}
 			}
 		}
