@@ -55,6 +55,8 @@ type AggregationsConfig struct {
 	OOMBumpUpRatio float64
 	// OOMMinBumpUp specifies the minimal increase of memory when OOM occurred in bytes.
 	OOMMinBumpUp float64
+	// Number of days to retain memory peaks in the history.
+	MemoryHistogramRetentionDays int
 }
 
 const (
@@ -79,6 +81,8 @@ const (
 	DefaultOOMBumpUpRatio float64 = 1.2 // Memory is increased by 20% after an OOMKill.
 	// DefaultOOMMinBumpUp is the default value for OOMMinBumpUp.
 	DefaultOOMMinBumpUp float64 = 100 * 1024 * 1024 // Memory is increased by at least 100MB after an OOMKill.
+	// DefaultMemoryHistogramRetentionDays is the default value for MemoryHistogramRetentionDays.
+	DefaultMemoryHistogramRetentionDays int = 90
 )
 
 // GetMemoryAggregationWindowLength returns the total length of the memory usage history aggregated by VPA.
@@ -111,7 +115,7 @@ func (a *AggregationsConfig) memoryHistogramOptions() util.HistogramOptions {
 }
 
 // NewAggregationsConfig creates a new AggregationsConfig based on the supplied parameters and default values.
-func NewAggregationsConfig(memoryAggregationInterval time.Duration, memoryAggregationIntervalCount int64, memoryHistogramDecayHalfLife, cpuHistogramDecayHalfLife time.Duration, oomBumpUpRatio float64, oomMinBumpUp float64) *AggregationsConfig {
+func NewAggregationsConfig(memoryAggregationInterval time.Duration, memoryAggregationIntervalCount int64, memoryHistogramDecayHalfLife, cpuHistogramDecayHalfLife time.Duration, oomBumpUpRatio float64, oomMinBumpUp float64, memoryHistogramRetentionDays int) *AggregationsConfig {
 	a := &AggregationsConfig{
 		MemoryAggregationInterval:      memoryAggregationInterval,
 		MemoryAggregationIntervalCount: memoryAggregationIntervalCount,
@@ -120,6 +124,7 @@ func NewAggregationsConfig(memoryAggregationInterval time.Duration, memoryAggreg
 		CPUHistogramDecayHalfLife:      cpuHistogramDecayHalfLife,
 		OOMBumpUpRatio:                 oomBumpUpRatio,
 		OOMMinBumpUp:                   oomMinBumpUp,
+		MemoryHistogramRetentionDays:   memoryHistogramRetentionDays,
 	}
 	a.CPUHistogramOptions = a.cpuHistogramOptions()
 	a.MemoryHistogramOptions = a.memoryHistogramOptions()
@@ -131,7 +136,7 @@ var aggregationsConfig *AggregationsConfig
 // GetAggregationsConfig gets the aggregations config. Initializes to default values if not initialized already.
 func GetAggregationsConfig() *AggregationsConfig {
 	if aggregationsConfig == nil {
-		aggregationsConfig = NewAggregationsConfig(DefaultMemoryAggregationInterval, DefaultMemoryAggregationIntervalCount, DefaultMemoryHistogramDecayHalfLife, DefaultCPUHistogramDecayHalfLife, DefaultOOMBumpUpRatio, DefaultOOMMinBumpUp)
+		aggregationsConfig = NewAggregationsConfig(DefaultMemoryAggregationInterval, DefaultMemoryAggregationIntervalCount, DefaultMemoryHistogramDecayHalfLife, DefaultCPUHistogramDecayHalfLife, DefaultOOMBumpUpRatio, DefaultOOMMinBumpUp, DefaultMemoryHistogramRetentionDays)
 	}
 
 	return aggregationsConfig
