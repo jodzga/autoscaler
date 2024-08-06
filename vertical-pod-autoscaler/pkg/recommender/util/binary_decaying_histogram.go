@@ -37,10 +37,12 @@ func NewBinaryDecayingHistogram(options HistogramOptions, retentionDays int) His
 		retentionDays: retentionDays}
 }
 
+// A histogram that only supports returning the maximum value (Percentile(1.0)) of the samples in the last retentionDays days.
+// This histogram does not support SubtractSample function.
 type binaryDecayingHistogram struct {
 	// Bucketing scheme.
 	options HistogramOptions
-	// Index of a bucket for each day. Buckets are indexed starting with 1.
+	// Index of a bucket for each day. Buckets are indexed starting with 1. 0 means no sample, 1 means the first bucket, etc.
 	bucketForDay []uint16
 	// Last recorded day index.
 	lastDayIndex int
@@ -54,7 +56,7 @@ func (h *binaryDecayingHistogram) dayIndex(ts time.Time) int {
 
 func (h *binaryDecayingHistogram) addSampleToBucket(bucket uint16, dayIndex int) {
 	if h.lastDayIndex > 0 {
-		// Ignore samples from too far in the past
+		// Ignore samples too far in the past
 		if dayIndex <= h.lastDayIndex-h.retentionDays {
 			return
 		}
@@ -182,6 +184,13 @@ func (h *binaryDecayingHistogram) Equals(other Histogram) bool {
 	return true
 }
 
+// Saving to checkpoint is done by converting in memory representation (list of days) to list of bucket weights.
+// One day requires 1 bit of storage, so we can store 32 days in one uint32. Since number of days can be arbitrary,
+// we may need multiple uint32s to store all days for one bucket. The bits for bucket 0 are stored in checkpoint with
+// index 0, h.options.NumBuckets(), 2*h.options.NumBuckets() etc. The bits for bucket 1 are stored in checkpoint with
+// index 1, h.options.NumBuckets()+1, 2*h.options.NumBuckets()+1 etc.
+// The resulting checkpoint leaves out the total weight, as it is not used by this histogram type.
+// This allows us to detect if checkpoint was saved by decaying histogram (positive total weight) or by this histogram type (total weight 0).
 func (h *binaryDecayingHistogram) SaveToChekpoint() (*vpa_types.HistogramCheckpoint, error) {
 	result := vpa_types.HistogramCheckpoint{
 		BucketWeights:      make(map[int]uint32),
@@ -200,6 +209,8 @@ func (h *binaryDecayingHistogram) SaveToChekpoint() (*vpa_types.HistogramCheckpo
 	return &result, nil
 }
 
+// Loading from checkpoint supports loading from checkpoints saved by decaying histogram and by this histogram type.
+// It supports loading from checkpoint with different retention days.
 func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.HistogramCheckpoint) error {
 	if checkpoint == nil {
 		return fmt.Errorf("cannot load from empty checkpoint")
