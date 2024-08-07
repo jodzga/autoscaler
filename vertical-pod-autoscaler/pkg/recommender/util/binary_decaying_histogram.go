@@ -39,12 +39,42 @@ func NewBinaryDecayingHistogram(options HistogramOptions, retentionDays int) His
 
 // A histogram that only supports returning the maximum value (Percentile(1.0)) of the samples in the last retentionDays days.
 // This histogram does not support SubtractSample function.
+//
+// An example diagram of the binaryDecayingHistogram structure:
+//
+//	bucketForDay: [ 3 ][ 5 ][ 2 ][ 0 ][ 4 ][ 1 ]  (assuming retentionDays = 6)
+//	                              ^
+//	                         lastDayIndex
+//
+// In this diagram:
+// - Each bracket [ ] represents a day in the bucketForDay slice
+// - The numbers inside the brackets are the maximum bucket indices for each day
+// - The ^ pointer shows where lastDayIndex is currently pointing
+//
+// How it works:
+// 1. When a new sample is added:
+//   - The day index is calculated based on the sample's timestamp
+//   - If the day index is newer than lastDayIndex, the buffer is rotated:
+//   - Days between lastDayIndex and the new day are cleared (set to 0)
+//   - lastDayIndex is updated to the new day
+//
+// 2. The appropriate bucket for the sample value is determined
+// 3. The bucket index is stored in bucketForDay[lastDayIndex % retentionDays]
+// 4. When retrieving the maximum value (Percentile(1.0)):
+//   - The maximum bucket index from all days in the retention period is found
+//   - The corresponding value for that bucket is returned
+//
+// This structure allows for efficient storage and retrieval of maximum values
+// over the specified retention period, with O(1) time complexity for adding samples
+// and O(retentionDays) for retrieving the maximum value.
 type binaryDecayingHistogram struct {
 	// Bucketing scheme.
 	options HistogramOptions
 	// Index of a bucket for each day. Buckets are indexed starting with 1. 0 means no sample, 1 means the first bucket, etc.
 	bucketForDay []uint16
-	// Last recorded day index.
+	// Last recorded day index. If the value is greater than 0 then the bucketForDay holds retentionDays days of data. If lastDayIndex is 0, then the histogram is empty.
+	// The bucket number (max for the day) for lastDayIndex is stored at bucketForDay[lastDayIndex%retentionDays]. The bucket number for the day before is
+	// stored at bucketForDay[(lastDayIndex-1)%retentionDays] etc.
 	lastDayIndex int
 	// Retention days.
 	retentionDays int

@@ -146,5 +146,6 @@ func buildAggregateContainerStateMap(vpa *model.Vpa, cluster *model.ClusterState
 func subtractCurrentContainerMemoryPeak(a *model.AggregateContainerState, container *model.ContainerState, now time.Time) {
 	if now.Before(container.MemoryWindowEnd) {
 		a.AggregateMemoryPeaks.SubtractSample(model.BytesFromMemoryAmount(container.GetMaxMemoryPeak()), 1.0, container.MemoryWindowEnd)
+		// We don't subtract sample from the RSS and JVMHeapCommitted histograms as they use custom binary decaying histogram.
 	}
 }

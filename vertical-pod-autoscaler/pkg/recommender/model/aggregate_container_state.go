@@ -183,8 +183,8 @@ func NewAggregateContainerState() *AggregateContainerState {
 	return &AggregateContainerState{
 		AggregateCPUUsage:              util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
 		AggregateMemoryPeaks:           util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
-		AggregateRSSPeaks:              util.NewBinaryDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramRetentionDays),
-		AggregateJVMHeapCommittedPeaks: util.NewBinaryDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramRetentionDays),
+		AggregateRSSPeaks:              util.NewBinaryDecayingHistogram(config.MemoryHistogramOptions, config.CustomMemoryHistogramRetentionDays),
+		AggregateJVMHeapCommittedPeaks: util.NewBinaryDecayingHistogram(config.MemoryHistogramOptions, config.CustomMemoryHistogramRetentionDays),
 		CreationTime:                   time.Now(),
 	}
 }
