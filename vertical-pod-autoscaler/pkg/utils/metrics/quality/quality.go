@@ -274,14 +274,14 @@ func ObserveQualityMetricsRecommendationMissing(usage float64, isOOM bool, resou
 }
 
 // ObserveRecommendationChange records relative_recommendation_changes metric.
-func ObserveRecommendationChange(previous, current corev1.ResourceList, updateMode *vpa_types.UpdateMode, vpaSize int) {
+func ObserveRecommendationChange(previous, current corev1.ResourceList, updateMode *vpa_types.UpdateMode, vpaSize int, namespace string, vpaName string, container string) {
 	// This will happen if there is no previous recommendation, we don't want to emit anything then.
 	if previous == nil {
 		return
 	}
 	// This is not really expected thus a warning.
 	if current == nil {
-		klog.Warningf("Cannot compare with current recommendation being nil. VPA mode: %v, size: %v", updateMode, vpaSize)
+		klog.Warningf("Cannot compare with current recommendation being nil. VPA mode: %v, size: %v, namesapce: %s, vpaName: %s, container: %s", *updateMode, vpaSize, namespace, vpaName, container)
 		return
 	}
 
@@ -294,7 +294,7 @@ func ObserveRecommendationChange(previous, current corev1.ResourceList, updateMo
 			log2 := metrics.GetVpaSizeLog2(vpaSize)
 			relativeRecommendationChange.WithLabelValues(updateModeToString(updateMode), string(resource), strconv.Itoa(log2)).Observe(diff)
 		} else {
-			klog.Warningf("Cannot compare as old recommendation for %v is 0. VPA mode: %v, size: %v", resource, updateMode, vpaSize)
+			klog.Warningf("Cannot compare as old recommendation for %v is 0. VPA mode: %v, size: %v, namesapce: %s, vpaName: %s, container: %s", resource, *updateMode, vpaSize, namespace, vpaName, container)
 		}
 	}
 }

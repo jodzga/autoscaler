@@ -165,7 +165,7 @@ func (vpa *Vpa) UpdateRecommendation(recommendation *vpa_types.RecommendedPodRes
 	for _, containerRecommendation := range recommendation.ContainerRecommendations {
 		for container, state := range vpa.aggregateContainerStates {
 			if container.ContainerName() == containerRecommendation.ContainerName {
-				metrics_quality.ObserveRecommendationChange(state.LastRecommendation, containerRecommendation.UncappedTarget, vpa.UpdateMode, vpa.PodCount)
+				metrics_quality.ObserveRecommendationChange(state.LastRecommendation, containerRecommendation.UncappedTarget, vpa.UpdateMode, vpa.PodCount, vpa.ID.Namespace, vpa.ID.VpaName, container.ContainerName())
 				state.LastRecommendation = containerRecommendation.UncappedTarget
 			}
 		}

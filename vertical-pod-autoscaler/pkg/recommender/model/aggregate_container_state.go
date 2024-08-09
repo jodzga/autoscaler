@@ -96,10 +96,10 @@ type AggregateContainerState struct {
 	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
 	AggregateMemoryPeaks util.Histogram
 	// AggregateRSSPeaks is a distribution of RSS peaks from all containers:
-	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
+	// each container should add one peak per day.
 	AggregateRSSPeaks util.Histogram
 	// AggregateJVMHeapCommittedPeaks is a distribution of committed JVM heap peaks from all containers:
-	// each container should add one peak per memory aggregation interval (e.g. once every 24h).
+	// each container should add one peak per day.
 	AggregateJVMHeapCommittedPeaks util.Histogram
 	// Note: first/last sample timestamps as well as the sample count are based only on CPU samples.
 	FirstSampleStart  time.Time
@@ -181,11 +181,10 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 func NewAggregateContainerState() *AggregateContainerState {
 	config := GetAggregationsConfig()
 	return &AggregateContainerState{
-		AggregateCPUUsage:    util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
-		AggregateMemoryPeaks: util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
-		// TODO: Use individual config for RSS and JVMHeapCommitted.
-		AggregateRSSPeaks:              util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
-		AggregateJVMHeapCommittedPeaks: util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
+		AggregateCPUUsage:              util.NewDecayingHistogram(config.CPUHistogramOptions, config.CPUHistogramDecayHalfLife),
+		AggregateMemoryPeaks:           util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife),
+		AggregateRSSPeaks:              util.NewBinaryDecayingHistogram(config.MemoryHistogramOptions, config.CustomMemoryHistogramRetentionDays),
+		AggregateJVMHeapCommittedPeaks: util.NewBinaryDecayingHistogram(config.MemoryHistogramOptions, config.CustomMemoryHistogramRetentionDays),
 		CreationTime:                   time.Now(),
 	}
 }
@@ -215,10 +214,6 @@ func (a *AggregateContainerState) SubtractSample(sample *ContainerUsageSample) {
 	switch sample.Resource {
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.SubtractSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
-	case ResourceRSS:
-		a.AggregateRSSPeaks.SubtractSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
-	case ResourceJVMHeapCommitted:
-		a.AggregateJVMHeapCommittedPeaks.SubtractSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	default:
 		panic(fmt.Sprintf("SubtractSample doesn't support resource '%s'", sample.Resource))
 	}
