@@ -176,7 +176,8 @@ func newPodClients(kubeClient kube_client.Interface, resourceEventHandler cache.
 func NewPodListerAndOOMObserver(kubeClient kube_client.Interface, namespace string) (v1lister.PodLister, oom.Observer) {
 	oomObserver := oom.NewObserver()
 	podLister := newPodClients(kubeClient, oomObserver, namespace)
-	WatchEvictionEventsWithRetries(kubeClient, oomObserver, namespace)
+	// Without the VPA updater, the OOM observer does not need to watch eviction events.
+	// WatchEvictionEventsWithRetries(kubeClient, oomObserver, namespace)
 	return podLister, oomObserver
 }
 

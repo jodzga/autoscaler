@@ -48,8 +48,8 @@ spec:
     resources:
       requests:
         memory: "1024"
-	  limits:
-	    memory: "2048"
+      limits:
+        memory: "2048"
 status:
   containerStatuses:
   - name: Name11
@@ -68,8 +68,8 @@ spec:
     resources:
       requests:
         memory: "1024"
-	  limits:
-	    memory: "2048"
+      limits:
+        memory: "2048"
 status:
   containerStatuses:
   - name: Name11
@@ -103,7 +103,6 @@ func TestOOMReceived(t *testing.T) {
 	assert.NoError(t, err)
 	p2, err := newPod(pod2Yaml)
 	assert.NoError(t, err)
-	assert.Equal(t, nil, 5)
 	observer := NewObserver()
 	go observer.OnUpdate(p1, p2)
 
@@ -179,8 +178,8 @@ reason: Evicted
 			oomInfo: []OomInfo{
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
-					OomMemory:      parseResources("1024Ki"),
-					OomType: model.ResourceRSS,
+					OomMemory:   parseResources("1024Ki"),
+					OomType:     model.ResourceMemory,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 			},
@@ -205,14 +204,14 @@ reason: Evicted
 			oomInfo: []OomInfo{
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
-					OomMemory:      parseResources("1024Ki"),
-					OomType: model.ResourceRSS,
+					OomMemory:   parseResources("1024Ki"),
+					OomType:     model.ResourceMemory,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
-					OomMemory:      parseResources("2048Ki"),
-					OomType: model.ResourceRSS,
+					OomMemory:   parseResources("2048Ki"),
+					OomType:     model.ResourceMemory,
 					ContainerID: toContainerID("test-namespace", "pod1", "other-container"),
 				},
 			},
@@ -237,8 +236,8 @@ reason: Evicted
 			oomInfo: []OomInfo{
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
-					OomMemory:      parseResources("1024Ki"),
-					OomType: model.ResourceRSS,
+					OomMemory:   parseResources("1024Ki"),
+					OomType:     model.ResourceMemory,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 			},
