@@ -44,6 +44,7 @@ func newUsageSample(timestamp time.Time, usage int64, resource ResourceName) *Co
 		MeasureStart: timestamp,
 		Usage:        ResourceAmount(usage),
 		Request:      TestRequest[resource],
+		// We should add limit here and we should say resource instead of oomtype in the other
 		Resource:     resource,
 	}
 }
@@ -60,7 +61,7 @@ func newContainerTest() ContainerTest {
 	mockRSSHistogram := new(util.MockHistogram)
 	aggregateContainerState := &AggregateContainerState{
 		AggregateCPUUsage:    mockCPUHistogram,
-		AggregateMemoryPeaks: mockRSSHistogram,
+		AggregateRSSPeaks: mockRSSHistogram,
 	}
 	container := &ContainerState{
 		Request:    TestRequest,
