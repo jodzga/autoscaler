@@ -43,9 +43,8 @@ func bucketLength(options HistogramOptions, value float64) float64 {
 	// special handling of the last bucket
 	if bucket == options.NumBuckets()-1 {
 		return options.GetBucketStart(bucket) - options.GetBucketStart(bucket-1)
-	} else {
-		return options.GetBucketStart(bucket+1) - options.GetBucketStart(bucket)
 	}
+	return options.GetBucketStart(bucket+1) - options.GetBucketStart(bucket)
 }
 
 // Verifies that Percentile(1.0) returns 0.0 when called on an empty histogram for

@@ -25,7 +25,7 @@ import (
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 )
 
-// NewHistogram returns a new Histogram instance using given options.
+// NewBinaryDecayingHistogram returns a new Histogram instance using given options.
 func NewBinaryDecayingHistogram(options HistogramOptions, retentionDays int) Histogram {
 	if retentionDays < 3 {
 		panic("at least 3 days retention is required")
