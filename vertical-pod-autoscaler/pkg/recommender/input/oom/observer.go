@@ -31,8 +31,8 @@ import (
 // OomInfo contains data of the OOM event occurrence
 type OomInfo struct {
 	Timestamp   time.Time
-	OomMemory      model.ResourceAmount
-	OomType		model.ResourceName
+	OomMemory   model.ResourceAmount
+	OomType     model.ResourceName
 	ContainerID model.ContainerID
 }
 
@@ -92,7 +92,7 @@ func parseEvictionEvent(event *apiv1.Event) []OomInfo {
 		}
 		oomInfo := OomInfo{
 			Timestamp: event.CreationTimestamp.Time.UTC(),
-			OomMemory:    model.ResourceAmount(memory.Value()),
+			OomMemory: model.ResourceAmount(memory.Value()),
 			OomType:   model.ResourceMemory,
 			ContainerID: model.ContainerID{
 				PodID: model.PodID{
@@ -160,8 +160,8 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 					memory := oldSpec.Resources.Limits[apiv1.ResourceMemory]
 					oomInfo := OomInfo{
 						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
-						OomMemory:    model.ResourceAmount(memory.Value()),
-						OomType:  model.ResourceRSS,
+						OomMemory: model.ResourceAmount(memory.Value()),
+						OomType:   model.ResourceRSS,
 						ContainerID: model.ContainerID{
 							PodID: model.PodID{
 								Namespace: newPod.ObjectMeta.Namespace,

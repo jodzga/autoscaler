@@ -45,7 +45,7 @@ func newUsageSample(timestamp time.Time, usage int64, resource ResourceName) *Co
 		Usage:        ResourceAmount(usage),
 		Request:      TestRequest[resource],
 		// We should add limit here and we should say resource instead of oomtype in the other
-		Resource:     resource,
+		Resource: resource,
 	}
 }
 
@@ -60,7 +60,7 @@ func newContainerTest() ContainerTest {
 	mockCPUHistogram := new(util.MockHistogram)
 	mockRSSHistogram := new(util.MockHistogram)
 	aggregateContainerState := &AggregateContainerState{
-		AggregateCPUUsage:    mockCPUHistogram,
+		AggregateCPUUsage: mockCPUHistogram,
 		AggregateRSSPeaks: mockRSSHistogram,
 	}
 	container := &ContainerState{
@@ -130,16 +130,16 @@ func TestRecordOOMDontRunAway(t *testing.T) {
 	test := newContainerTest()
 
 	// Bump Up factor is 20%.
-	test.mockRSSHistogram.On("AddSample", 1000.0*mb + (10.0*mb), 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddSample", 1000.0*mb+(10.0*mb), 1.0, testTimestamp)
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(1000.0*mb)))
 
 	// new smaller OOMs don't influence the sample value (oomPeak)
-	test.mockRSSHistogram.On("AddSample", 999.0*mb + (10.0*mb), 1.0, testTimestamp)
-	test.mockRSSHistogram.On("AddSample", 999.0*mb + (10.0*mb), 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddSample", 999.0*mb+(10.0*mb), 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddSample", 999.0*mb+(10.0*mb), 1.0, testTimestamp)
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(999.0*mb)))
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(999.0*mb)))
 
-	test.mockRSSHistogram.On("AddSample", 2000.0*mb + (10.0*mb), 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddSample", 2000.0*mb+(10.0*mb), 1.0, testTimestamp)
 	// a larger OOM should increase the sample value
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(2000.0*mb)))
 }
