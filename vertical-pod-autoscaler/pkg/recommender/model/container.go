@@ -226,7 +226,8 @@ const oomSmallConst = ResourceAmount(10 * 1024 * 1024)
 // RecordOOM adds info regarding OOM event in the model as an artificial memory sample.
 func (container *ContainerState) RecordOOM(timestamp time.Time, memoryType ResourceName, limitMemory ResourceAmount) error {
 	// Discard OOMs older than 1d from now.
-	if timestamp.Before(time.Now().Add(-24 * time.Hour)) {
+	// handle non rss
+	if timestamp.Before(container.lastRSSSampleStart.Add(-24 * time.Hour)) {
 		return fmt.Errorf("OOM event will be discarded - it is too old (%v)", timestamp)
 	}
 
