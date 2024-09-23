@@ -199,7 +199,7 @@ func (container *ContainerState) addMemorySample(sample *ContainerUsageSample, i
 
 func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOOM bool) bool {
 	ts := sample.MeasureStart
-	if !sample.isValid(ResourceRSS) || ts.Before(container.lastRSSSampleStart) {
+	if !sample.isValid(ResourceRSS) || (!isOOM && ts.Before(container.lastRSSSampleStart)) {
 		return false // Discard invalid or outdated samples.
 	}
 	container.observeQualityMetrics(sample.Usage, isOOM, corev1.ResourceName(ResourceRSS))
@@ -210,7 +210,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 
 func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample, isOOM bool) bool {
 	ts := sample.MeasureStart
-	if !sample.isValid(ResourceJVMHeapCommitted) || ts.Before(container.lastJVMHeapCommittedSampleStart) {
+	if !sample.isValid(ResourceJVMHeapCommitted) || (!isOOM && ts.Before(container.lastJVMHeapCommittedSampleStart)) {
 		return false // Discard invalid or outdated samples.
 	}
 	container.observeQualityMetrics(sample.Usage, isOOM, corev1.ResourceName(ResourceJVMHeapCommitted))
@@ -225,8 +225,8 @@ const oomSmallConst = ResourceAmount(10 * 1024 * 1024)
 
 // RecordOOM adds info regarding OOM event in the model as an artificial memory sample.
 func (container *ContainerState) RecordOOM(timestamp time.Time, memoryType ResourceName, limitMemory ResourceAmount) error {
-	// Discard old OOM
-	if timestamp.Before(container.MemoryWindowEnd.Add(-1 * GetAggregationsConfig().MemoryAggregationInterval)) {
+	// Discard OOMs older than 1d from now.
+	if timestamp.Before(time.Now().Add(-24 * time.Hour)) {
 		return fmt.Errorf("OOM event will be discarded - it is too old (%v)", timestamp)
 	}
 
