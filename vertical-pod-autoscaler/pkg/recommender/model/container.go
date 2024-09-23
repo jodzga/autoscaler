@@ -219,21 +219,22 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 	return true
 }
 
+// oomSmallConst is a small constant (10MiB) added to differentiate OOM memory samples
+// from regular memory samples at the memory limit.
+const oomSmallConst = ResourceAmount(10 * 1024 * 1024)
+
 // RecordOOM adds info regarding OOM event in the model as an artificial memory sample.
-func (container *ContainerState) RecordOOM(timestamp time.Time, requestedMemory ResourceAmount) error {
+func (container *ContainerState) RecordOOM(timestamp time.Time, limitMemory ResourceAmount) error {
 	// Discard old OOM
 	if timestamp.Before(container.MemoryWindowEnd.Add(-1 * GetAggregationsConfig().MemoryAggregationInterval)) {
 		return fmt.Errorf("OOM event will be discarded - it is too old (%v)", timestamp)
 	}
-	// Get max of the request and the recent usage-based memory peak.
-	// Omitting oomPeak here to protect against recommendation running too high on subsequent OOMs.
-	memoryUsed := ResourceAmountMax(requestedMemory, container.memoryPeak)
-	memoryNeeded := ResourceAmountMax(memoryUsed+MemoryAmountFromBytes(GetAggregationsConfig().OOMMinBumpUp),
-		ScaleResource(memoryUsed, GetAggregationsConfig().OOMBumpUpRatio))
 
+	// Use memory limit, plus small const to differentiate from regular memory samples at the memory limit.
+	oomMemoryUsage := limitMemory + oomSmallConst
 	oomMemorySample := ContainerUsageSample{
 		MeasureStart: timestamp,
-		Usage:        memoryNeeded,
+		Usage:        oomMemoryUsage,
 		Resource:     ResourceMemory,
 	}
 	if !container.addMemorySample(&oomMemorySample, true) {
