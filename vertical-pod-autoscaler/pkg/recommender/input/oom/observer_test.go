@@ -48,6 +48,8 @@ spec:
     resources:
       requests:
         memory: "1024"
+	  limits:
+	    memory: "2048"
 status:
   containerStatuses:
   - name: Name11
@@ -66,6 +68,8 @@ spec:
     resources:
       requests:
         memory: "1024"
+	  limits:
+	    memory: "2048"
 status:
   containerStatuses:
   - name: Name11
@@ -99,6 +103,7 @@ func TestOOMReceived(t *testing.T) {
 	assert.NoError(t, err)
 	p2, err := newPod(pod2Yaml)
 	assert.NoError(t, err)
+	assert.Equal(t, nil, 5)
 	observer := NewObserver()
 	go observer.OnUpdate(p1, p2)
 
@@ -107,7 +112,7 @@ func TestOOMReceived(t *testing.T) {
 	assert.Equal(t, "mockNamespace", container.PodID.Namespace)
 	assert.Equal(t, "Pod1", container.PodID.PodName)
 	assert.Equal(t, "Name11", container.ContainerName)
-	assert.Equal(t, model.ResourceAmount(int64(1024)), info.Memory)
+	assert.Equal(t, model.ResourceAmount(int64(2048)), info.OomMemory)
 	timestamp, err := time.Parse(time.RFC3339, "2018-02-23T13:38:48Z")
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Unix(), info.Timestamp.Unix())
@@ -174,7 +179,8 @@ reason: Evicted
 			oomInfo: []OomInfo{
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
-					Memory:      parseResources("1024Ki"),
+					OomMemory:      parseResources("1024Ki"),
+					OomType: model.ResourceRSS,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 			},
@@ -199,12 +205,14 @@ reason: Evicted
 			oomInfo: []OomInfo{
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
-					Memory:      parseResources("1024Ki"),
+					OomMemory:      parseResources("1024Ki"),
+					OomType: model.ResourceRSS,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
-					Memory:      parseResources("2048Ki"),
+					OomMemory:      parseResources("2048Ki"),
+					OomType: model.ResourceRSS,
 					ContainerID: toContainerID("test-namespace", "pod1", "other-container"),
 				},
 			},
@@ -229,7 +237,8 @@ reason: Evicted
 			oomInfo: []OomInfo{
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
-					Memory:      parseResources("1024Ki"),
+					OomMemory:      parseResources("1024Ki"),
+					OomType: model.ResourceRSS,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 			},

@@ -224,7 +224,7 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 const oomSmallConst = ResourceAmount(10 * 1024 * 1024)
 
 // RecordOOM adds info regarding OOM event in the model as an artificial memory sample.
-func (container *ContainerState) RecordOOM(timestamp time.Time, limitMemory ResourceAmount) error {
+func (container *ContainerState) RecordOOM(timestamp time.Time, memoryType ResourceName, limitMemory ResourceAmount) error {
 	// Discard old OOM
 	if timestamp.Before(container.MemoryWindowEnd.Add(-1 * GetAggregationsConfig().MemoryAggregationInterval)) {
 		return fmt.Errorf("OOM event will be discarded - it is too old (%v)", timestamp)
@@ -235,12 +235,25 @@ func (container *ContainerState) RecordOOM(timestamp time.Time, limitMemory Reso
 	oomMemorySample := ContainerUsageSample{
 		MeasureStart: timestamp,
 		Usage:        oomMemoryUsage,
-		Resource:     ResourceMemory,
+		Resource:     memoryType,
 	}
-	if !container.addMemorySample(&oomMemorySample, true) {
+	if !container.addOomSample(&oomMemorySample) {
 		return fmt.Errorf("adding OOM sample failed")
 	}
 	return nil
+}
+
+func (container *ContainerState) addOomSample(sample *ContainerUsageSample) bool {
+	switch sample.Resource {
+	case ResourceMemory:
+		return container.addMemorySample(sample, true)
+	case ResourceRSS:
+		return container.addRSSSample(sample, true)
+	case ResourceJVMHeapCommitted:
+		return container.addJVMHeapCommittedSample(sample, true)
+	default:
+		return false
+	}
 }
 
 // AddSample adds a usage sample to the given ContainerState. Requires samples
