@@ -306,11 +306,14 @@ func TestClusterRecordOOM(t *testing.T) {
 	assert.NoError(t, cluster.AddOrUpdateContainer(testContainerID, testRequest))
 
 	// RecordOOM
-	assert.NoError(t, cluster.RecordOOM(testContainerID, time.Unix(0, 0), ResourceRSS, ResourceAmount(10)))
+	pod, _ := cluster.Pods[testPodID]
+	containerState, _ := pod.Containers[testContainerID.ContainerName]
+	containerState.lastRSSSampleStart = testTimestamp.Add(10 * time.Minute)
+	assert.NoError(t, cluster.RecordOOM(testContainerID, testTimestamp, ResourceRSS, ResourceAmount(40.0*1024*1024*1024)))
 
 	// Verify that OOM was aggregated into the aggregated stats.
 	aggregation := cluster.findOrCreateAggregateContainerState(testContainerID)
-	assert.NotEmpty(t, aggregation.AggregateMemoryPeaks)
+	assert.NotZero(t, aggregation.AggregateRSSPeaks.Percentile(1.0))
 }
 
 // Verifies that AddSample and AddOrUpdateContainer methods return a proper

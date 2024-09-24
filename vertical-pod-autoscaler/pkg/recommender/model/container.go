@@ -199,7 +199,7 @@ func (container *ContainerState) addMemorySample(sample *ContainerUsageSample, i
 
 func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOOM bool) bool {
 	ts := sample.MeasureStart
-	if !sample.isValid(ResourceRSS) || ts.Before(container.lastRSSSampleStart) {
+	if !sample.isValid(ResourceRSS) || (!isOOM && ts.Before(container.lastRSSSampleStart)) {
 		return false // Discard invalid or outdated samples.
 	}
 	container.observeQualityMetrics(sample.Usage, isOOM, corev1.ResourceName(ResourceRSS))
@@ -210,7 +210,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 
 func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsageSample, isOOM bool) bool {
 	ts := sample.MeasureStart
-	if !sample.isValid(ResourceJVMHeapCommitted) || ts.Before(container.lastJVMHeapCommittedSampleStart) {
+	if !sample.isValid(ResourceJVMHeapCommitted) || (!isOOM && ts.Before(container.lastJVMHeapCommittedSampleStart)) {
 		return false // Discard invalid or outdated samples.
 	}
 	container.observeQualityMetrics(sample.Usage, isOOM, corev1.ResourceName(ResourceJVMHeapCommitted))
@@ -219,25 +219,39 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 	return true
 }
 
-// RecordOOM adds info regarding OOM event in the model as an artificial memory sample.
+// RecordOOM adds info regarding OOM event in the model as an artificial memory sample at the memory limit.
 func (container *ContainerState) RecordOOM(timestamp time.Time, resource ResourceName, memoryLimit ResourceAmount) error {
-	// Discard old OOM
-	if timestamp.Before(container.MemoryWindowEnd.Add(-1 * GetAggregationsConfig().MemoryAggregationInterval)) {
-		return fmt.Errorf("OOM event will be discarded - it is too old (%v)", timestamp)
-	}
-	// Get max of the request and the recent usage-based memory peak.
-	// Omitting oomPeak here to protect against recommendation running too high on subsequent OOMs.
-	memoryUsed := ResourceAmountMax(memoryLimit, container.memoryPeak)
-	memoryNeeded := ResourceAmountMax(memoryUsed+MemoryAmountFromBytes(GetAggregationsConfig().OOMMinBumpUp),
-		ScaleResource(memoryUsed, GetAggregationsConfig().OOMBumpUpRatio))
-
 	oomMemorySample := ContainerUsageSample{
 		MeasureStart: timestamp,
-		Usage:        memoryNeeded,
-		Resource:     ResourceMemory,
+		Usage:        memoryLimit,
+		Resource:     resource,
 	}
-	if !container.addMemorySample(&oomMemorySample, true) {
-		return fmt.Errorf("adding OOM sample failed")
+
+	// Discard OOM older than 1h of the latest sample.
+	switch resource {
+	case ResourceRSS:
+		if timestamp.Before(container.lastRSSSampleStart.Add(-1 * time.Hour)) {
+			return fmt.Errorf("OOM event will be discarded - it is older than 1h (%v)", timestamp)
+		}
+		if !container.addRSSSample(&oomMemorySample, true) {
+			return fmt.Errorf("adding OOM sample failed")
+		}
+	case ResourceJVMHeapCommitted:
+		if timestamp.Before(container.lastJVMHeapCommittedSampleStart.Add(-1 * time.Hour)) {
+			return fmt.Errorf("OOM event will be discarded - it is older than 1h (%v)", timestamp)
+		}
+		if !container.addJVMHeapCommittedSample(&oomMemorySample, true) {
+			return fmt.Errorf("adding OOM sample failed")
+		}
+	case ResourceMemory:
+		if timestamp.Before(container.MemoryWindowEnd.Add(-1 * GetAggregationsConfig().MemoryAggregationInterval)) {
+			return fmt.Errorf("OOM event will be discarded - it is too old (%v)", timestamp)
+		}
+		if !container.addMemorySample(&oomMemorySample, true) {
+			return fmt.Errorf("adding OOM sample failed")
+		}
+	default:
+		return fmt.Errorf("unknown resource: %v", resource)
 	}
 	return nil
 }
