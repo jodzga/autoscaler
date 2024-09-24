@@ -77,12 +77,48 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
+func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, annotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
+	// Construct the desired annotations within the context of a complete VerticalPodAutoscaler resource
+	annotationsUpdate := &vpa_types.VerticalPodAutoscaler{
+		TypeMeta: meta.TypeMeta{
+			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
+			Kind:       "VerticalPodAutoscaler",
+		},
+		ObjectMeta: meta.ObjectMeta{
+			Annotations: annotations,
+		},
+	}
+
+	// Marshal the annotations update into JSON
+	bytes, err := json.Marshal(annotationsUpdate)
+	if err != nil {
+		klog.Errorf("Cannot marshal VPA annotations %+v. Reason: %+v", annotationsUpdate, err)
+		return
+	}
+
+	// Define patch options with Server-Side Apply and Force set to true
+	opts := meta.PatchOptions{
+		FieldManager: "vpa-controller",
+		Force:        pointer.Bool(true),
+	}
+
+	// Apply the patch using Server-Side Apply
+	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata")
+}
+
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
 func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus,
 	oldStatus *vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
 
 	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
 		return patchVpaStatus(vpaClient, vpaName, *newStatus)
+	}
+	return nil, nil
+}
+
+func UpdateVpaAnnotationsIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newAnnotations map[string]string, oldAnnotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
+	if !apiequality.Semantic.DeepEqual(oldAnnotations, newAnnotations) {
+		return patchVpaAnnotations(vpaClient, vpaName, newAnnotations)
 	}
 	return nil, nil
 }

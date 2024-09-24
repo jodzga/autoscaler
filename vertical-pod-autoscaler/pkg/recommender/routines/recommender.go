@@ -133,7 +133,7 @@ func (r *recommender) UpdateVPAs() {
 				"Cannot update status of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
 
-		// If a new OOMKill processed, update the last OOM timestamp of the VPA object.
+		// If new OOMKill processed, update the last OOM timestamp of the VPA object.
 		_, err = vpa_utils.UpdateVpaAnnotationsIfNeeded(
 			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations, observedVpa.ObjectMeta.Annotations)
 		if err != nil {
