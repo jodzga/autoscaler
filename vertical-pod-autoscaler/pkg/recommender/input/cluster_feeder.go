@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 	kube_client "k8s.io/client-go/kubernetes"
@@ -233,7 +234,7 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 	}
 
 	cs := model.NewAggregateContainerState()
-	err := cs.LoadFromCheckpoint(&checkpoint.Status)
+	err := cs.LoadFromCheckpoint(checkpoint)
 	if err != nil {
 		return fmt.Errorf("cannot load checkpoint for VPA %+v. Reason: %v", vpa.ID, err)
 	}
@@ -252,12 +253,24 @@ func (feeder *clusterStateFeeder) InitFromCheckpoints() {
 
 	for namespace := range namespaces {
 		klog.V(3).Infof("Fetching checkpoints from namespace %s", namespace)
-		checkpointList, err := feeder.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(namespace).List(context.TODO(), metav1.ListOptions{})
+		checkpointClient := feeder.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(namespace)
+		checkpointList, err := checkpointClient.List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			klog.Errorf("Cannot list VPA checkpoints from namespace %v. Reason: %+v", namespace, err)
 		}
 		for _, checkpoint := range checkpointList.Items {
-
+			// If the checkpoint has no annotations yet, prepare it for last updated timestamp annotation patches.
+			if namespace == "vpa-test-service" {
+				if checkpoint.ObjectMeta.Annotations == nil {
+					klog.Infof("Patching VPA checkpoint %v/%v to add empty /metadata/annotations", namespace, checkpoint.ObjectMeta.Name)
+				} else {
+					klog.Infof("IT IS NOT NIL Patching VPA checkpoint %v/%v to add empty /metadata/annotations", namespace, checkpoint.ObjectMeta.Name)
+				}
+				_, err := checkpointClient.Patch(context.TODO(), checkpoint.Name, types.MergePatchType, []byte(`{"metadata": {"annotations": {}}}`), metav1.PatchOptions{})
+				if err != nil {
+					klog.Errorf("Cannot patch VPA checkpoint %v/%v to add empty /metadata/annotations. Reason: %+v", namespace, checkpoint.ObjectMeta.Name, err)
+				}
+			}
 			klog.V(3).Infof("Loading VPA %s/%s checkpoint for %s", checkpoint.ObjectMeta.Namespace, checkpoint.Spec.VPAObjectName, checkpoint.Spec.ContainerName)
 			err = feeder.setVpaCheckpoint(&checkpoint)
 			if err != nil {

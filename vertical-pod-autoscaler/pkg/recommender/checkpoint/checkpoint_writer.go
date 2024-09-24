@@ -99,7 +99,10 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 			}
 			checkpointName := fmt.Sprintf("%s-%s", vpa.ID.VpaName, container)
 			vpaCheckpoint := vpa_types.VerticalPodAutoscalerCheckpoint{
-				ObjectMeta: metav1.ObjectMeta{Name: checkpointName},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        checkpointName,
+					Annotations: aggregatedContainerState.SaveToAnnotations(),
+				},
 				Spec: vpa_types.VerticalPodAutoscalerCheckpointSpec{
 					ContainerName: container,
 					VPAObjectName: vpa.ID.VpaName,

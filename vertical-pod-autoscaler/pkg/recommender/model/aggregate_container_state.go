@@ -56,6 +56,14 @@ const (
 	// version of the recommender binary can't initialize from the old checkpoint format or the
 	// previous version of the recommender binary can't initialize from the new checkpoint format.
 	SupportedCheckpointVersion = "v3"
+
+	// LastCPUSampleTimestamp, LastMemorySampleTimestamp, LastRSSSampleTimestamp, LastJVMHeapCommittedSampleTimestamp
+	// are annotation keys used to store timestamps of the last samples that contributed to the AggregateContainerState.
+	// This is saved to the VPA Checkpoint, and propagated to the VPA object.
+	LastCPUSampleTimestamp              = "cpu_last_updated"
+	LastMemorySampleTimestamp           = "memory_last_updated"
+	LastRSSSampleTimestamp              = "rss_last_updated"
+	LastJVMHeapCommittedSampleTimestamp = "jvmheapcommitted_last_updated"
 )
 
 var (
@@ -106,6 +114,14 @@ type AggregateContainerState struct {
 	LastSampleStart   time.Time
 	TotalSamplesCount int
 	CreationTime      time.Time
+
+	// Following fields are needed to track staleness of VPA resource recommendations.
+	// When we record a new sample in an AggregateContainerState, we set this.
+	// This is saved to the VPA Checkpoint, and propagated to the VPA object.
+	lastCPUSampleStart              time.Time
+	lastMemorySampleStart           time.Time
+	lastRSSSampleStart              time.Time
+	lastJVMHeapCommittedSampleStart time.Time
 
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
@@ -167,6 +183,35 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	a.AggregateRSSPeaks.Merge(other.AggregateRSSPeaks)
 	a.AggregateJVMHeapCommittedPeaks.Merge(other.AggregateJVMHeapCommittedPeaks)
 
+	if a.lastCPUSampleStart.IsZero() ||
+		(!other.lastCPUSampleStart.IsZero() && other.lastCPUSampleStart.After(a.lastCPUSampleStart)) {
+		a.lastCPUSampleStart = other.lastCPUSampleStart
+	}
+	if other.lastCPUSampleStart.After(a.lastCPUSampleStart) {
+		a.lastCPUSampleStart = other.lastCPUSampleStart
+	}
+	if a.lastMemorySampleStart.IsZero() ||
+		(!other.lastMemorySampleStart.IsZero() && other.lastMemorySampleStart.After(a.lastMemorySampleStart)) {
+		a.lastMemorySampleStart = other.lastMemorySampleStart
+	}
+	if other.lastMemorySampleStart.After(a.lastMemorySampleStart) {
+		a.lastMemorySampleStart = other.lastMemorySampleStart
+	}
+	if a.lastRSSSampleStart.IsZero() ||
+		(!other.lastRSSSampleStart.IsZero() && other.lastRSSSampleStart.After(a.lastRSSSampleStart)) {
+		a.lastRSSSampleStart = other.lastRSSSampleStart
+	}
+	if other.lastRSSSampleStart.After(a.lastRSSSampleStart) {
+		a.lastRSSSampleStart = other.lastRSSSampleStart
+	}
+	if a.lastJVMHeapCommittedSampleStart.IsZero() ||
+		(!other.lastJVMHeapCommittedSampleStart.IsZero() && other.lastJVMHeapCommittedSampleStart.After(a.lastJVMHeapCommittedSampleStart)) {
+		a.lastJVMHeapCommittedSampleStart = other.lastJVMHeapCommittedSampleStart
+	}
+	if other.lastJVMHeapCommittedSampleStart.After(a.lastJVMHeapCommittedSampleStart) {
+		a.lastJVMHeapCommittedSampleStart = other.lastJVMHeapCommittedSampleStart
+	}
+
 	if a.FirstSampleStart.IsZero() ||
 		(!other.FirstSampleStart.IsZero() && other.FirstSampleStart.Before(a.FirstSampleStart)) {
 		a.FirstSampleStart = other.FirstSampleStart
@@ -194,12 +239,16 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	switch sample.Resource {
 	case ResourceCPU:
 		a.addCPUSample(sample)
+		a.lastCPUSampleStart = sample.MeasureStart
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.lastMemorySampleStart = sample.MeasureStart
 	case ResourceRSS:
 		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.lastRSSSampleStart = sample.MeasureStart
 	case ResourceJVMHeapCommitted:
 		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.lastJVMHeapCommittedSampleStart = sample.MeasureStart
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -236,6 +285,23 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 	a.TotalSamplesCount++
 }
 
+func (a *AggregateContainerState) SaveToAnnotations() map[string]string {
+	annotations := make(map[string]string)
+	if !a.lastCPUSampleStart.IsZero() {
+		annotations[LastCPUSampleTimestamp] = a.lastCPUSampleStart.Format(time.RFC3339)
+	}
+	if !a.lastMemorySampleStart.IsZero() {
+		annotations[LastMemorySampleTimestamp] = a.lastMemorySampleStart.Format(time.RFC3339)
+	}
+	if !a.lastRSSSampleStart.IsZero() {
+		annotations[LastRSSSampleTimestamp] = a.lastRSSSampleStart.Format(time.RFC3339)
+	}
+	if !a.lastJVMHeapCommittedSampleStart.IsZero() {
+		annotations[LastJVMHeapCommittedSampleTimestamp] = a.lastJVMHeapCommittedSampleStart.Format(time.RFC3339)
+	}
+	return annotations
+}
+
 // SaveToCheckpoint serializes AggregateContainerState as VerticalPodAutoscalerCheckpointStatus.
 // The serialization may result in loss of precission of the histograms.
 func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAutoscalerCheckpointStatus, error) {
@@ -270,26 +336,46 @@ func (a *AggregateContainerState) SaveToCheckpoint() (*vpa_types.VerticalPodAuto
 
 // LoadFromCheckpoint deserializes data from VerticalPodAutoscalerCheckpointStatus
 // into the AggregateContainerState.
-func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.VerticalPodAutoscalerCheckpointStatus) error {
-	if checkpoint.Version != SupportedCheckpointVersion {
-		return fmt.Errorf("unsupported checkpoint version %s", checkpoint.Version)
+func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.VerticalPodAutoscalerCheckpoint) error {
+	if checkpoint.Status.Version != SupportedCheckpointVersion {
+		return fmt.Errorf("unsupported checkpoint version %s", checkpoint.Status.Version)
 	}
-	a.TotalSamplesCount = checkpoint.TotalSamplesCount
-	a.FirstSampleStart = checkpoint.FirstSampleStart.Time
-	a.LastSampleStart = checkpoint.LastSampleStart.Time
-	err := a.AggregateMemoryPeaks.LoadFromCheckpoint(&checkpoint.MemoryHistogram)
+	a.TotalSamplesCount = checkpoint.Status.TotalSamplesCount
+	a.FirstSampleStart = checkpoint.Status.FirstSampleStart.Time
+	a.LastSampleStart = checkpoint.Status.LastSampleStart.Time
+	lastCPUSampleStart, ok := checkpoint.ObjectMeta.Annotations[LastCPUSampleTimestamp]
+	if ok {
+		a.lastCPUSampleStart, _ = time.Parse(time.RFC3339, lastCPUSampleStart)
+	}
+	lastMemorySampleStart, ok := checkpoint.ObjectMeta.Annotations[LastMemorySampleTimestamp]
+	if ok {
+		a.lastMemorySampleStart, _ = time.Parse(time.RFC3339, lastMemorySampleStart)
+	}
+	lastRSSSampleStart, ok := checkpoint.ObjectMeta.Annotations[LastRSSSampleTimestamp]
+	if ok {
+		a.lastRSSSampleStart, _ = time.Parse(time.RFC3339, lastRSSSampleStart)
+	}
+	lastJVMHeapCommittedSampleStart, ok := checkpoint.ObjectMeta.Annotations[LastJVMHeapCommittedSampleTimestamp]
+	if ok {
+		a.lastJVMHeapCommittedSampleStart, _ = time.Parse(time.RFC3339, lastJVMHeapCommittedSampleStart)
+	}
+	if checkpoint.ObjectMeta.Name == "vpa-test-service-deployment-high-vpa-vpa-test-service" {
+		fmt.Printf("last sample starts: %v %v %v %v\n", a.lastCPUSampleStart, a.lastMemorySampleStart, a.lastRSSSampleStart, a.lastJVMHeapCommittedSampleStart)
+		fmt.Printf("if they are zero: %v %v %v %v\n", a.lastCPUSampleStart.IsZero(), a.lastMemorySampleStart.IsZero(), a.lastRSSSampleStart.IsZero(), a.lastJVMHeapCommittedSampleStart.IsZero())
+	}
+	err := a.AggregateMemoryPeaks.LoadFromCheckpoint(&checkpoint.Status.MemoryHistogram)
 	if err != nil {
 		return err
 	}
-	err = a.AggregateCPUUsage.LoadFromCheckpoint(&checkpoint.CPUHistogram)
+	err = a.AggregateCPUUsage.LoadFromCheckpoint(&checkpoint.Status.CPUHistogram)
 	if err != nil {
 		return err
 	}
-	err = a.AggregateRSSPeaks.LoadFromCheckpoint(&checkpoint.RSSHistogram)
+	err = a.AggregateRSSPeaks.LoadFromCheckpoint(&checkpoint.Status.RSSHistogram)
 	if err != nil {
 		return err
 	}
-	err = a.AggregateJVMHeapCommittedPeaks.LoadFromCheckpoint(&checkpoint.JVMHeapCommittedHistogram)
+	err = a.AggregateJVMHeapCommittedPeaks.LoadFromCheckpoint(&checkpoint.Status.JVMHeapCommittedHistogram)
 	if err != nil {
 		return err
 	}
