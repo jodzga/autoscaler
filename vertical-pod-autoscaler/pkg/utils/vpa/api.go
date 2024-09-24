@@ -103,7 +103,11 @@ func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaNa
 	}
 
 	// Apply the patch using Server-Side Apply
-	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata")
+	if strings.Contains(vpaName, "vpa-test-service") {
+		return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata")
+	} else {
+		return nil, fmt.Errorf("VPA %s does not contain 'vpa-test-service' - not updated last oom timestamp", vpaName)
+	}
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
