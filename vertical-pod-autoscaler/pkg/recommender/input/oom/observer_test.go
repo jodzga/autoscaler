@@ -36,7 +36,7 @@ func init() {
 	utilruntime.Must(v1.AddToScheme(scheme))
 }
 
-const pod1Yaml = `
+const podYaml = `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -48,13 +48,15 @@ spec:
     resources:
       requests:
         memory: "1024"
+      limits:
+        memory: "2048"
 status:
   containerStatuses:
   - name: Name11
     restartCount: 0
 `
 
-const pod2Yaml = `
+const nativeOomPodYaml = `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -66,6 +68,8 @@ spec:
     resources:
       requests:
         memory: "1024"
+      limits:
+        memory: "2048"
 status:
   containerStatuses:
   - name: Name11
@@ -94,10 +98,10 @@ func newEvent(yaml string) (*v1.Event, error) {
 	return obj.(*v1.Event), nil
 }
 
-func TestOOMReceived(t *testing.T) {
-	p1, err := newPod(pod1Yaml)
+func TestNativeOOMReceived(t *testing.T) {
+	p1, err := newPod(podYaml)
 	assert.NoError(t, err)
-	p2, err := newPod(pod2Yaml)
+	p2, err := newPod(nativeOomPodYaml)
 	assert.NoError(t, err)
 	observer := NewObserver()
 	go observer.OnUpdate(p1, p2)
@@ -107,16 +111,17 @@ func TestOOMReceived(t *testing.T) {
 	assert.Equal(t, "mockNamespace", container.PodID.Namespace)
 	assert.Equal(t, "Pod1", container.PodID.PodName)
 	assert.Equal(t, "Name11", container.ContainerName)
-	assert.Equal(t, model.ResourceAmount(int64(1024)), info.Memory)
+	assert.Equal(t, model.ResourceAmount(int64(2048)), info.Memory)
+	assert.Equal(t, model.ResourceRSS, info.Resource)
 	timestamp, err := time.Parse(time.RFC3339, "2018-02-23T13:38:48Z")
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Unix(), info.Timestamp.Unix())
 }
 
 func TestMalformedPodReceived(t *testing.T) {
-	p1, err := newPod(pod1Yaml)
+	p1, err := newPod(podYaml)
 	assert.NoError(t, err)
-	p2, err := newPod(pod2Yaml)
+	p2, err := newPod(nativeOomPodYaml)
 	assert.NoError(t, err)
 
 	// Malformed pod: restart count > 0, but last termination status is nil
@@ -175,6 +180,7 @@ reason: Evicted
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
 					Memory:      parseResources("1024Ki"),
+					Resource:    model.ResourceMemory,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 			},
@@ -200,11 +206,13 @@ reason: Evicted
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
 					Memory:      parseResources("1024Ki"),
+					Resource:    model.ResourceMemory,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
 					Memory:      parseResources("2048Ki"),
+					Resource:    model.ResourceMemory,
 					ContainerID: toContainerID("test-namespace", "pod1", "other-container"),
 				},
 			},
@@ -230,6 +238,7 @@ reason: Evicted
 				{
 					Timestamp:   parseTimestamp("2018-02-23T13:38:48Z "),
 					Memory:      parseResources("1024Ki"),
+					Resource:    model.ResourceMemory,
 					ContainerID: toContainerID("test-namespace", "pod1", "test-container"),
 				},
 			},
