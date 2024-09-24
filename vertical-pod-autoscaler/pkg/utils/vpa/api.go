@@ -116,6 +116,7 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 	return nil, nil
 }
 
+// UpdateVpaAnnotationsIfNeeded updates the annotations field of the VPA API object.
 func UpdateVpaAnnotationsIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newAnnotations map[string]string, oldAnnotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
 	if !apiequality.Semantic.DeepEqual(oldAnnotations, newAnnotations) {
 		return patchVpaAnnotations(vpaClient, vpaName, newAnnotations)
