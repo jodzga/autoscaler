@@ -176,7 +176,8 @@ func newPodClients(kubeClient kube_client.Interface, resourceEventHandler cache.
 func NewPodListerAndOOMObserver(kubeClient kube_client.Interface, namespace string) (v1lister.PodLister, oom.Observer) {
 	oomObserver := oom.NewObserver()
 	podLister := newPodClients(kubeClient, oomObserver, namespace)
-	WatchEvictionEventsWithRetries(kubeClient, oomObserver, namespace)
+	// This is an unnecessary watch on eviction events when the VPA Updater is disabled.
+	// WatchEvictionEventsWithRetries(kubeClient, oomObserver, namespace)
 	return podLister, oomObserver
 }
 
@@ -443,7 +444,7 @@ Loop:
 		select {
 		case oomInfo := <-feeder.oomChan:
 			klog.V(3).Infof("OOM detected %+v", oomInfo)
-			if err = feeder.clusterState.RecordOOM(oomInfo.ContainerID, oomInfo.Timestamp, oomInfo.Memory); err != nil {
+			if err = feeder.clusterState.RecordOOM(oomInfo.ContainerID, oomInfo.Timestamp, oomInfo.Resource, oomInfo.Memory); err != nil {
 				klog.Warningf("Failed to record OOM %+v. Reason: %+v", oomInfo, err)
 			}
 		default:
