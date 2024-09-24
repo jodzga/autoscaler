@@ -157,6 +157,7 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 			if oldStatus != nil && containerStatus.RestartCount > oldStatus.RestartCount {
 				oldSpec := findSpec(containerStatus.Name, oldPod.Spec.Containers)
 				if oldSpec != nil {
+					// Upon an OOMKill, the artificial memory sample should be at the memory limit.
 					memory := oldSpec.Resources.Limits[apiv1.ResourceMemory]
 					oomInfo := OomInfo{
 						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
