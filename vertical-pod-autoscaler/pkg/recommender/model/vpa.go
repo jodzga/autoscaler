@@ -270,6 +270,34 @@ func (vpa *Vpa) UpdateConditions(podsMatched bool) {
 
 }
 
+const lastOomTimestampKey = "last_oom_timestamp"
+
+// UpdateLastOomTimestamp updates the last_oom_timestamp annotation of the VPA object
+// from the latest last OOM timestamp of the containers.
+func (vpa *Vpa) UpdateOomTimestamp(aggregateContainerStateMap ContainerNameToAggregateStateMap) error {
+	var err error
+	lastOomTimestamp := time.Time{}
+
+	oldLastOomTimestamp, found := vpa.Annotations[lastOomTimestampKey]
+	if found {
+		lastOomTimestamp, err = time.Parse(time.RFC3339, oldLastOomTimestamp)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, aggregateState := range aggregateContainerStateMap {
+		if aggregateState.LastOomTimestamp.After(lastOomTimestamp) {
+			lastOomTimestamp = aggregateState.LastOomTimestamp
+		}
+	}
+
+	if !lastOomTimestamp.IsZero() {
+		vpa.Annotations[lastOomTimestampKey] = lastOomTimestamp.Format(time.RFC3339)
+	}
+	return nil
+}
+
 // AsStatus returns this objects equivalent of VPA Status. UpdateConditions
 // should be called first.
 func (vpa *Vpa) AsStatus() *vpa_types.VerticalPodAutoscalerStatus {

@@ -68,7 +68,7 @@ var (
 // aggregate container usage samples.
 type ContainerStateAggregator interface {
 	// AddSample aggregates a single usage sample.
-	AddSample(sample *ContainerUsageSample)
+	AddSample(sample *ContainerUsageSample, isOOM bool)
 	// SubtractSample removes a single usage sample. The subtracted sample
 	// should be equal to some sample that was aggregated with AddSample()
 	// in the past.
@@ -106,6 +106,8 @@ type AggregateContainerState struct {
 	LastSampleStart   time.Time
 	TotalSamplesCount int
 	CreationTime      time.Time
+	// LastOomTimestamp is the timestamp of the last OOM.
+	LastOomTimestamp time.Time
 
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
@@ -190,7 +192,12 @@ func NewAggregateContainerState() *AggregateContainerState {
 }
 
 // AddSample aggregates a single usage sample.
-func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
+func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample, isOOM bool) {
+	if isOOM {
+		if sample.MeasureStart.After(a.LastOomTimestamp) {
+			a.LastOomTimestamp = sample.MeasureStart
+		}
+	}
 	switch sample.Resource {
 	case ResourceCPU:
 		a.addCPUSample(sample)
@@ -354,9 +361,9 @@ func NewContainerStateAggregatorProxy(cluster *ClusterState, containerID Contain
 }
 
 // AddSample adds a container sample to the aggregator.
-func (p *ContainerStateAggregatorProxy) AddSample(sample *ContainerUsageSample) {
+func (p *ContainerStateAggregatorProxy) AddSample(sample *ContainerUsageSample, isOOM bool) {
 	aggregator := p.cluster.findOrCreateAggregateContainerState(p.containerID)
-	aggregator.AddSample(sample)
+	aggregator.AddSample(sample, isOOM)
 }
 
 // SubtractSample subtracts a container sample from the aggregator.

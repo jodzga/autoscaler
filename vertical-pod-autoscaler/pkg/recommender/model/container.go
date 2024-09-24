@@ -88,7 +88,7 @@ func (container *ContainerState) addCPUSample(sample *ContainerUsageSample) bool
 		return false // Discard invalid, duplicate or out-of-order samples.
 	}
 	container.observeQualityMetrics(sample.Usage, false, corev1.ResourceCPU)
-	container.aggregator.AddSample(sample)
+	container.aggregator.AddSample(sample, false)
 	container.LastCPUSampleStart = sample.MeasureStart
 	return true
 }
@@ -187,7 +187,7 @@ func (container *ContainerState) addMemorySample(sample *ContainerUsageSample, i
 			Request:      sample.Request,
 			Resource:     ResourceMemory,
 		}
-		container.aggregator.AddSample(&newPeak)
+		container.aggregator.AddSample(&newPeak, isOOM)
 		if isOOM {
 			container.oomPeak = sample.Usage
 		} else {
@@ -203,7 +203,7 @@ func (container *ContainerState) addRSSSample(sample *ContainerUsageSample, isOO
 		return false // Discard invalid or outdated samples.
 	}
 	container.observeQualityMetrics(sample.Usage, isOOM, corev1.ResourceName(ResourceRSS))
-	container.aggregator.AddSample(sample)
+	container.aggregator.AddSample(sample, isOOM)
 	container.lastRSSSampleStart = ts
 	return true
 }
@@ -214,7 +214,7 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 		return false // Discard invalid or outdated samples.
 	}
 	container.observeQualityMetrics(sample.Usage, isOOM, corev1.ResourceName(ResourceJVMHeapCommitted))
-	container.aggregator.AddSample(sample)
+	container.aggregator.AddSample(sample, isOOM)
 	container.lastJVMHeapCommittedSampleStart = ts
 	return true
 }

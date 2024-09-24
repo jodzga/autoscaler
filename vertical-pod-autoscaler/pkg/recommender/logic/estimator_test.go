@@ -88,7 +88,7 @@ func TestConfidenceMultiplier(t *testing.T) {
 			Usage:        model.CPUAmountFromCores(1.0),
 			Request:      testRequest[model.ResourceCPU],
 			Resource:     model.ResourceCPU,
-		})
+		}, false)
 		timestamp = timestamp.Add(time.Minute * 2)
 	}
 

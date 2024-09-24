@@ -91,7 +91,8 @@ func (r *recommender) UpdateVPAs() {
 		if !found {
 			continue
 		}
-		resources := r.podResourceRecommender.GetRecommendedPodResources(GetContainerNameToAggregateStateMap(vpa))
+		containerNameToAggregateStateMap := GetContainerNameToAggregateStateMap(vpa)
+		resources := r.podResourceRecommender.GetRecommendedPodResources(containerNameToAggregateStateMap)
 		had := vpa.HasRecommendation()
 
 		listOfResourceRecommendation := logic.MapToListOfRecommendedContainerResources(resources)
@@ -100,6 +101,9 @@ func (r *recommender) UpdateVPAs() {
 			listOfResourceRecommendation = postProcessor.Process(observedVpa, listOfResourceRecommendation)
 		}
 
+		if err := vpa.UpdateOomTimestamp(containerNameToAggregateStateMap); err != nil {
+			klog.Warningf("Failed to update OOM timestamp for VPA %v/%v. Reason: %v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+		}
 		vpa.UpdateRecommendation(listOfResourceRecommendation)
 		if vpa.HasRecommendation() && !had {
 			metrics_recommender.ObserveRecommendationLatency(vpa.Created)
@@ -126,7 +130,15 @@ func (r *recommender) UpdateVPAs() {
 			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status)
 		if err != nil {
 			klog.Errorf(
-				"Cannot update VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+				"Cannot update status of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+		}
+
+		// If a new OOMKill processed, update the last OOM timestamp of the VPA object.
+		_, err = vpa_utils.UpdateVpaAnnotationsIfNeeded(
+			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations, observedVpa.ObjectMeta.Annotations)
+		if err != nil {
+			klog.Errorf(
+				"Cannot update OOM timestamp of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
 	}
 }
