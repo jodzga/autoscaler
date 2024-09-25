@@ -134,8 +134,8 @@ func TestAggregateStateByContainerName(t *testing.T) {
 	actualCPUHistogram := aggregateResources["app-A"].AggregateCPUUsage
 
 	expectedMemoryHistogram := util.NewDecayingHistogram(config.MemoryHistogramOptions, config.MemoryHistogramDecayHalfLife)
-	expectedMemoryHistogram.AddSample(2e9, 1.0, cluster.GetContainer(containers[0]).MemoryWindowEnd, false)
-	expectedMemoryHistogram.AddSample(4e9, 1.0, cluster.GetContainer(containers[2]).MemoryWindowEnd, false)
+	expectedMemoryHistogram.AddSample(2e9, 1.0, cluster.GetContainer(containers[0]).MemoryWindowEnd)
+	expectedMemoryHistogram.AddSample(4e9, 1.0, cluster.GetContainer(containers[2]).MemoryWindowEnd)
 	actualMemoryHistogram := aggregateResources["app-A"].AggregateMemoryPeaks
 
 	assert.True(t, expectedCPUHistogram.Equals(actualCPUHistogram), "Expected:\n%s\nActual:\n%s", expectedCPUHistogram, actualCPUHistogram)
@@ -174,9 +174,9 @@ func TestAggregateContainerStateSaveToCheckpoint(t *testing.T) {
 	cs.LastSampleStart = t2
 	cs.TotalSamplesCount = 10
 
-	cs.AggregateCPUUsage.AddSample(1, 33, t2, false)
-	cs.AggregateMemoryPeaks.AddSample(1, 55, t1, false)
-	cs.AggregateMemoryPeaks.AddSample(10000000, 55, t1, false)
+	cs.AggregateCPUUsage.AddSample(1, 33, t2)
+	cs.AggregateMemoryPeaks.AddSample(1, 55, t1)
+	cs.AggregateMemoryPeaks.AddSample(10000000, 55, t1)
 	checkpoint, err := cs.SaveToCheckpoint()
 
 	assert.NoError(t, err)

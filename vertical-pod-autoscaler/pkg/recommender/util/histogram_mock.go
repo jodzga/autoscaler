@@ -35,7 +35,12 @@ func (m *MockHistogram) Percentile(percentile float64) float64 {
 }
 
 // AddSample is a mock implementation of Histogram.AddSample.
-func (m *MockHistogram) AddSample(value float64, weight float64, time time.Time, isOOM bool) {
+func (m *MockHistogram) AddSample(value float64, weight float64, time time.Time) {
+	m.Called(value, weight, time)
+}
+
+// AddOomSample is a mock implementation of Histogram.AddOomSample.
+func (m *MockHistogram) AddOomSample(value float64, weight float64, time time.Time) {
 	m.Called(value, weight, time)
 }
 

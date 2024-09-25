@@ -34,7 +34,7 @@ var (
 
 	v128Mib        = float64(128 * 1024 * 1024)
 	v128MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v128Mib) / v128Mib
-	v256Mib        = float64(128 * 1024 * 1024)
+	v256Mib        = float64(256 * 1024 * 1024)
 	v256MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v256Mib) / v256Mib
 )
 
@@ -62,32 +62,32 @@ func TestPercentilesBinaryDecayingHistogram(t *testing.T) {
 	for _, retentionDays := range retentionsToTest {
 		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
 			h := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
-			h.AddSample(v128Mib, 1.0, startTime, false)
+			h.AddSample(v128Mib, 1.0, startTime)
 			assert.InEpsilon(t, v128Mib, h.Percentile(1.0), v128MibEpsilon)
 
 			// Adding more samples should not change the result.
-			h.AddSample(1024*1024, 1.0, startTime, false)
-			h.AddSample(1024*1024, 1.0, startTime, false)
+			h.AddSample(1024*1024, 1.0, startTime)
+			h.AddSample(1024*1024, 1.0, startTime)
 			assert.InEpsilon(t, v128Mib, h.Percentile(1.0), v128MibEpsilon)
 
 			// Adding smaller samples should not change the result.
-			h.AddSample(512*1024, 1.0, startTime, false)
-			h.AddSample(128*1024, 1.0, startTime, false)
+			h.AddSample(512*1024, 1.0, startTime)
+			h.AddSample(128*1024, 1.0, startTime)
 			assert.InEpsilon(t, v128Mib, h.Percentile(1.0), v128MibEpsilon)
 
 			// Adding higher samples should change the result.
-			h.AddSample(v256Mib, 1.0, startTime, false)
+			h.AddSample(v256Mib, 1.0, startTime)
 			assert.InEpsilon(t, v256Mib, h.Percentile(1.0), v256MibEpsilon)
 		})
 	}
 }
 
-func TestOomBinaryDecayingHistogram(t *testing.T) {
+func TestBinaryDecayingHistogramPutsOomInNextBucket(t *testing.T) {
 	for _, retentionDays := range retentionsToTest {
 		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
 			h := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
 			// OOM sample should go in the next bucket, compared to a real sample of the same value.
-			h.AddSample(v128Mib, 1.0, startTime, true)
+			h.AddOomSample(v128Mib, 1.0, startTime)
 			assert.InEpsilon(t, v256Mib, h.Percentile(1.0), v256MibEpsilon)
 		})
 	}
@@ -99,7 +99,7 @@ func TestEmptyBinaryDecayingHistogram(t *testing.T) {
 		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
 			h := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
 			assert.True(t, h.IsEmpty())
-			h.AddSample(v128Mib, 1.0, startTime, false)
+			h.AddSample(v128Mib, 1.0, startTime)
 			assert.False(t, h.IsEmpty())
 		})
 	}
@@ -109,7 +109,7 @@ func TestBinaryDecayingHistogramRetention(t *testing.T) {
 	for _, retentionDays := range retentionsToTest {
 		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
 			h := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
-			h.AddSample(v128Mib, 1.0, startTime, false)
+			h.AddSample(v128Mib, 1.0, startTime)
 			assert.InEpsilon(t, v128Mib, h.Percentile(1.0), v128MibEpsilon)
 
 			dayIndex := int(startTime.Unix() / (60 * 60 * 24))
@@ -122,7 +122,7 @@ func TestBinaryDecayingHistogramRetention(t *testing.T) {
 				// low number between 10 and 69
 				lowNumber := float64(currentTime.Minute() + 10)
 
-				h.AddSample(lowNumber*1024*1024, 1.0, currentTime, false)
+				h.AddSample(lowNumber*1024*1024, 1.0, currentTime)
 				assert.InEpsilon(t, v128Mib, h.Percentile(1.0), v128MibEpsilon)
 
 				currentTime = currentTime.Add(time.Minute)
@@ -135,7 +135,7 @@ func TestBinaryDecayingHistogramRetention(t *testing.T) {
 			// Iterate all minutes starting from the firstDayBeoyondRetentionWindowStart until the lastDayWindowStart.
 			for currentTime.Before(lastDayWindowStart) {
 
-				h.AddSample(1, 1.0, currentTime, false)
+				h.AddSample(1, 1.0, currentTime)
 				assert.InEpsilon(t, 69*1024*1024, h.Percentile(1.0), bucketLength(testBinaryDecayingHistogramOptions, 69*1024*1024)/69*1024*1024)
 
 				currentTime = currentTime.Add(time.Minute)
@@ -154,8 +154,8 @@ func TestBinaryDecayingHistogramRetentionChange(t *testing.T) {
 			for currentTime.Before(lastTime) {
 				seconds := currentTime.Unix()
 				mb := float64(seconds%1000000) * 1024 * 1024
-				h.AddSample(mb, 1.0, currentTime, false)
-				shorter.AddSample(mb, 1.0, currentTime, false)
+				h.AddSample(mb, 1.0, currentTime)
+				shorter.AddSample(mb, 1.0, currentTime)
 				s, err := h.SaveToChekpoint()
 				assert.NoError(t, err)
 				loaded := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
@@ -171,7 +171,7 @@ func TestBinaryDecayingHistogramRetentionChange(t *testing.T) {
 				for i := 0; i < retentionDays && !ct.Before(startTime); i++ {
 					seconds := ct.Unix()
 					mb := float64(seconds%1000000) * 1024 * 1024
-					longer.AddSample(mb, 1.0, ct, false)
+					longer.AddSample(mb, 1.0, ct)
 					ct = ct.AddDate(0, 0, -1)
 				}
 				loadedLonger := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays*2)
@@ -194,12 +194,12 @@ func TestBinaryDecayingHistogramMergeNonOverlappingLarger(t *testing.T) {
 			dayIndex := int(startTime.Unix() / (60 * 60 * 24))
 			for i := 0; i < retentionDays; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h1.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts, false)
+				h1.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts)
 			}
 			for i := retentionDays; i < 2*retentionDays; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h2.AddSample(float64((i+1)*1024*1024), 1.0, ts, false)
-				expected.AddSample(float64((i+1)*1024*1024), 1.0, ts, false)
+				h2.AddSample(float64((i+1)*1024*1024), 1.0, ts)
+				expected.AddSample(float64((i+1)*1024*1024), 1.0, ts)
 			}
 			h1.Merge(h2)
 			assert.True(t, h1.Equals(expected))
@@ -216,12 +216,12 @@ func TestBinaryDecayingHistogramMergeNonOverlappingSmaller(t *testing.T) {
 			dayIndex := int(startTime.Unix() / (60 * 60 * 24))
 			for i := 0; i < retentionDays; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h2.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts, false)
+				h2.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts)
 			}
 			for i := retentionDays; i < 2*retentionDays; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h1.AddSample(float64((i+1)*1024*1024), 1.0, ts, false)
-				expected.AddSample(float64((i+1)*1024*1024), 1.0, ts, false)
+				h1.AddSample(float64((i+1)*1024*1024), 1.0, ts)
+				expected.AddSample(float64((i+1)*1024*1024), 1.0, ts)
 			}
 			h1.Merge(h2)
 			assert.True(t, h1.Equals(expected))
@@ -238,12 +238,12 @@ func TestBinaryDecayingHistogramMergeOverlappingLarger(t *testing.T) {
 			dayIndex := int(startTime.Unix() / (60 * 60 * 24))
 			for i := 0; i < retentionDays; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h1.AddSample(float64((i+1)*1024*1024), 1.0, ts, false)
+				h1.AddSample(float64((i+1)*1024*1024), 1.0, ts)
 			}
 			for i := retentionDays - retentionDays/2; i < 2*retentionDays-retentionDays/2; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h2.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts, false)
-				expected.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts, false)
+				h2.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts)
+				expected.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts)
 			}
 			h1.Merge(h2)
 			assert.True(t, h1.Equals(expected))
@@ -260,16 +260,16 @@ func TestBinaryDecayingHistogramMergeOverlappingSmaller(t *testing.T) {
 			dayIndex := int(startTime.Unix() / (60 * 60 * 24))
 			for i := 0; i < retentionDays; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h1.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts, false)
+				h1.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts)
 			}
 			for i := retentionDays - retentionDays/2; i < 2*retentionDays-retentionDays/2; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h2.AddSample(float64((i+1)*1024*1024), 1.0, ts, false)
+				h2.AddSample(float64((i+1)*1024*1024), 1.0, ts)
 				expectedValue := float64((i + 1) * 1024 * 1024)
 				if i < retentionDays {
 					expectedValue = float64((i + 1) * 1024 * 1024 * 1024)
 				}
-				expected.AddSample(expectedValue, 1.0, ts, false)
+				expected.AddSample(expectedValue, 1.0, ts)
 			}
 			h1.Merge(h2)
 			assert.True(t, h1.Equals(expected))
@@ -285,8 +285,8 @@ func TestBinaryDecayingHistogramMergeSame(t *testing.T) {
 			dayIndex := int(startTime.Unix() / (60 * 60 * 24))
 			for i := 0; i < retentionDays; i++ {
 				ts := time.Unix(int64((dayIndex+i)*60*60*24), 0)
-				h.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts, false)
-				expected.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts, false)
+				h.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts)
+				expected.AddSample(float64((i+1)*1024*1024*1024), 1.0, ts)
 			}
 			h.Merge(expected)
 			assert.True(t, h.Equals(expected))
@@ -323,7 +323,7 @@ func TestBinaryDecayingHistogramSaveToCheckpoint(t *testing.T) {
 	for _, retentionDays := range retentionsToTest {
 		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
 			h := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
-			h.AddSample(v128Mib, 1.0, startTime, false)
+			h.AddSample(v128Mib, 1.0, startTime)
 			s, err := h.SaveToChekpoint()
 			assert.NoError(t, err)
 			bucket := testBinaryDecayingHistogramOptions.FindBucket(v128Mib)
@@ -336,7 +336,7 @@ func TestBinaryDecayingHistogramSaveToCheckpoint(t *testing.T) {
 			assert.Equal(t, referenceTimestamp, s.ReferenceTimestamp.Time)
 
 			// Perfect overlap, the same result is expected except for the reference timestamp.
-			h.AddSample(v128Mib, 1.0, startTime.AddDate(0, 0, retentionDays), false)
+			h.AddSample(v128Mib, 1.0, startTime.AddDate(0, 0, retentionDays))
 			s, err = h.SaveToChekpoint()
 			assert.NoError(t, err)
 			bucket = testBinaryDecayingHistogramOptions.FindBucket(v128Mib)
@@ -348,7 +348,7 @@ func TestBinaryDecayingHistogramSaveToCheckpoint(t *testing.T) {
 			assert.Equal(t, 0., s.TotalWeight)
 
 			// Set highest bit
-			h.AddSample(v128Mib, 1.0, startTime.AddDate(0, 0, 2*retentionDays-1), false)
+			h.AddSample(v128Mib, 1.0, startTime.AddDate(0, 0, 2*retentionDays-1))
 			s, err = h.SaveToChekpoint()
 			assert.NoError(t, err)
 			fullInts := (retentionDays - 1) / 32
@@ -383,7 +383,7 @@ func TestBinaryDecayingHistogramCheckpointing(t *testing.T) {
 			for currentTime.Before(lastTime) {
 				seconds := currentTime.Unix()
 				mb := float64(seconds%1000000) * 1024 * 1024
-				h.AddSample(mb, 1.0, currentTime, false)
+				h.AddSample(mb, 1.0, currentTime)
 				s, err := h.SaveToChekpoint()
 				assert.NoError(t, err)
 				loaded := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
@@ -400,8 +400,8 @@ func TestBinaryDecayingHistogramLoadFromDecayingHistogramCheckpoint(t *testing.T
 	for _, retentionDays := range retentionsToTest {
 		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
 			h := NewDecayingHistogram(testBinaryDecayingHistogramOptions, time.Hour*24)
-			h.AddSample(v128Mib, 1.0, startTime, false)
-			h.AddSample(v256Mib, 1.0, startTime.AddDate(0, 0, 1), false)
+			h.AddSample(v128Mib, 1.0, startTime)
+			h.AddSample(v256Mib, 1.0, startTime.AddDate(0, 0, 1))
 			s, err := h.SaveToChekpoint()
 			assert.NoError(t, err)
 			loaded := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)

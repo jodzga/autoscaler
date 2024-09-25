@@ -176,7 +176,9 @@ func newPodClients(kubeClient kube_client.Interface, resourceEventHandler cache.
 func NewPodListerAndOOMObserver(kubeClient kube_client.Interface, namespace string) (v1lister.PodLister, oom.Observer) {
 	oomObserver := oom.NewObserver()
 	podLister := newPodClients(kubeClient, oomObserver, namespace)
-	// This is an unnecessary watch on eviction events when the VPA Updater is disabled.
+	// This is a watch on native Node MemoryPressure evictions, and increases memory recommendations for evicted pods.
+	// This is disabled to avoid increasing per-container memory recommendations on such events.
+	// Instead, changes will be effected with a global safety margin.
 	// WatchEvictionEventsWithRetries(kubeClient, oomObserver, namespace)
 	return podLister, oomObserver
 }

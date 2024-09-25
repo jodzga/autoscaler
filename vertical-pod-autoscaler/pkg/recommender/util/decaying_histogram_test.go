@@ -43,10 +43,10 @@ func TestPercentilesEmptyDecayingHistogram(t *testing.T) {
 func TestSimpleDecay(t *testing.T) {
 	h := NewDecayingHistogram(testHistogramOptions, time.Hour)
 	// Add a sample with a very large weight.
-	h.AddSample(2, 1000, startTime, false)
+	h.AddSample(2, 1000, startTime)
 	// Add another sample 20 half life periods later. Its relative weight is
 	// expected to be 2^20 * 0.001 > 1000 times larger than the first sample.
-	h.AddSample(1, 1, startTime.Add(time.Hour*20), false)
+	h.AddSample(1, 1, startTime.Add(time.Hour*20))
 	assert.InEpsilon(t, 2, h.Percentile(0.999), valueEpsilon)
 	assert.InEpsilon(t, 3, h.Percentile(1.0), valueEpsilon)
 }
@@ -56,10 +56,10 @@ func TestSimpleDecay(t *testing.T) {
 func TestLongtermDecay(t *testing.T) {
 	h := NewDecayingHistogram(testHistogramOptions, time.Hour)
 	// Add a sample with a very large weight.
-	h.AddSample(2, 1, startTime, false)
+	h.AddSample(2, 1, startTime)
 	// Add another sample later, such that the relative decay factor of the
 	// two samples will exceed 2^maxDecayExponent.
-	h.AddSample(1, 1, startTime.Add(time.Hour*101), false)
+	h.AddSample(1, 1, startTime.Add(time.Hour*101))
 	assert.InEpsilon(t, 2, h.Percentile(1.0), valueEpsilon)
 }
 
@@ -71,7 +71,7 @@ func TestDecayingHistogramPercentiles(t *testing.T) {
 	// Add four samples with both values and weights equal to 1, 2, 3, 4,
 	// each separated by one half life period from the previous one.
 	for i := 1; i <= 4; i++ {
-		h.AddSample(float64(i), float64(i), timestamp, false)
+		h.AddSample(float64(i), float64(i), timestamp)
 		timestamp = timestamp.Add(time.Hour)
 	}
 	// The expected distribution is:
@@ -94,7 +94,7 @@ func TestDecayingHistogramPercentiles(t *testing.T) {
 func TestNoDecay(t *testing.T) {
 	h := NewDecayingHistogram(testHistogramOptions, time.Hour)
 	for i := 1; i <= 4; i++ {
-		h.AddSample(float64(i), float64(i), startTime, false)
+		h.AddSample(float64(i), float64(i), startTime)
 	}
 	assert.InEpsilon(t, 2, h.Percentile(0.0), valueEpsilon)
 	assert.InEpsilon(t, 3, h.Percentile(0.2), valueEpsilon)
@@ -112,18 +112,18 @@ func TestNoDecay(t *testing.T) {
 // Verifies that Merge() works as expected on two sample decaying histograms.
 func TestDecayingHistogramMerge(t *testing.T) {
 	h1 := NewDecayingHistogram(testHistogramOptions, time.Hour)
-	h1.AddSample(1, 1, startTime, false)
-	h1.AddSample(2, 1, startTime.Add(time.Hour), false)
+	h1.AddSample(1, 1, startTime)
+	h1.AddSample(2, 1, startTime.Add(time.Hour))
 
 	h2 := NewDecayingHistogram(testHistogramOptions, time.Hour)
-	h2.AddSample(2, 1, startTime.Add(time.Hour*2), false)
-	h2.AddSample(3, 1, startTime.Add(time.Hour), false)
+	h2.AddSample(2, 1, startTime.Add(time.Hour*2))
+	h2.AddSample(3, 1, startTime.Add(time.Hour))
 
 	expected := NewDecayingHistogram(testHistogramOptions, time.Hour)
-	expected.AddSample(2, 1, startTime.Add(time.Hour*2), false)
-	expected.AddSample(2, 1, startTime.Add(time.Hour), false)
-	expected.AddSample(3, 1, startTime.Add(time.Hour), false)
-	expected.AddSample(1, 1, startTime, false)
+	expected.AddSample(2, 1, startTime.Add(time.Hour*2))
+	expected.AddSample(2, 1, startTime.Add(time.Hour))
+	expected.AddSample(3, 1, startTime.Add(time.Hour))
+	expected.AddSample(1, 1, startTime)
 
 	h1.Merge(h2)
 	assert.True(t, h1.Equals(expected))
@@ -135,7 +135,7 @@ func TestDecayingHistogramSaveToCheckpoint(t *testing.T) {
 		halfLife:           time.Hour,
 		referenceTimestamp: time.Time{},
 	}
-	d.AddSample(2, 1, startTime.Add(time.Hour*100), false)
+	d.AddSample(2, 1, startTime.Add(time.Hour*100))
 	assert.NotEqual(t, d.referenceTimestamp, time.Time{})
 
 	checkpoint, err := d.SaveToChekpoint()

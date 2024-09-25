@@ -205,11 +205,21 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	case ResourceCPU:
 		a.addCPUSample(sample)
 	case ResourceMemory:
-		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart, sample.isOOM)
+		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceRSS:
-		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart, sample.isOOM)
+		// Special OOM handling for binary decaying histogram.
+		if sample.isOOM {
+			a.AggregateRSSPeaks.AddOomSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		} else {
+			a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		}
 	case ResourceJVMHeapCommitted:
-		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart, sample.isOOM)
+		// Special OOM handling for binary decaying histogram.
+		if sample.isOOM {
+			a.AggregateJVMHeapCommittedPeaks.AddOomSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		} else {
+			a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		}
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -236,7 +246,7 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 	// whenever the request is increased, the history accumulated so far effectively decays,
 	// which helps react quickly to CPU starvation.
 	a.AggregateCPUUsage.AddSample(
-		cpuUsageCores, math.Max(cpuRequestCores, minSampleWeight), sample.MeasureStart, false)
+		cpuUsageCores, math.Max(cpuRequestCores, minSampleWeight), sample.MeasureStart)
 	if sample.MeasureStart.After(a.LastSampleStart) {
 		a.LastSampleStart = sample.MeasureStart
 	}

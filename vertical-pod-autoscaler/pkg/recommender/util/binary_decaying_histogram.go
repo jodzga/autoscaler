@@ -123,9 +123,14 @@ func (h *binaryDecayingHistogram) addSample(value float64, dayIndex int, isOOM b
 	h.addSampleToBucket(uint16(bucket), dayIndex)
 }
 
-func (h *binaryDecayingHistogram) AddSample(value float64, weight float64, time time.Time, isOOM bool) {
+func (h *binaryDecayingHistogram) AddSample(value float64, weight float64, time time.Time) {
 	dayIndex := h.dayIndex(time)
-	h.addSample(value, dayIndex, isOOM)
+	h.addSample(value, dayIndex, false)
+}
+
+func (h *binaryDecayingHistogram) AddOomSample(value float64, weight float64, time time.Time) {
+	dayIndex := h.dayIndex(time)
+	h.addSample(value, dayIndex, true)
 }
 
 func (h *binaryDecayingHistogram) SubtractSample(value float64, weight float64, time time.Time) {
@@ -256,7 +261,7 @@ func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.Histo
 		// In this case we only extract max.
 		basicHistogram := NewHistogram(h.options)
 		basicHistogram.LoadFromCheckpoint(checkpoint)
-		h.AddSample(basicHistogram.Percentile(1.0), 1, time.Now(), false)
+		h.AddSample(basicHistogram.Percentile(1.0), 1, time.Now())
 	} else {
 		if checkpoint.ReferenceTimestamp.Time.IsZero() {
 			h.lastDayIndex = 0

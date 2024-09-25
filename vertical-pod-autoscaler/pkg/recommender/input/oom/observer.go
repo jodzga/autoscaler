@@ -107,7 +107,7 @@ func parseEvictionEvent(event *apiv1.Event) []OomInfo {
 	return result
 }
 
-// OnEvent inspects k8s eviction events and translates them to OomInfo.
+// OnEvent inspects Node MemoryPressure k8s eviction events and translates them to OomInfo.
 func (o *observer) OnEvent(event *apiv1.Event) {
 	klog.V(1).Infof("OOM Observer processing event: %+v", event)
 	for _, oomInfo := range parseEvictionEvent(event) {
