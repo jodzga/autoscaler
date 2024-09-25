@@ -222,9 +222,6 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 	return true
 }
 
-// oomMultiplier is used for the OOM memory sample at the memory limit to differentiate it from a regular memory sample.
-const oomMultiplier = 1.1
-
 // RecordOOM adds info regarding OOM event in the model as an artificial memory sample at the memory limit.
 func (container *ContainerState) RecordOOM(timestamp time.Time, resource ResourceName, memoryLimit ResourceAmount) error {
 	// Discard old OOM
@@ -234,7 +231,7 @@ func (container *ContainerState) RecordOOM(timestamp time.Time, resource Resourc
 
 	oomMemorySample := ContainerUsageSample{
 		MeasureStart: timestamp,
-		Usage:        ResourceAmount(float64(memoryLimit) * oomMultiplier),
+		Usage:        memoryLimit,
 		Resource:     resource,
 		isOOM:        true,
 	}

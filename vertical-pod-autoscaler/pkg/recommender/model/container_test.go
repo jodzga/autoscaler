@@ -145,17 +145,17 @@ func TestAggregateContainerUsageSamples(t *testing.T) {
 func TestRecordOOMConsecutive(t *testing.T) {
 	test := newContainerTest()
 
-	test.mockRSSHistogram.On("AddOomSample", 1100.0*mb, 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddOomSample", 1000.0*mb, 1.0, testTimestamp)
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(1000*mb)))
 
 	// Smaller OOMs are also recorded.
-	test.mockRSSHistogram.On("AddOomSample", 990.0*mb, 1.0, testTimestamp)
-	test.mockRSSHistogram.On("AddOomSample", 880.0*mb, 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddOomSample", 900.0*mb, 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddOomSample", 800.0*mb, 1.0, testTimestamp)
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(900*mb)))
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(800*mb)))
 
 	// Larger OOMs are recorded.
-	test.mockRSSHistogram.On("AddOomSample", 2200.0*mb, 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddOomSample", 2000.0*mb, 1.0, testTimestamp)
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(2000*mb)))
 }
 
