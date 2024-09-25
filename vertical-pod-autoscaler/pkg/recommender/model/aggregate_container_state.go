@@ -176,6 +176,9 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	if other.LastSampleStart.After(a.LastSampleStart) {
 		a.LastSampleStart = other.LastSampleStart
 	}
+	if other.LastOomTimestamp.After(a.LastOomTimestamp) {
+		a.LastOomTimestamp = other.LastOomTimestamp
+	}
 	a.TotalSamplesCount += other.TotalSamplesCount
 }
 

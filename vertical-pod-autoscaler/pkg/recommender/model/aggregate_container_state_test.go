@@ -34,6 +34,7 @@ var (
 	testRequest = Resources{
 		ResourceCPU:    CPUAmountFromCores(3.14),
 		ResourceMemory: MemoryAmountFromBytes(3.14e9),
+		ResourceRSS:    MemoryAmountFromBytes(3.14e6),
 	}
 )
 
@@ -58,6 +59,20 @@ func addTestMemorySample(cluster *ClusterState, container ContainerID, memoryByt
 			Usage:        MemoryAmountFromBytes(memoryBytes),
 			Request:      testRequest[ResourceMemory],
 			Resource:     ResourceMemory,
+		},
+	}
+	return cluster.AddSample(&sample)
+}
+
+func addTestOomSample(cluster *ClusterState, container ContainerID, timestamp time.Time, memoryBytes float64) error {
+	sample := ContainerUsageSampleWithKey{
+		Container: container,
+		ContainerUsageSample: ContainerUsageSample{
+			MeasureStart: timestamp,
+			Usage:        MemoryAmountFromBytes(memoryBytes),
+			Request:      testRequest[ResourceRSS],
+			Resource:     ResourceRSS,
+			isOOM:        true,
 		},
 	}
 	return cluster.AddSample(&sample)
@@ -125,6 +140,30 @@ func TestAggregateStateByContainerName(t *testing.T) {
 
 	assert.True(t, expectedCPUHistogram.Equals(actualCPUHistogram), "Expected:\n%s\nActual:\n%s", expectedCPUHistogram, actualCPUHistogram)
 	assert.True(t, expectedMemoryHistogram.Equals(actualMemoryHistogram), "Expected:\n%s\nActual:\n%s", expectedMemoryHistogram, actualMemoryHistogram)
+}
+
+func TestAggregateContainerStateKeepsLastOomTimestamp(t *testing.T) {
+	cluster := NewClusterState(testGcPeriod)
+	cluster.AddOrUpdatePod(testPodID1, testLabels, apiv1.PodRunning)
+	container := ContainerID{testPodID1, "app-A"}
+	cluster.AddOrUpdateContainer(container, testRequest)
+
+	timestep := 1 * time.Hour
+	// LastOomTimestamp should be zero before any OOMs.
+	aggregateResources := AggregateStateByContainerName(cluster.aggregateStateMap)
+	assert.True(t, aggregateResources["app-A"].LastOomTimestamp.IsZero())
+	// Update to the OOM timestamp.
+	assert.NoError(t, addTestOomSample(cluster, container, testTimestamp, 1e9))
+	aggregateResources = AggregateStateByContainerName(cluster.aggregateStateMap)
+	assert.Equal(t, testTimestamp, aggregateResources["app-A"].LastOomTimestamp)
+	// Update to the newer OOM timestamp.
+	assert.NoError(t, addTestOomSample(cluster, container, testTimestamp.Add(timestep), 1e9))
+	aggregateResources = AggregateStateByContainerName(cluster.aggregateStateMap)
+	assert.Equal(t, testTimestamp.Add(timestep), aggregateResources["app-A"].LastOomTimestamp)
+	// Do not update to an older OOM timestamp.
+	assert.NoError(t, addTestOomSample(cluster, container, testTimestamp, 1e9))
+	aggregateResources = AggregateStateByContainerName(cluster.aggregateStateMap)
+	assert.Equal(t, testTimestamp.Add(timestep), aggregateResources["app-A"].LastOomTimestamp)
 }
 
 func TestAggregateContainerStateSaveToCheckpoint(t *testing.T) {
