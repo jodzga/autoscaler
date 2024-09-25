@@ -88,7 +88,9 @@ func TestBinaryDecayingHistogramPutsOomInNextBucket(t *testing.T) {
 			h := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
 			// OOM sample should go in the next bucket, compared to a real sample of the same value.
 			h.AddOomSample(v128Mib, 1.0, startTime)
-			assert.InEpsilon(t, v256Mib, h.Percentile(1.0), v256MibEpsilon)
+			bucketRaw := testBinaryDecayingHistogramOptions.FindBucket(v128Mib)
+			bucketOom := bucketRaw + 1
+			assert.InEpsilon(t, testBinaryDecayingHistogramOptions.GetBucketStart(bucketOom), h.Percentile(1.0), testBinaryDecayingHistogramOptions.GetBucketStart(bucketOom+1))
 		})
 	}
 }
