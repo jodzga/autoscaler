@@ -49,7 +49,7 @@ func TestPercentilesEmptyHistogram(t *testing.T) {
 func TestPercentiles(t *testing.T) {
 	h := NewHistogram(testHistogramOptions)
 	for i := 1; i <= 4; i++ {
-		h.AddSample(float64(i), float64(i), anyTime)
+		h.AddSample(float64(i), float64(i), anyTime, false)
 	}
 	assert.InEpsilon(t, 2, h.Percentile(0.0), valueEpsilon)
 	assert.InEpsilon(t, 2, h.Percentile(0.1), valueEpsilon)
@@ -71,15 +71,15 @@ func TestPercentileOutOfBounds(t *testing.T) {
 	options, err := NewLinearHistogramOptions(1.0, 0.1, weightEpsilon)
 	assert.Nil(t, err)
 	h := NewHistogram(options)
-	h.AddSample(0.1, 0.1, anyTime)
-	h.AddSample(0.2, 0.2, anyTime)
+	h.AddSample(0.1, 0.1, anyTime, false)
+	h.AddSample(0.2, 0.2, anyTime, false)
 
 	assert.InEpsilon(t, 0.2, h.Percentile(-0.1), valueEpsilon)
 	assert.InEpsilon(t, 0.3, h.Percentile(1.1), valueEpsilon)
 
 	// Fill the boundary buckets.
-	h.AddSample(0.0, 0.1, anyTime)
-	h.AddSample(1.0, 0.2, anyTime)
+	h.AddSample(0.0, 0.1, anyTime, false)
+	h.AddSample(1.0, 0.2, anyTime, false)
 	assert.InEpsilon(t, 0.1, h.Percentile(-0.1), valueEpsilon)
 	assert.InEpsilon(t, 1.0, h.Percentile(1.1), valueEpsilon)
 }
@@ -90,7 +90,7 @@ func TestEmptyHistogram(t *testing.T) {
 	assert.Nil(t, err)
 	h := NewHistogram(options)
 	assert.True(t, h.IsEmpty())
-	h.AddSample(0.1, weightEpsilon*2.5, anyTime) // Sample weight = epsilon * 2.5.
+	h.AddSample(0.1, weightEpsilon*2.5, anyTime, false) // Sample weight = epsilon * 2.5.
 	assert.False(t, h.IsEmpty())
 	h.SubtractSample(0.1, weightEpsilon, anyTime) // Sample weight = epsilon * 1.5.
 	assert.False(t, h.IsEmpty())
@@ -105,29 +105,29 @@ func TestNonEmptyOnEpsilonAddition(t *testing.T) {
 	h := NewHistogram(options)
 	assert.True(t, h.IsEmpty())
 
-	h.AddSample(9.9, weightEpsilon*3, anyTime)
+	h.AddSample(9.9, weightEpsilon*3, anyTime, false)
 	assert.False(t, h.IsEmpty())
-	h.AddSample(0.1, weightEpsilon*0.3, anyTime)
+	h.AddSample(0.1, weightEpsilon*0.3, anyTime, false)
 	assert.False(t, h.IsEmpty()) // weight*3 sample should make the histogram non-empty
-	h.AddSample(999.9, weightEpsilon*0.3, anyTime)
+	h.AddSample(999.9, weightEpsilon*0.3, anyTime, false)
 	assert.False(t, h.IsEmpty())
 }
 
 // Verifies that Merge() works as expected on two sample histograms.
 func TestHistogramMerge(t *testing.T) {
 	h1 := NewHistogram(testHistogramOptions)
-	h1.AddSample(1, 1, anyTime)
-	h1.AddSample(2, 1, anyTime)
+	h1.AddSample(1, 1, anyTime, false)
+	h1.AddSample(2, 1, anyTime, false)
 
 	h2 := NewHistogram(testHistogramOptions)
-	h2.AddSample(2, 1, anyTime)
-	h2.AddSample(3, 1, anyTime)
+	h2.AddSample(2, 1, anyTime, false)
+	h2.AddSample(3, 1, anyTime, false)
 
 	expected := NewHistogram(testHistogramOptions)
-	expected.AddSample(1, 1, anyTime)
-	expected.AddSample(2, 1, anyTime)
-	expected.AddSample(2, 1, anyTime)
-	expected.AddSample(3, 1, anyTime)
+	expected.AddSample(1, 1, anyTime, false)
+	expected.AddSample(2, 1, anyTime, false)
+	expected.AddSample(2, 1, anyTime, false)
+	expected.AddSample(3, 1, anyTime, false)
 
 	h1.Merge(h2)
 	assert.True(t, h1.Equals(expected))
@@ -143,7 +143,7 @@ func TestHistogramSaveToCheckpointEmpty(t *testing.T) {
 
 func TestHistogramSaveToCheckpoint(t *testing.T) {
 	h := NewHistogram(testHistogramOptions)
-	h.AddSample(1, 1, anyTime)
+	h.AddSample(1, 1, anyTime, false)
 	s, err := h.SaveToChekpoint()
 	assert.NoError(t, err)
 	bucket := testHistogramOptions.FindBucket(1)
@@ -159,8 +159,8 @@ func TestHistogramSaveToCheckpointDropsRelativelySmallValues(t *testing.T) {
 	v1, w1 := 1., 1.
 	v2, w2 := 2., 100000.
 
-	h.AddSample(v1, w1, anyTime)
-	h.AddSample(v2, w2, anyTime)
+	h.AddSample(v1, w1, anyTime, false)
+	h.AddSample(v2, w2, anyTime, false)
 
 	bucket1 := testHistogramOptions.FindBucket(v1)
 	bucket2 := testHistogramOptions.FindBucket(v2)
@@ -184,9 +184,9 @@ func TestHistogramSaveToCheckpointForMultipleValues(t *testing.T) {
 	v2, w2 := 2., 10000.
 	v3, w3 := 3., 50.
 
-	h.AddSample(v1, w1, anyTime)
-	h.AddSample(v2, w2, anyTime)
-	h.AddSample(v3, w3, anyTime)
+	h.AddSample(v1, w1, anyTime, false)
+	h.AddSample(v2, w2, anyTime, false)
+	h.AddSample(v3, w3, anyTime, false)
 
 	bucket1 := testHistogramOptions.FindBucket(v1)
 	bucket2 := testHistogramOptions.FindBucket(v2)

@@ -39,14 +39,14 @@ func TestPercentileEstimator(t *testing.T) {
 	config := model.GetAggregationsConfig()
 	// Create a sample CPU histogram.
 	cpuHistogram := util.NewHistogram(config.CPUHistogramOptions)
-	cpuHistogram.AddSample(1.0, 1.0, anyTime)
-	cpuHistogram.AddSample(2.0, 1.0, anyTime)
-	cpuHistogram.AddSample(3.0, 1.0, anyTime)
+	cpuHistogram.AddSample(1.0, 1.0, anyTime, false)
+	cpuHistogram.AddSample(2.0, 1.0, anyTime, false)
+	cpuHistogram.AddSample(3.0, 1.0, anyTime, false)
 	// Create a sample memory histogram.
 	memoryPeaksHistogram := util.NewHistogram(config.MemoryHistogramOptions)
-	memoryPeaksHistogram.AddSample(1e9, 1.0, anyTime)
-	memoryPeaksHistogram.AddSample(2e9, 1.0, anyTime)
-	memoryPeaksHistogram.AddSample(3e9, 1.0, anyTime)
+	memoryPeaksHistogram.AddSample(1e9, 1.0, anyTime, false)
+	memoryPeaksHistogram.AddSample(2e9, 1.0, anyTime, false)
+	memoryPeaksHistogram.AddSample(3e9, 1.0, anyTime, false)
 	// Create an estimator.
 	CPUPercentile := 0.2
 	MemoryPercentile := 0.5
@@ -88,7 +88,7 @@ func TestConfidenceMultiplier(t *testing.T) {
 			Usage:        model.CPUAmountFromCores(1.0),
 			Request:      testRequest[model.ResourceCPU],
 			Resource:     model.ResourceCPU,
-		}, false)
+		})
 		timestamp = timestamp.Add(time.Minute * 2)
 	}
 

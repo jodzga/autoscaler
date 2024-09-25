@@ -40,7 +40,7 @@ type Histogram interface {
 	Percentile(percentile float64) float64
 
 	// Add a sample with a given value and weight.
-	AddSample(value float64, weight float64, time time.Time)
+	AddSample(value float64, weight float64, time time.Time, isOOM bool)
 
 	// Remove a sample with a given value and weight. Note that the total
 	// weight of samples with a given value cannot be negative.
@@ -103,7 +103,7 @@ type histogram struct {
 	maxBucket int
 }
 
-func (h *histogram) AddSample(value float64, weight float64, time time.Time) {
+func (h *histogram) AddSample(value float64, weight float64, time time.Time, isOOM bool) {
 	if weight < 0.0 {
 		panic("sample weight must be non-negative")
 	}

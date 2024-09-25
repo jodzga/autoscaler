@@ -62,8 +62,8 @@ func (h *decayingHistogram) Percentile(percentile float64) float64 {
 	return h.histogram.Percentile(percentile)
 }
 
-func (h *decayingHistogram) AddSample(value float64, weight float64, time time.Time) {
-	h.histogram.AddSample(value, weight*h.decayFactor(time), time)
+func (h *decayingHistogram) AddSample(value float64, weight float64, time time.Time, isOOM bool) {
+	h.histogram.AddSample(value, weight*h.decayFactor(time), time, false)
 }
 
 func (h *decayingHistogram) SubtractSample(value float64, weight float64, time time.Time) {

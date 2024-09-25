@@ -68,7 +68,7 @@ var (
 // aggregate container usage samples.
 type ContainerStateAggregator interface {
 	// AddSample aggregates a single usage sample.
-	AddSample(sample *ContainerUsageSample, isOOM bool)
+	AddSample(sample *ContainerUsageSample)
 	// SubtractSample removes a single usage sample. The subtracted sample
 	// should be equal to some sample that was aggregated with AddSample()
 	// in the past.
@@ -192,8 +192,8 @@ func NewAggregateContainerState() *AggregateContainerState {
 }
 
 // AddSample aggregates a single usage sample.
-func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample, isOOM bool) {
-	if isOOM {
+func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
+	if sample.isOOM {
 		if sample.MeasureStart.After(a.LastOomTimestamp) {
 			a.LastOomTimestamp = sample.MeasureStart
 		}
@@ -202,11 +202,11 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample, isOOM 
 	case ResourceCPU:
 		a.addCPUSample(sample)
 	case ResourceMemory:
-		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart, sample.isOOM)
 	case ResourceRSS:
-		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart, sample.isOOM)
 	case ResourceJVMHeapCommitted:
-		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart, sample.isOOM)
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}
@@ -233,7 +233,7 @@ func (a *AggregateContainerState) addCPUSample(sample *ContainerUsageSample) {
 	// whenever the request is increased, the history accumulated so far effectively decays,
 	// which helps react quickly to CPU starvation.
 	a.AggregateCPUUsage.AddSample(
-		cpuUsageCores, math.Max(cpuRequestCores, minSampleWeight), sample.MeasureStart)
+		cpuUsageCores, math.Max(cpuRequestCores, minSampleWeight), sample.MeasureStart, false)
 	if sample.MeasureStart.After(a.LastSampleStart) {
 		a.LastSampleStart = sample.MeasureStart
 	}
@@ -361,9 +361,9 @@ func NewContainerStateAggregatorProxy(cluster *ClusterState, containerID Contain
 }
 
 // AddSample adds a container sample to the aggregator.
-func (p *ContainerStateAggregatorProxy) AddSample(sample *ContainerUsageSample, isOOM bool) {
+func (p *ContainerStateAggregatorProxy) AddSample(sample *ContainerUsageSample) {
 	aggregator := p.cluster.findOrCreateAggregateContainerState(p.containerID)
-	aggregator.AddSample(sample, isOOM)
+	aggregator.AddSample(sample)
 }
 
 // SubtractSample subtracts a container sample from the aggregator.
