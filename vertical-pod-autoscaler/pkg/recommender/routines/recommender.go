@@ -138,7 +138,7 @@ func (r *recommender) UpdateVPAs() {
 			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations, observedVpa.ObjectMeta.Annotations)
 		if err != nil {
 			klog.Errorf(
-				"Cannot update OOM timestamp of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+				"Cannot update annotations of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
 	}
 }
