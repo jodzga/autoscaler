@@ -225,7 +225,9 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 // RecordOOM adds info regarding OOM event in the model as an artificial memory sample at the memory limit.
 func (container *ContainerState) RecordOOM(timestamp time.Time, resource ResourceName, memoryLimit ResourceAmount) error {
 	// Discard old OOM
-	if (resource == ResourceRSS && timestamp.Before(container.lastRSSSampleStart.Add(-1*time.Hour))) || (resource == ResourceJVMHeapCommitted && timestamp.Before(container.lastJVMHeapCommittedSampleStart.Add(-1*time.Hour))) || (resource == ResourceMemory && timestamp.Before(container.MemoryWindowEnd.Add(-1*GetAggregationsConfig().MemoryAggregationInterval))) {
+	if (resource == ResourceRSS && timestamp.Before(container.lastRSSSampleStart.Add(-1*time.Hour))) ||
+		(resource == ResourceJVMHeapCommitted && timestamp.Before(container.lastJVMHeapCommittedSampleStart.Add(-1*time.Hour))) ||
+		(resource == ResourceMemory && timestamp.Before(container.MemoryWindowEnd.Add(-1*GetAggregationsConfig().MemoryAggregationInterval))) {
 		return fmt.Errorf("OOM event will be discarded - it is too old (%v)", timestamp)
 	}
 
