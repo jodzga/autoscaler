@@ -276,9 +276,9 @@ func (vpa *Vpa) UpdateLastOomTimestampAnnotation(aggregateContainerStateMap Cont
 	var err error
 	lastOomTimestamp := time.Time{}
 
-	oldLastOomTimestamp, found := vpa.Annotations[vpa_api_util.LastOomTimestampAnnotation]
+	oldLastOomTimestampStr, found := vpa.Annotations[vpa_api_util.LastOomTimestampAnnotation]
 	if found {
-		lastOomTimestamp, err = time.Parse(time.RFC3339, oldLastOomTimestamp)
+		lastOomTimestamp, err = time.Parse(time.RFC3339, oldLastOomTimestampStr)
 		if err != nil {
 			return err
 		}

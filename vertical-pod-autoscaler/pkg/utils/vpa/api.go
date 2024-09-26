@@ -38,6 +38,9 @@ import (
 	"k8s.io/utils/pointer"
 )
 
+// LastOomTimestampAnnotation is the annotation key for the last OOM timestamp stored in the VPA object.
+const LastOomTimestampAnnotation = "last_oom_timestamp"
+
 // VpaWithSelector is a pair of VPA and its selector.
 type VpaWithSelector struct {
 	Vpa      *vpa_types.VerticalPodAutoscaler
@@ -77,33 +80,30 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
-func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, annotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	// Construct the desired annotations within the context of a complete VerticalPodAutoscaler resource
-	annotationsUpdate := &vpa_types.VerticalPodAutoscaler{
-		TypeMeta: meta.TypeMeta{
-			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
-			Kind:       "VerticalPodAutoscaler",
-		},
-		ObjectMeta: meta.ObjectMeta{
-			Annotations: annotations,
+func patchVpaLastOomTimestampAnnotation(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, lastOomTimestampStr string) (result *vpa_types.VerticalPodAutoscaler, err error) {
+	// Create a list of JSON patch operations
+	patches := []patchRecord{
+		{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/metadata/annotations/%s", LastOomTimestampAnnotation),
+			Value: lastOomTimestampStr,
 		},
 	}
 
-	// Marshal the annotations update into JSON
-	bytes, err := json.Marshal(annotationsUpdate)
+	// Marshal the patch operations into JSON
+	bytes, err := json.Marshal(patches)
 	if err != nil {
-		klog.Errorf("Cannot marshal VPA annotations %+v. Reason: %+v", annotationsUpdate, err)
+		klog.Errorf("Cannot marshal VPA annotations patches %+v. Reason: %+v", patches, err)
 		return
 	}
 
-	// Define patch options with Server-Side Apply and Force set to true
+	// Apply the patch using JSON Patch
 	opts := meta.PatchOptions{
 		FieldManager: "vpa-controller",
 		Force:        pointer.Bool(true),
 	}
 
-	// Apply the patch using Server-Side Apply
-	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata")
+	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, opts)
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
@@ -116,10 +116,28 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 	return nil, nil
 }
 
-// UpdateVpaAnnotationsIfNeeded updates the annotations field of the VPA API object.
-func UpdateVpaAnnotationsIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newAnnotations map[string]string, oldAnnotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	if !apiequality.Semantic.DeepEqual(oldAnnotations, newAnnotations) {
-		return patchVpaAnnotations(vpaClient, vpaName, newAnnotations)
+// UpdateVpaLastOomTimestampAnnotationIfNeeded updates the last_oom_timestamp annotation of the VPA API object.
+func UpdateVpaLastOomTimestampAnnotationIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newAnnotations map[string]string, oldAnnotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
+	newLastOomTimestampStr, exists := newAnnotations[LastOomTimestampAnnotation]
+	if !exists {
+		return nil, nil
+	}
+	oldLastOomTimestampStr, exists := oldAnnotations[LastOomTimestampAnnotation]
+	if !exists {
+		return patchVpaLastOomTimestampAnnotation(vpaClient, vpaName, newLastOomTimestampStr)
+	}
+
+	newLastOomTimestamp, err := time.Parse(time.RFC3339, newLastOomTimestampStr)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse last OOM timestamp %s. Reason: %+v", newLastOomTimestampStr, err)
+	}
+	oldLastOomTimestamp, err := time.Parse(time.RFC3339, oldLastOomTimestampStr)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot parse last OOM timestamp %s. Reason: %+v", oldLastOomTimestampStr, err)
+	}
+
+	if newLastOomTimestamp.After(oldLastOomTimestamp) {
+		return patchVpaLastOomTimestampAnnotation(vpaClient, vpaName, newLastOomTimestampStr)
 	}
 	return nil, nil
 }
