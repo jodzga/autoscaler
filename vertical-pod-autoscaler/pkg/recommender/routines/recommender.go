@@ -98,18 +98,24 @@ func (r *recommender) UpdateVPAs() {
 		containerNameToAggregateStateMap := GetContainerNameToAggregateStateMap(vpa)
 		resources := r.podResourceRecommender.GetRecommendedPodResources(containerNameToAggregateStateMap)
 		had := vpa.HasRecommendation()
-
+		if strings.Contains(observedVpa.Name, "vpa-oom-test") {
+			klog.Infof("ONETHREE1: %v", observedVpa)
+		}
 		listOfResourceRecommendation := logic.MapToListOfRecommendedContainerResources(resources)
-
+		if strings.Contains(observedVpa.Name, "vpa-oom-test") {
+			klog.Infof("ONETHREE2: %v", observedVpa)
+		}
 		for _, postProcessor := range r.recommendationPostProcessor {
 			listOfResourceRecommendation = postProcessor.Process(observedVpa, listOfResourceRecommendation)
 		}
-
+		if strings.Contains(observedVpa.Name, "vpa-oom-test") {
+			klog.Infof("ONETHREE3: %v", observedVpa)
+		}
 		if err := vpa.UpdateLastOomTimestampAnnotation(containerNameToAggregateStateMap); err != nil {
 			klog.Warningf("Failed to update last OOM timestamp for VPA %v/%v. Reason: %v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
 		if strings.Contains(observedVpa.Name, "vpa-oom-test") {
-			klog.Infof("ONETHREE: %v", observedVpa)
+			klog.Infof("ONETHREE4: %v", observedVpa)
 		}
 		vpa.UpdateRecommendation(listOfResourceRecommendation)
 		if vpa.HasRecommendation() && !had {
