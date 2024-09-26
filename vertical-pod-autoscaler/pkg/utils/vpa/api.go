@@ -81,7 +81,6 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 }
 
 func patchVpaLastOomTimestampAnnotation(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, lastOomTimestampStr string) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	klog.Infof("ONEE")
 	// Create a list of JSON patch operations
 	patches := []patchRecord{
 		{
@@ -118,32 +117,27 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 
 // UpdateVpaLastOomTimestampAnnotationIfNeeded updates the last_oom_timestamp annotation of the VPA API object.
 func UpdateVpaLastOomTimestampAnnotationIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newAnnotations map[string]string, oldAnnotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	klog.Infof("ONE1")
 	newLastOomTimestampStr, exists := newAnnotations[LastOomTimestampAnnotation]
 	if !exists {
 		return nil, nil
 	}
-	klog.Infof("ONE2")
 	oldLastOomTimestampStr, exists := oldAnnotations[LastOomTimestampAnnotation]
 	if !exists {
 		return patchVpaLastOomTimestampAnnotation(vpaClient, vpaName, newLastOomTimestampStr)
 	}
-	klog.Infof("ONE3")
+
 	newLastOomTimestamp, err := time.Parse(time.RFC3339, newLastOomTimestampStr)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot parse last OOM timestamp %s. Reason: %+v", newLastOomTimestampStr, err)
 	}
-	klog.Infof("ONE4")
 	oldLastOomTimestamp, err := time.Parse(time.RFC3339, oldLastOomTimestampStr)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot parse last OOM timestamp %s. Reason: %+v", oldLastOomTimestampStr, err)
 	}
 
-	klog.Infof("ONE5")
 	if newLastOomTimestamp.After(oldLastOomTimestamp) {
 		return patchVpaLastOomTimestampAnnotation(vpaClient, vpaName, newLastOomTimestampStr)
 	}
-	klog.Infof("ONE6")
 	return nil, nil
 }
 

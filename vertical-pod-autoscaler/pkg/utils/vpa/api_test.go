@@ -50,7 +50,7 @@ func parseLabelSelector(selector string) labels.Selector {
 	return parsedSelector
 }
 
-func TestUpdateVpaIfNeeded(t *testing.T) {
+func TestUpdateVpaStatusIfNeeded(t *testing.T) {
 	updatedVpa := test.VerticalPodAutoscaler().WithName("vpa").WithNamespace("test").WithContainer(containerName).
 		AppendCondition(vpa_types.RecommendationProvided, core.ConditionTrue, "reason", "msg", anytime).Get()
 	recommendation := test.Recommendation().WithContainer(containerName).WithTarget("5", "200").Get()
@@ -95,6 +95,78 @@ func TestUpdateVpaIfNeeded(t *testing.T) {
 			fakeClient := vpa_fake.NewSimpleClientset(&vpa_types.VerticalPodAutoscalerList{Items: []vpa_types.VerticalPodAutoscaler{*tc.observedVpa}})
 			_, err := UpdateVpaStatusIfNeeded(fakeClient.AutoscalingV1().VerticalPodAutoscalers(tc.updatedVpa.Namespace),
 				tc.updatedVpa.Name, &tc.updatedVpa.Status, &tc.observedVpa.Status)
+			assert.NoError(t, err, "Unexpected error occurred.")
+			actions := fakeClient.Actions()
+			if tc.expectedUpdate {
+				assert.Equal(t, 1, len(actions), "Unexpected number of actions")
+			} else {
+				assert.Equal(t, 0, len(actions), "Unexpected number of actions")
+			}
+		})
+	}
+}
+
+func TestUpdateVpaLastOomTimestampIfNeeded(t *testing.T) {
+	emptyVpaBuilder := test.VerticalPodAutoscaler().WithName("vpa").WithNamespace("test")
+	updatedVpa := test.VerticalPodAutoscaler().WithName("vpa").WithNamespace("test").WithAnnotations(map[string]string{
+		"last_oom_timestamp": "2007-09-26T12:11:00Z",
+	}).Get()
+
+	testCases := []struct {
+		caseName       string
+		updatedVpa     *vpa_types.VerticalPodAutoscaler
+		observedVpa    *vpa_types.VerticalPodAutoscaler
+		expectedUpdate bool
+	}{
+		{
+			caseName: "Doesn't update if changes are not to last_oom_timestamp.",
+			updatedVpa: emptyVpaBuilder.WithAnnotations(map[string]string{
+				"new": "annotation",
+			}).Get(),
+			observedVpa: observedVpaBuilder.WithAnnotations(map[string]string{
+				"old": "annotation",
+			}).Get(),
+			expectedUpdate: false,
+		}, {
+			caseName:   "Doesn't update if no new last_oom_timestamp.",
+			updatedVpa: emptyVpaBuilder.Get(),
+			observedVpa: emptyVpaBuilder.WithAnnotations(map[string]string{
+				"last_oom_timestamp": "2007-09-26T12:11:00Z",
+			}).Get(),
+			expectedUpdate: false,
+		}, {
+			caseName:       "Updates if no old last_oom_timestamp.",
+			updatedVpa:     updatedVpa,
+			observedVpa:    emptyVpaBuilder.Get(),
+			expectedUpdate: true,
+		}, {
+			caseName:   "Doesn't update if last_oom_timestamp stays the same.",
+			updatedVpa: updatedVpa,
+			observedVpa: emptyVpaBuilder.WithAnnotations(map[string]string{
+				"last_oom_timestamp": "2007-09-26T12:11:00Z",
+			}).Get(),
+			expectedUpdate: false,
+		}, {
+			caseName:   "Updates if newer last_oom_timestamp.",
+			updatedVpa: updatedVpa,
+			observedVpa: observedVpaBuilder.WithAnnotations(map[string]string{
+				"last_oom_timestamp": "2007-09-25T12:11:00Z",
+			}).Get(),
+			expectedUpdate: true,
+		}, {
+			caseName:   "Doesn't update if older last_oom_timestamp.",
+			updatedVpa: updatedVpa,
+			observedVpa: observedVpaBuilder.WithAnnotations(map[string]string{
+				"last_oom_timestamp": "2007-09-27T12:11:00Z",
+			}).Get(),
+			expectedUpdate: false,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.caseName, func(t *testing.T) {
+			fakeClient := vpa_fake.NewSimpleClientset(&vpa_types.VerticalPodAutoscalerList{Items: []vpa_types.VerticalPodAutoscaler{*tc.observedVpa}})
+			_, err := UpdateVpaLastOomTimestampIfNeeded(fakeClient.AutoscalingV1().VerticalPodAutoscalers(tc.updatedVpa.Namespace),
+				tc.updatedVpa.Name, &tc.updatedVpa.Annotations, &tc.observedVpa.Annotations)
 			assert.NoError(t, err, "Unexpected error occurred.")
 			actions := fakeClient.Actions()
 			if tc.expectedUpdate {
