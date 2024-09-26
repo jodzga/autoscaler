@@ -108,6 +108,9 @@ func (r *recommender) UpdateVPAs() {
 		if err := vpa.UpdateLastOomTimestampAnnotation(containerNameToAggregateStateMap); err != nil {
 			klog.Warningf("Failed to update last OOM timestamp for VPA %v/%v. Reason: %v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
+		if strings.Contains(observedVpa.Name, "vpa-oom-test") {
+			klog.Infof("ONETHREE: %v", observedVpa)
+		}
 		vpa.UpdateRecommendation(listOfResourceRecommendation)
 		if vpa.HasRecommendation() && !had {
 			metrics_recommender.ObserveRecommendationLatency(vpa.Created)
@@ -136,7 +139,9 @@ func (r *recommender) UpdateVPAs() {
 			klog.Errorf(
 				"Cannot update status of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
-
+		if strings.Contains(observedVpa.Name, "vpa-oom-test") {
+			klog.Infof("ONEFOUR: %v", observedVpa)
+		}
 		// If new OOMKill processed, update the last OOM timestamp of the VPA object.
 		if strings.Contains(vpa.ID.VpaName, "vpa-oom-test") {
 			klog.Infof("new annotations: %v , old annotations: %v", vpa.Annotations, observedVpa.ObjectMeta.Annotations)
