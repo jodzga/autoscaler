@@ -101,7 +101,6 @@ func patchVpaLastOomTimestampAnnotation(vpaClient vpa_api.VerticalPodAutoscalerI
 	// Apply the patch using JSON Patch
 	opts := meta.PatchOptions{
 		FieldManager: "vpa-controller",
-		Force:        pointer.Bool(true),
 	}
 
 	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, opts)
