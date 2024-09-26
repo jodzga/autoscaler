@@ -18,7 +18,6 @@ package model
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -234,13 +233,9 @@ func (cluster *ClusterState) RecordOOM(containerID ContainerID, timestamp time.T
 	if !containerExists {
 		return NewKeyError(containerID.ContainerName)
 	}
-	if strings.Contains(containerID.PodID.PodName, "vpa-oom-test") {
-		err := containerState.RecordOOM(timestamp, resource, memoryLimit)
-		if err != nil {
-			return fmt.Errorf("error while recording OOM for %v, Reason: %v", containerID, err)
-		}
-	} else {
-		return fmt.Errorf("Container %s/%s does not contain 'vpa-oom-test' - not updating with oom record", containerID.PodID, containerID.ContainerName)
+
+	if err := containerState.RecordOOM(timestamp, resource, memoryLimit); err != nil {
+		return fmt.Errorf("error while recording OOM for %v, Reason: %v", containerID, err)
 	}
 	return nil
 }
