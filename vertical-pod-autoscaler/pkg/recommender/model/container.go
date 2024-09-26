@@ -222,8 +222,8 @@ func (container *ContainerState) addJVMHeapCommittedSample(sample *ContainerUsag
 	return true
 }
 
-// RecordOOM adds info regarding OOM event in the model as an artificial memory sample at the memory limit.
-func (container *ContainerState) RecordOOM(timestamp time.Time, resource ResourceName, memoryLimit ResourceAmount) error {
+// RecordOOM adds info regarding OOM event in the model as an artificial memory sample.
+func (container *ContainerState) RecordOOM(timestamp time.Time, resource ResourceName, memory ResourceAmount) error {
 	// Discard old OOM
 	if (resource == ResourceRSS && timestamp.Before(container.lastRSSSampleStart.Add(-1*time.Hour))) ||
 		(resource == ResourceJVMHeapCommitted && timestamp.Before(container.lastJVMHeapCommittedSampleStart.Add(-1*time.Hour))) ||
@@ -231,9 +231,17 @@ func (container *ContainerState) RecordOOM(timestamp time.Time, resource Resourc
 		return fmt.Errorf("OOM event will be discarded - it is too old (%v)", timestamp)
 	}
 
+	if resource == ResourceMemory {
+		// Get max of the request and the recent usage-based memory peak.
+		// Omitting oomPeak here to protect against recommendation running too high on subsequent OOMs.
+		memoryUsed := ResourceAmountMax(memory, container.memoryPeak)
+		memory = ResourceAmountMax(memoryUsed+MemoryAmountFromBytes(GetAggregationsConfig().OOMMinBumpUp),
+			ScaleResource(memoryUsed, GetAggregationsConfig().OOMBumpUpRatio))
+	}
+	// Otherwise, for RSS and JVMHeapCommitte, memory is the memory limit.
 	oomMemorySample := ContainerUsageSample{
 		MeasureStart: timestamp,
-		Usage:        memoryLimit,
+		Usage:        memory,
 		Resource:     resource,
 		isOOM:        true,
 	}

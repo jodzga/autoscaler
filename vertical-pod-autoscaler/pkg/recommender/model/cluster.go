@@ -223,8 +223,8 @@ func (cluster *ClusterState) AddSample(sample *ContainerUsageSampleWithKey) erro
 	return nil
 }
 
-// RecordOOM adds info regarding OOM event in the model as an artificial memory sample at the memory limit.
-func (cluster *ClusterState) RecordOOM(containerID ContainerID, timestamp time.Time, resource ResourceName, memoryLimit ResourceAmount) error {
+// RecordOOM adds info regarding OOM event in the model as an artificial memory sample.
+func (cluster *ClusterState) RecordOOM(containerID ContainerID, timestamp time.Time, resource ResourceName, memory ResourceAmount) error {
 	pod, podExists := cluster.Pods[containerID.PodID]
 	if !podExists {
 		return NewKeyError(containerID.PodID)
@@ -234,7 +234,7 @@ func (cluster *ClusterState) RecordOOM(containerID ContainerID, timestamp time.T
 		return NewKeyError(containerID.ContainerName)
 	}
 
-	if err := containerState.RecordOOM(timestamp, resource, memoryLimit); err != nil {
+	if err := containerState.RecordOOM(timestamp, resource, memory); err != nil {
 		return fmt.Errorf("error while recording OOM for %v, Reason: %v", containerID, err)
 	}
 	return nil

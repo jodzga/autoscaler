@@ -299,7 +299,21 @@ func TestClusterGCRateLimiting(t *testing.T) {
 	assert.Empty(t, vpa.aggregateContainerStates)
 }
 
-func TestClusterRecordOOM(t *testing.T) {
+func TestClusterRecordOOMMemory(t *testing.T) {
+	// Create a pod with a single container.
+	cluster := NewClusterState(testGcPeriod)
+	cluster.AddOrUpdatePod(testPodID, testLabels, apiv1.PodRunning)
+	assert.NoError(t, cluster.AddOrUpdateContainer(testContainerID, testRequest))
+
+	// RecordOOM
+	assert.NoError(t, cluster.RecordOOM(testContainerID, time.Unix(0, 0), ResourceMemory, ResourceAmount(10)))
+
+	// Verify that OOM was aggregated into the aggregated stats.
+	aggregation := cluster.findOrCreateAggregateContainerState(testContainerID)
+	assert.NotEmpty(t, aggregation.AggregateMemoryPeaks)
+}
+
+func TestClusterRecordOOMRSS(t *testing.T) {
 	// Create a pod with a single container.
 	cluster := NewClusterState(testGcPeriod)
 	cluster.AddOrUpdatePod(testPodID, testLabels, apiv1.PodRunning)

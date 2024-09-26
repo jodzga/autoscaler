@@ -157,11 +157,27 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 			if oldStatus != nil && containerStatus.RestartCount > oldStatus.RestartCount {
 				oldSpec := findSpec(containerStatus.Name, oldPod.Spec.Containers)
 				if oldSpec != nil {
-					// Upon an OOMKill, the artificial memory sample should be at the memory limit.
-					memory := oldSpec.Resources.Limits[apiv1.ResourceMemory]
-					oomInfo := OomInfo{
+					// Artificial memory sample is created based on the memory request.
+					memoryRequest := oldSpec.Resources.Requests[apiv1.ResourceMemory]
+					oomInfoMemory := OomInfo{
 						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
-						Memory:    model.ResourceAmount(memory.Value()),
+						Memory:    model.ResourceAmount(memoryRequest.Value()),
+						Resource:  model.ResourceMemory,
+						ContainerID: model.ContainerID{
+							PodID: model.PodID{
+								Namespace: newPod.ObjectMeta.Namespace,
+								PodName:   newPod.ObjectMeta.Name,
+							},
+							ContainerName: containerStatus.Name,
+						},
+					}
+					o.observedOomsChannel <- oomInfoMemory
+
+					// Artificial RSS sample is created based on the memory limit.
+					memoryLimit := oldSpec.Resources.Limits[apiv1.ResourceMemory]
+					oomInfoRSS := OomInfo{
+						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
+						Memory:    model.ResourceAmount(memoryLimit.Value()),
 						Resource:  model.ResourceRSS,
 						ContainerID: model.ContainerID{
 							PodID: model.PodID{
@@ -171,7 +187,7 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 							ContainerName: containerStatus.Name,
 						},
 					}
-					o.observedOomsChannel <- oomInfo
+					o.observedOomsChannel <- oomInfoRSS
 				}
 			}
 		}

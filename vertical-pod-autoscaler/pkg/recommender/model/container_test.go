@@ -142,7 +142,81 @@ func TestAggregateContainerUsageSamples(t *testing.T) {
 		testTimestamp.Add(4*timeStep), -1000, ResourceRSS)))
 }
 
-func TestRecordOOMConsecutive(t *testing.T) {
+func TestRecordOOMMemoryIncreasedByBumpUp(t *testing.T) {
+	test := newContainerTest()
+	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
+	// Bump Up factor is 20%.
+	test.mockMemoryHistogram.On("AddSample", 1200.0*mb, 1.0, memoryAggregationWindowEnd)
+
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1000*mb)))
+}
+
+func TestRecordOOMMemoryDontRunAway(t *testing.T) {
+	test := newContainerTest()
+	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
+
+	// Bump Up factor is 20%.
+	test.mockMemoryHistogram.On("AddSample", 1200.0*mb, 1.0, memoryAggregationWindowEnd)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1000*mb)))
+
+	// new smaller OOMs don't influence the sample value (oomPeak)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(999*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(999*mb)))
+
+	test.mockMemoryHistogram.On("SubtractSample", 1200.0*mb, 1.0, memoryAggregationWindowEnd)
+	test.mockMemoryHistogram.On("AddSample", 2400.0*mb, 1.0, memoryAggregationWindowEnd)
+	// a larger OOM should increase the sample value
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(2000*mb)))
+}
+
+func TestRecordOOMMemoryIncreasedByMin(t *testing.T) {
+	test := newContainerTest()
+	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
+	// Min grow by 100Mb.
+	test.mockMemoryHistogram.On("AddSample", 101.0*mb, 1.0, memoryAggregationWindowEnd)
+
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1*mb)))
+}
+
+func TestRecordOOMMMemoryaxedWithKnownSample(t *testing.T) {
+	test := newContainerTest()
+	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
+
+	test.mockMemoryHistogram.On("AddSample", 3000.0*mb, 1.0, memoryAggregationWindowEnd)
+	assert.True(t, test.container.AddSample(newUsageSample(testTimestamp, 3000*mb, ResourceMemory)))
+
+	// Last known sample is higher than request, so it is taken.
+	test.mockMemoryHistogram.On("SubtractSample", 3000.0*mb, 1.0, memoryAggregationWindowEnd)
+	test.mockMemoryHistogram.On("AddSample", 3600.0*mb, 1.0, memoryAggregationWindowEnd)
+
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1000*mb)))
+}
+
+func TestRecordOOMMemoryDiscardsOldSample(t *testing.T) {
+	test := newContainerTest()
+	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
+
+	test.mockMemoryHistogram.On("AddSample", 1000.0*mb, 1.0, memoryAggregationWindowEnd)
+	assert.True(t, test.container.AddSample(newUsageSample(testTimestamp, 1000*mb, ResourceMemory)))
+
+	// OOM is stale, mem not changed.
+	assert.Error(t, test.container.RecordOOM(testTimestamp.Add(-30*time.Hour), ResourceMemory, ResourceAmount(1000*mb)))
+}
+
+func TestRecordOOMMemoryInNewWindow(t *testing.T) {
+	test := newContainerTest()
+	memoryAggregationInterval := GetAggregationsConfig().MemoryAggregationInterval
+	memoryAggregationWindowEnd := testTimestamp.Add(memoryAggregationInterval)
+
+	test.mockMemoryHistogram.On("AddSample", 2000.0*mb, 1.0, memoryAggregationWindowEnd)
+	assert.True(t, test.container.AddSample(newUsageSample(testTimestamp, 2000*mb, ResourceMemory)))
+
+	memoryAggregationWindowEnd = memoryAggregationWindowEnd.Add(2 * memoryAggregationInterval)
+	test.mockMemoryHistogram.On("AddSample", 2400.0*mb, 1.0, memoryAggregationWindowEnd)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp.Add(2*memoryAggregationInterval), ResourceMemory, ResourceAmount(1000*mb)))
+}
+
+func TestRecordOOMRSSConsecutive(t *testing.T) {
 	test := newContainerTest()
 
 	test.mockRSSHistogram.On("AddOomSample", 1000.0*mb, 1.0, testTimestamp)
@@ -159,7 +233,7 @@ func TestRecordOOMConsecutive(t *testing.T) {
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(2000*mb)))
 }
 
-func TestRecordOOMDiscardsOldSample(t *testing.T) {
+func TestRecordOOMRSSDiscardsOldSample(t *testing.T) {
 	test := newContainerTest()
 
 	test.mockRSSHistogram.On("AddSample", 1000.0*mb, 1.0, testTimestamp)
