@@ -270,7 +270,7 @@ func (vpa *Vpa) UpdateConditions(podsMatched bool) {
 
 }
 
-// UpdateLastOomTimestamp updates the last_oom_timestamp annotation of the VPA object
+// UpdateLastOomTimestampAnnotation updates the last_oom_timestamp annotation of the VPA object
 // using the last OOM timestamp of the containers.
 func (vpa *Vpa) UpdateLastOomTimestampAnnotation(aggregateContainerStateMap ContainerNameToAggregateStateMap) error {
 	var err error
