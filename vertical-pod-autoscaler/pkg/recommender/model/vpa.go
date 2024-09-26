@@ -270,15 +270,13 @@ func (vpa *Vpa) UpdateConditions(podsMatched bool) {
 
 }
 
-const lastOomTimestampKey = "last_oom_timestamp"
-
-// UpdateOomTimestamp updates the last_oom_timestamp annotation of the VPA object
+// UpdateLastOomTimestamp updates the last_oom_timestamp annotation of the VPA object
 // using the last OOM timestamp of the containers.
-func (vpa *Vpa) UpdateOomTimestamp(aggregateContainerStateMap ContainerNameToAggregateStateMap) error {
+func (vpa *Vpa) UpdateLastOomTimestampAnnotation(aggregateContainerStateMap ContainerNameToAggregateStateMap) error {
 	var err error
 	lastOomTimestamp := time.Time{}
 
-	oldLastOomTimestamp, found := vpa.Annotations[lastOomTimestampKey]
+	oldLastOomTimestamp, found := vpa.Annotations[vpa_api_util.LastOomTimestampAnnotation]
 	if found {
 		lastOomTimestamp, err = time.Parse(time.RFC3339, oldLastOomTimestamp)
 		if err != nil {
@@ -293,7 +291,7 @@ func (vpa *Vpa) UpdateOomTimestamp(aggregateContainerStateMap ContainerNameToAgg
 	}
 
 	if !lastOomTimestamp.IsZero() {
-		vpa.Annotations[lastOomTimestampKey] = lastOomTimestamp.Format(time.RFC3339)
+		vpa.Annotations[vpa_api_util.LastOomTimestampAnnotation] = lastOomTimestamp.Format(time.RFC3339)
 	}
 	return nil
 }
