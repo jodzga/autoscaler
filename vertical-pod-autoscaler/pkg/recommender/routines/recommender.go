@@ -87,6 +87,9 @@ func (r *recommender) UpdateVPAs() {
 			Namespace: observedVpa.Namespace,
 			VpaName:   observedVpa.Name,
 		}
+		if strings.Contains(observedVpa.Name, "vpa-oom-test") {
+			klog.Infof("ONETWO: %v", observedVpa)
+		}
 
 		vpa, found := r.clusterState.Vpas[key]
 		if !found {
