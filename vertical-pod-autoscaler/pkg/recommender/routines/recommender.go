@@ -19,6 +19,7 @@ package routines
 import (
 	"context"
 	"flag"
+	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -134,11 +135,14 @@ func (r *recommender) UpdateVPAs() {
 		}
 
 		// If new OOMKill processed, update the last OOM timestamp of the VPA object.
-		_, err = vpa_utils.UpdateVpaAnnotationsIfNeeded(
-			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations, observedVpa.ObjectMeta.Annotations)
-		if err != nil {
-			klog.Errorf(
-				"Cannot update annotations of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+		if strings.Contains(vpa.ID.VpaName, "vpa-oom-test") {
+			klog.Infof("new annotations: %v , old annotations: %v", vpa.Annotations, observedVpa.ObjectMeta.Annotations)
+			_, err = vpa_utils.UpdateVpaAnnotationsIfNeeded(
+				r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations, observedVpa.ObjectMeta.Annotations)
+			if err != nil {
+				klog.Errorf(
+					"Cannot update annotations of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+			}
 		}
 	}
 }
