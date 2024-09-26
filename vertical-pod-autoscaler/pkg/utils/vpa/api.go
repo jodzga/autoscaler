@@ -84,7 +84,7 @@ func patchVpaLastOomTimestampAnnotation(vpaClient vpa_api.VerticalPodAutoscalerI
 	// Create a list of JSON patch operations
 	patches := []patchRecord{
 		{
-			Op:    "replace",
+			Op:    "add",
 			Path:  fmt.Sprintf("/metadata/annotations/%s", LastOomTimestampAnnotation),
 			Value: lastOomTimestampStr,
 		},
