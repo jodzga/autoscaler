@@ -177,9 +177,7 @@ func NewPodListerAndOOMObserver(kubeClient kube_client.Interface, namespace stri
 	oomObserver := oom.NewObserver()
 	podLister := newPodClients(kubeClient, oomObserver, namespace)
 	// This is a watch on native Node MemoryPressure evictions, and increases memory recommendations for evicted pods.
-	// This is disabled to avoid increasing per-container memory recommendations on such events.
-	// Instead, changes will be effected with a global safety margin.
-	// WatchEvictionEventsWithRetries(kubeClient, oomObserver, namespace)
+	WatchEvictionEventsWithRetries(kubeClient, oomObserver, namespace)
 	return podLister, oomObserver
 }
 
