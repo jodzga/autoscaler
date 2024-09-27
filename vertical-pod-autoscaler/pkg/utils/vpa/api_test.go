@@ -166,7 +166,7 @@ func TestUpdateVpaLastOomTimestampAnnotationIfNeeded(t *testing.T) {
 		t.Run(tc.caseName, func(t *testing.T) {
 			fakeClient := vpa_fake.NewSimpleClientset(&vpa_types.VerticalPodAutoscalerList{Items: []vpa_types.VerticalPodAutoscaler{*tc.observedVpa}})
 			_, err := UpdateVpaLastOomTimestampAnnotationIfNeeded(fakeClient.AutoscalingV1().VerticalPodAutoscalers(tc.updatedVpa.Namespace),
-				tc.updatedVpa.Name, &tc.updatedVpa.Annotations, &tc.observedVpa.Annotations)
+				tc.updatedVpa.Name, tc.updatedVpa.Annotations, tc.observedVpa.Annotations)
 			assert.NoError(t, err, "Unexpected error occurred.")
 			actions := fakeClient.Actions()
 			if tc.expectedUpdate {
