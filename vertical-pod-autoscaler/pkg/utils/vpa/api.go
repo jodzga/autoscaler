@@ -38,9 +38,6 @@ import (
 	"k8s.io/utils/pointer"
 )
 
-// LastOomTimestampAnnotation is the annotation key for the last OOM timestamp stored in the VPA object.
-const LastOomTimestampAnnotation = "last_oom_timestamp"
-
 // VpaWithSelector is a pair of VPA and its selector.
 type VpaWithSelector struct {
 	Vpa      *vpa_types.VerticalPodAutoscaler
@@ -80,63 +77,12 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
-func patchVpaLastOomTimestampAnnotation(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, lastOomTimestampStr string) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	// Create a list of JSON patch operations
-	patches := []patchRecord{
-		{
-			Op:    "add",
-			Path:  fmt.Sprintf("/metadata/annotations/%s", LastOomTimestampAnnotation),
-			Value: lastOomTimestampStr,
-		},
-	}
-
-	// Marshal the patch operations into JSON
-	bytes, err := json.Marshal(patches)
-	if err != nil {
-		klog.Errorf("Cannot marshal VPA annotations patches %+v. Reason: %+v", patches, err)
-		return
-	}
-
-	// Apply the patch using JSON Patch
-	opts := meta.PatchOptions{
-		FieldManager: "vpa-controller",
-	}
-
-	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, opts)
-}
-
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
 func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus,
 	oldStatus *vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
 
 	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
 		return patchVpaStatus(vpaClient, vpaName, *newStatus)
-	}
-	return nil, nil
-}
-
-// UpdateVpaLastOomTimestampAnnotationIfNeeded updates the last_oom_timestamp annotation of the VPA API object.
-func UpdateVpaLastOomTimestampAnnotationIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newAnnotations map[string]string, oldAnnotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	newLastOomTimestampStr, exists := newAnnotations[LastOomTimestampAnnotation]
-	if !exists {
-		return nil, nil
-	}
-	oldLastOomTimestampStr, exists := oldAnnotations[LastOomTimestampAnnotation]
-	if !exists {
-		return patchVpaLastOomTimestampAnnotation(vpaClient, vpaName, newLastOomTimestampStr)
-	}
-
-	newLastOomTimestamp, err := time.Parse(time.RFC3339, newLastOomTimestampStr)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot parse last OOM timestamp %s. Reason: %+v", newLastOomTimestampStr, err)
-	}
-	oldLastOomTimestamp, err := time.Parse(time.RFC3339, oldLastOomTimestampStr)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot parse last OOM timestamp %s. Reason: %+v", oldLastOomTimestampStr, err)
-	}
-
-	if newLastOomTimestamp.After(oldLastOomTimestamp) {
-		return patchVpaLastOomTimestampAnnotation(vpaClient, vpaName, newLastOomTimestampStr)
 	}
 	return nil, nil
 }

@@ -174,6 +174,8 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 					o.observedOomsChannel <- oomInfoMemory
 
 					// Artificial RSS sample is created based on the memory limit.
+					// The generated RSS recommendation will then be higher than the memory limit because the
+					// RSS binary decaying histogram recommends the max RSS observed in some past period.
 					memoryLimit := oldSpec.Resources.Limits[apiv1.ResourceMemory]
 					oomInfoRSS := OomInfo{
 						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),

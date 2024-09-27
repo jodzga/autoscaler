@@ -106,8 +106,6 @@ type AggregateContainerState struct {
 	LastSampleStart   time.Time
 	TotalSamplesCount int
 	CreationTime      time.Time
-	// LastOomTimestamp is the timestamp of the last OOM.
-	LastOomTimestamp time.Time
 
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
@@ -176,9 +174,6 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	if other.LastSampleStart.After(a.LastSampleStart) {
 		a.LastSampleStart = other.LastSampleStart
 	}
-	if other.LastOomTimestamp.After(a.LastOomTimestamp) {
-		a.LastOomTimestamp = other.LastOomTimestamp
-	}
 	a.TotalSamplesCount += other.TotalSamplesCount
 }
 
@@ -196,11 +191,6 @@ func NewAggregateContainerState() *AggregateContainerState {
 
 // AddSample aggregates a single usage sample.
 func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
-	if sample.isOOM {
-		if sample.MeasureStart.After(a.LastOomTimestamp) {
-			a.LastOomTimestamp = sample.MeasureStart
-		}
-	}
 	switch sample.Resource {
 	case ResourceCPU:
 		a.addCPUSample(sample)
