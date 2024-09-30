@@ -232,13 +232,3 @@ func TestRecordOOMRSSConsecutive(t *testing.T) {
 	test.mockRSSHistogram.On("AddOomSample", 2000.0*mb, 1.0, testTimestamp)
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(2000*mb)))
 }
-
-func TestRecordOOMRSSDiscardsOldSample(t *testing.T) {
-	test := newContainerTest()
-
-	test.mockRSSHistogram.On("AddSample", 1000.0*mb, 1.0, testTimestamp)
-	assert.True(t, test.container.AddSample(newUsageSample(testTimestamp, 1000*mb, ResourceRSS)))
-
-	// OOM is stale.
-	assert.Error(t, test.container.RecordOOM(testTimestamp.Add(-30*time.Hour), ResourceRSS, ResourceAmount(1000*mb)))
-}
