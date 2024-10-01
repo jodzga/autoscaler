@@ -246,10 +246,7 @@ func (cluster *ClusterState) RecordOOM(containerID ContainerID, timestamp time.T
 // all aggregations it matches.
 func (cluster *ClusterState) AddOrUpdateVpa(apiObject *vpa_types.VerticalPodAutoscaler, selector labels.Selector) error {
 	vpaID := VpaID{Namespace: apiObject.Namespace, VpaName: apiObject.Name}
-	annotationsMap := make(vpaAnnotationsMap)
-	for key, value := range apiObject.Annotations {
-		annotationsMap[key] = value
-	}
+	annotationsMap := apiObject.Annotations
 	conditionsMap := make(vpaConditionsMap)
 	for _, condition := range apiObject.Status.Conditions {
 		conditionsMap[condition.Type] = condition

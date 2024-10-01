@@ -236,7 +236,7 @@ func (container *ContainerState) RecordOOM(timestamp time.Time, resource Resourc
 		memory = ResourceAmountMax(memoryUsed+MemoryAmountFromBytes(GetAggregationsConfig().OOMMinBumpUp),
 			ScaleResource(memoryUsed, GetAggregationsConfig().OOMBumpUpRatio))
 	}
-	// Otherwise, for RSS and JVMHeapCommitte, memory is the memory limit.
+	// Otherwise, for RSS and JVMHeapCommitted, memory is the memory limit.
 	oomMemorySample := ContainerUsageSample{
 		MeasureStart: timestamp,
 		Usage:        memory,
