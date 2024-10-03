@@ -161,7 +161,7 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 					memory := oldSpec.Resources.Requests[apiv1.ResourceMemory]
 					oomInfo := OomInfo{
 						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
-						Memory:    model.ResourceAmount(memoryRequest.Value()),
+						Memory:    model.ResourceAmount(memory.Value()),
 						Resource:  model.ResourceMemory,
 						ContainerID: model.ContainerID{
 							PodID: model.PodID{
