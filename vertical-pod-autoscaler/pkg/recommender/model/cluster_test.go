@@ -299,7 +299,7 @@ func TestClusterGCRateLimiting(t *testing.T) {
 	assert.Empty(t, vpa.aggregateContainerStates)
 }
 
-func TestClusterRecordOOMMemory(t *testing.T) {
+func TestClusterRecordOOM(t *testing.T) {
 	// Create a pod with a single container.
 	cluster := NewClusterState(testGcPeriod)
 	cluster.AddOrUpdatePod(testPodID, testLabels, apiv1.PodRunning)
