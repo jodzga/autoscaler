@@ -34,7 +34,6 @@ var (
 	testRequest = Resources{
 		ResourceCPU:    CPUAmountFromCores(3.14),
 		ResourceMemory: MemoryAmountFromBytes(3.14e9),
-		ResourceRSS:    MemoryAmountFromBytes(3.14e6),
 	}
 )
 
@@ -59,20 +58,6 @@ func addTestMemorySample(cluster *ClusterState, container ContainerID, memoryByt
 			Usage:        MemoryAmountFromBytes(memoryBytes),
 			Request:      testRequest[ResourceMemory],
 			Resource:     ResourceMemory,
-		},
-	}
-	return cluster.AddSample(&sample)
-}
-
-func addTestOomSample(cluster *ClusterState, container ContainerID, timestamp time.Time, memoryBytes float64) error {
-	sample := ContainerUsageSampleWithKey{
-		Container: container,
-		ContainerUsageSample: ContainerUsageSample{
-			MeasureStart: timestamp,
-			Usage:        MemoryAmountFromBytes(memoryBytes),
-			Request:      testRequest[ResourceRSS],
-			Resource:     ResourceRSS,
-			isOOM:        true,
 		},
 	}
 	return cluster.AddSample(&sample)
