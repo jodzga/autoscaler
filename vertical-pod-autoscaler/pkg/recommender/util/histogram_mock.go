@@ -39,6 +39,11 @@ func (m *MockHistogram) AddSample(value float64, weight float64, time time.Time)
 	m.Called(value, weight, time)
 }
 
+// AddOomSample is a mock implementation of Histogram.AddOomSample.
+func (m *MockHistogram) AddOomSample(value float64, weight float64, time time.Time) {
+	m.Called(value, weight, time)
+}
+
 // SubtractSample is a mock implementation of Histogram.SubtractSample.
 func (m *MockHistogram) SubtractSample(value float64, weight float64, time time.Time) {
 	m.Called(value, weight, time)

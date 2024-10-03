@@ -197,9 +197,19 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 	case ResourceRSS:
-		a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		// Special OOM handling for binary decaying histogram.
+		if sample.isOOM {
+			a.AggregateRSSPeaks.AddOomSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		} else {
+			a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		}
 	case ResourceJVMHeapCommitted:
-		a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		// Special OOM handling for binary decaying histogram.
+		if sample.isOOM {
+			a.AggregateJVMHeapCommittedPeaks.AddOomSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		} else {
+			a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		}
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
 	}

@@ -31,6 +31,7 @@ var (
 	TestRequest = Resources{
 		ResourceCPU:    CPUAmountFromCores(2.3),
 		ResourceMemory: MemoryAmountFromBytes(5e8),
+		ResourceRSS:    MemoryAmountFromBytes(4e8),
 	}
 )
 
@@ -51,6 +52,7 @@ func newUsageSample(timestamp time.Time, usage int64, resource ResourceName) *Co
 type ContainerTest struct {
 	mockCPUHistogram        *util.MockHistogram
 	mockMemoryHistogram     *util.MockHistogram
+	mockRSSHistogram        *util.MockHistogram
 	aggregateContainerState *AggregateContainerState
 	container               *ContainerState
 }
@@ -58,9 +60,11 @@ type ContainerTest struct {
 func newContainerTest() ContainerTest {
 	mockCPUHistogram := new(util.MockHistogram)
 	mockMemoryHistogram := new(util.MockHistogram)
+	mockRSSHistogram := new(util.MockHistogram)
 	aggregateContainerState := &AggregateContainerState{
 		AggregateCPUUsage:    mockCPUHistogram,
 		AggregateMemoryPeaks: mockMemoryHistogram,
+		AggregateRSSPeaks:    mockRSSHistogram,
 	}
 	container := &ContainerState{
 		Request:    TestRequest,
@@ -69,6 +73,7 @@ func newContainerTest() ContainerTest {
 	return ContainerTest{
 		mockCPUHistogram:        mockCPUHistogram,
 		mockMemoryHistogram:     mockMemoryHistogram,
+		mockRSSHistogram:        mockRSSHistogram,
 		aggregateContainerState: aggregateContainerState,
 		container:               container,
 	}
@@ -95,30 +100,46 @@ func TestAggregateContainerUsageSamples(t *testing.T) {
 	test.mockMemoryHistogram.On("AddSample", 10.0, 1.0, memoryAggregationWindowEnd)
 	memoryAggregationWindowEnd = memoryAggregationWindowEnd.Add(memoryAggregationInterval)
 	test.mockMemoryHistogram.On("AddSample", 2.0, 1.0, memoryAggregationWindowEnd)
+	// Verify that RSS peaks are added to the RSS peaks histogram.
+	test.mockRSSHistogram.On("AddSample", 4.0, 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddSample", 8.0, 1.0, testTimestamp.Add(timeStep))
+	test.mockRSSHistogram.On("AddSample", 2.0, 1.0, testTimestamp.Add(2*timeStep))
 
-	// Add three CPU and memory usage samples.
+	// Add three CPU, memory, and RSS usage samples.
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp, 3140, ResourceCPU)))
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp, 5, ResourceMemory)))
+	assert.True(t, c.AddSample(newUsageSample(
+		testTimestamp, 4, ResourceRSS)))
 
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp.Add(timeStep), 6280, ResourceCPU)))
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp.Add(timeStep), 10, ResourceMemory)))
+	assert.True(t, c.AddSample(newUsageSample(
+		testTimestamp.Add(timeStep), 8, ResourceRSS)))
 
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp.Add(2*timeStep), 1570, ResourceCPU)))
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp.Add(2*timeStep), 2, ResourceMemory)))
+	assert.True(t, c.AddSample(newUsageSample(
+		testTimestamp.Add(2*timeStep), 2, ResourceRSS)))
 
 	// Discard invalid samples.
 	assert.False(t, c.AddSample(newUsageSample( // Out of order sample.
-		testTimestamp.Add(2*timeStep), 1000, ResourceCPU)))
+		testTimestamp.Add(1*timeStep), 1000, ResourceCPU)))
+	assert.False(t, c.AddSample(newUsageSample( // Out of order sample.
+		testTimestamp.Add(1*timeStep), 1000, ResourceMemory)))
+	assert.False(t, c.AddSample(newUsageSample( // Out of order sample.
+		testTimestamp.Add(1*timeStep), 1000, ResourceRSS)))
 	assert.False(t, c.AddSample(newUsageSample( // Negative CPU usage.
 		testTimestamp.Add(4*timeStep), -1000, ResourceCPU)))
 	assert.False(t, c.AddSample(newUsageSample( // Negative memory usage.
 		testTimestamp.Add(4*timeStep), -1000, ResourceMemory)))
+	assert.False(t, c.AddSample(newUsageSample( // Negative RSS usage.
+		testTimestamp.Add(4*timeStep), -1000, ResourceRSS)))
 }
 
 func TestRecordOOMIncreasedByBumpUp(t *testing.T) {
@@ -127,7 +148,7 @@ func TestRecordOOMIncreasedByBumpUp(t *testing.T) {
 	// Bump Up factor is 20%.
 	test.mockMemoryHistogram.On("AddSample", 1200.0*mb, 1.0, memoryAggregationWindowEnd)
 
-	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceAmount(1000*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1000*mb)))
 }
 
 func TestRecordOOMDontRunAway(t *testing.T) {
@@ -136,16 +157,16 @@ func TestRecordOOMDontRunAway(t *testing.T) {
 
 	// Bump Up factor is 20%.
 	test.mockMemoryHistogram.On("AddSample", 1200.0*mb, 1.0, memoryAggregationWindowEnd)
-	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceAmount(1000*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1000*mb)))
 
 	// new smaller OOMs don't influence the sample value (oomPeak)
-	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceAmount(999*mb)))
-	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceAmount(999*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(999*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(999*mb)))
 
 	test.mockMemoryHistogram.On("SubtractSample", 1200.0*mb, 1.0, memoryAggregationWindowEnd)
 	test.mockMemoryHistogram.On("AddSample", 2400.0*mb, 1.0, memoryAggregationWindowEnd)
 	// a larger OOM should increase the sample value
-	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceAmount(2000*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(2000*mb)))
 }
 
 func TestRecordOOMIncreasedByMin(t *testing.T) {
@@ -154,7 +175,7 @@ func TestRecordOOMIncreasedByMin(t *testing.T) {
 	// Min grow by 100Mb.
 	test.mockMemoryHistogram.On("AddSample", 101.0*mb, 1.0, memoryAggregationWindowEnd)
 
-	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceAmount(1*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1*mb)))
 }
 
 func TestRecordOOMMaxedWithKnownSample(t *testing.T) {
@@ -168,7 +189,7 @@ func TestRecordOOMMaxedWithKnownSample(t *testing.T) {
 	test.mockMemoryHistogram.On("SubtractSample", 3000.0*mb, 1.0, memoryAggregationWindowEnd)
 	test.mockMemoryHistogram.On("AddSample", 3600.0*mb, 1.0, memoryAggregationWindowEnd)
 
-	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceAmount(1000*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1000*mb)))
 }
 
 func TestRecordOOMDiscardsOldSample(t *testing.T) {
@@ -179,7 +200,7 @@ func TestRecordOOMDiscardsOldSample(t *testing.T) {
 	assert.True(t, test.container.AddSample(newUsageSample(testTimestamp, 1000*mb, ResourceMemory)))
 
 	// OOM is stale, mem not changed.
-	assert.Error(t, test.container.RecordOOM(testTimestamp.Add(-30*time.Hour), ResourceAmount(1000*mb)))
+	assert.Error(t, test.container.RecordOOM(testTimestamp.Add(-30*time.Hour), ResourceMemory, ResourceAmount(1000*mb)))
 }
 
 func TestRecordOOMInNewWindow(t *testing.T) {
@@ -192,5 +213,22 @@ func TestRecordOOMInNewWindow(t *testing.T) {
 
 	memoryAggregationWindowEnd = memoryAggregationWindowEnd.Add(2 * memoryAggregationInterval)
 	test.mockMemoryHistogram.On("AddSample", 2400.0*mb, 1.0, memoryAggregationWindowEnd)
-	assert.NoError(t, test.container.RecordOOM(testTimestamp.Add(2*memoryAggregationInterval), ResourceAmount(1000*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp.Add(2*memoryAggregationInterval), ResourceMemory, ResourceAmount(1000*mb)))
+}
+
+func TestRecordOOMRSSConsecutive(t *testing.T) {
+	test := newContainerTest()
+
+	test.mockRSSHistogram.On("AddOomSample", 1000.0*mb, 1.0, testTimestamp)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(1000*mb)))
+
+	// Smaller OOMs are also recorded.
+	test.mockRSSHistogram.On("AddOomSample", 900.0*mb, 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddOomSample", 800.0*mb, 1.0, testTimestamp)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(900*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(800*mb)))
+
+	// Larger OOMs are recorded.
+	test.mockRSSHistogram.On("AddOomSample", 2000.0*mb, 1.0, testTimestamp)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(2000*mb)))
 }

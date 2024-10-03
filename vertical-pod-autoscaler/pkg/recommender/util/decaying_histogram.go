@@ -66,6 +66,10 @@ func (h *decayingHistogram) AddSample(value float64, weight float64, time time.T
 	h.histogram.AddSample(value, weight*h.decayFactor(time), time)
 }
 
+func (h *decayingHistogram) AddOomSample(value float64, weight float64, time time.Time) {
+	panic("AddOomSample function is not implemented for decaying histogram")
+}
+
 func (h *decayingHistogram) SubtractSample(value float64, weight float64, time time.Time) {
 	h.histogram.SubtractSample(value, weight*h.decayFactor(time), time)
 }

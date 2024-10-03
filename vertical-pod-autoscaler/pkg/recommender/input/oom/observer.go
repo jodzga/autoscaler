@@ -32,6 +32,7 @@ import (
 type OomInfo struct {
 	Timestamp   time.Time
 	Memory      model.ResourceAmount
+	Resource    model.ResourceName
 	ContainerID model.ContainerID
 }
 
@@ -92,6 +93,7 @@ func parseEvictionEvent(event *apiv1.Event) []OomInfo {
 		oomInfo := OomInfo{
 			Timestamp: event.CreationTimestamp.Time.UTC(),
 			Memory:    model.ResourceAmount(memory.Value()),
+			Resource:  model.ResourceMemory,
 			ContainerID: model.ContainerID{
 				PodID: model.PodID{
 					Namespace: event.InvolvedObject.Namespace,
@@ -105,7 +107,7 @@ func parseEvictionEvent(event *apiv1.Event) []OomInfo {
 	return result
 }
 
-// OnEvent inspects k8s eviction events and translates them to OomInfo.
+// OnEvent inspects Node MemoryPressure k8s eviction events and translates them to OomInfo.
 func (o *observer) OnEvent(event *apiv1.Event) {
 	klog.V(1).Infof("OOM Observer processing event: %+v", event)
 	for _, oomInfo := range parseEvictionEvent(event) {
@@ -155,10 +157,12 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 			if oldStatus != nil && containerStatus.RestartCount > oldStatus.RestartCount {
 				oldSpec := findSpec(containerStatus.Name, oldPod.Spec.Containers)
 				if oldSpec != nil {
+					// Artificial memory sample is created based on the memory request.
 					memory := oldSpec.Resources.Requests[apiv1.ResourceMemory]
 					oomInfo := OomInfo{
 						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
 						Memory:    model.ResourceAmount(memory.Value()),
+						Resource:  model.ResourceMemory,
 						ContainerID: model.ContainerID{
 							PodID: model.PodID{
 								Namespace: newPod.ObjectMeta.Namespace,
@@ -168,6 +172,24 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 						},
 					}
 					o.observedOomsChannel <- oomInfo
+
+					// Artificial RSS sample is created based on the memory limit.
+					// The generated RSS recommendation will then be higher than the memory limit because the
+					// RSS binary decaying histogram recommends the max RSS observed in some past period.
+					memoryLimit := oldSpec.Resources.Limits[apiv1.ResourceMemory]
+					oomInfoRSS := OomInfo{
+						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
+						Memory:    model.ResourceAmount(memoryLimit.Value()),
+						Resource:  model.ResourceRSS,
+						ContainerID: model.ContainerID{
+							PodID: model.PodID{
+								Namespace: newPod.ObjectMeta.Namespace,
+								PodName:   newPod.ObjectMeta.Name,
+							},
+							ContainerName: containerStatus.Name,
+						},
+					}
+					o.observedOomsChannel <- oomInfoRSS
 				}
 			}
 		}

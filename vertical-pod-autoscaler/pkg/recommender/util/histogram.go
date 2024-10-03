@@ -42,6 +42,9 @@ type Histogram interface {
 	// Add a sample with a given value and weight.
 	AddSample(value float64, weight float64, time time.Time)
 
+	// Add an artificial OOM sample with a given value and weight.
+	AddOomSample(value float64, weight float64, time time.Time)
+
 	// Remove a sample with a given value and weight. Note that the total
 	// weight of samples with a given value cannot be negative.
 	SubtractSample(value float64, weight float64, time time.Time)
@@ -116,6 +119,10 @@ func (h *histogram) AddSample(value float64, weight float64, time time.Time) {
 	if bucket > h.maxBucket && h.bucketWeight[bucket] >= h.options.Epsilon() {
 		h.maxBucket = bucket
 	}
+}
+
+func (h *histogram) AddOomSample(value float64, weight float64, time time.Time) {
+	panic("AddOomSample function is not implemented for histogram")
 }
 
 func safeSubtract(value, sub, epsilon float64) float64 {

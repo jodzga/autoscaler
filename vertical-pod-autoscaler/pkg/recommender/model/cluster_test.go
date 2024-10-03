@@ -306,11 +306,28 @@ func TestClusterRecordOOM(t *testing.T) {
 	assert.NoError(t, cluster.AddOrUpdateContainer(testContainerID, testRequest))
 
 	// RecordOOM
-	assert.NoError(t, cluster.RecordOOM(testContainerID, time.Unix(0, 0), ResourceAmount(10)))
+	assert.NoError(t, cluster.RecordOOM(testContainerID, time.Unix(0, 0), ResourceMemory, ResourceAmount(10)))
 
 	// Verify that OOM was aggregated into the aggregated stats.
 	aggregation := cluster.findOrCreateAggregateContainerState(testContainerID)
 	assert.NotEmpty(t, aggregation.AggregateMemoryPeaks)
+}
+
+func TestClusterRecordOOMRSS(t *testing.T) {
+	// Create a pod with a single container.
+	cluster := NewClusterState(testGcPeriod)
+	cluster.AddOrUpdatePod(testPodID, testLabels, apiv1.PodRunning)
+	assert.NoError(t, cluster.AddOrUpdateContainer(testContainerID, testRequest))
+
+	// RecordOOM
+	pod, _ := cluster.Pods[testPodID]
+	containerState, _ := pod.Containers[testContainerID.ContainerName]
+	containerState.lastRSSSampleStart = testTimestamp.Add(10 * time.Minute)
+	assert.NoError(t, cluster.RecordOOM(testContainerID, testTimestamp, ResourceRSS, ResourceAmount(40.0*1024*1024*1024)))
+
+	// Verify that OOM was aggregated into the aggregated stats.
+	aggregation := cluster.findOrCreateAggregateContainerState(testContainerID)
+	assert.NotZero(t, aggregation.AggregateRSSPeaks.Percentile(1.0))
 }
 
 // Verifies that AddSample and AddOrUpdateContainer methods return a proper
@@ -320,7 +337,7 @@ func TestMissingKeys(t *testing.T) {
 	err := cluster.AddSample(makeTestUsageSample())
 	assert.EqualError(t, err, "KeyError: {namespace-1 pod-1}")
 
-	err = cluster.RecordOOM(testContainerID, time.Unix(0, 0), ResourceAmount(10))
+	err = cluster.RecordOOM(testContainerID, time.Unix(0, 0), ResourceRSS, ResourceAmount(10))
 	assert.EqualError(t, err, "KeyError: {namespace-1 pod-1}")
 
 	err = cluster.AddOrUpdateContainer(testContainerID, testRequest)
