@@ -158,8 +158,8 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 				oldSpec := findSpec(containerStatus.Name, oldPod.Spec.Containers)
 				if oldSpec != nil {
 					// Artificial memory sample is created based on the memory request.
-					memoryRequest := oldSpec.Resources.Requests[apiv1.ResourceMemory]
-					oomInfoMemory := OomInfo{
+					memory := oldSpec.Resources.Requests[apiv1.ResourceMemory]
+					oomInfo := OomInfo{
 						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
 						Memory:    model.ResourceAmount(memoryRequest.Value()),
 						Resource:  model.ResourceMemory,
@@ -171,7 +171,7 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 							ContainerName: containerStatus.Name,
 						},
 					}
-					o.observedOomsChannel <- oomInfoMemory
+					o.observedOomsChannel <- oomInfo
 
 					// Artificial RSS sample is created based on the memory limit.
 					// The generated RSS recommendation will then be higher than the memory limit because the

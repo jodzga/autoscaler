@@ -142,7 +142,7 @@ func TestAggregateContainerUsageSamples(t *testing.T) {
 		testTimestamp.Add(4*timeStep), -1000, ResourceRSS)))
 }
 
-func TestRecordOOMMemoryIncreasedByBumpUp(t *testing.T) {
+func TestRecordOOMIncreasedByBumpUp(t *testing.T) {
 	test := newContainerTest()
 	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
 	// Bump Up factor is 20%.
@@ -151,7 +151,7 @@ func TestRecordOOMMemoryIncreasedByBumpUp(t *testing.T) {
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1000*mb)))
 }
 
-func TestRecordOOMMemoryDontRunAway(t *testing.T) {
+func TestRecordOOMDontRunAway(t *testing.T) {
 	test := newContainerTest()
 	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
 
@@ -169,7 +169,7 @@ func TestRecordOOMMemoryDontRunAway(t *testing.T) {
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(2000*mb)))
 }
 
-func TestRecordOOMMemoryIncreasedByMin(t *testing.T) {
+func TestRecordOOMIncreasedByMin(t *testing.T) {
 	test := newContainerTest()
 	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
 	// Min grow by 100Mb.
@@ -178,7 +178,7 @@ func TestRecordOOMMemoryIncreasedByMin(t *testing.T) {
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1*mb)))
 }
 
-func TestRecordOOMMMemoryaxedWithKnownSample(t *testing.T) {
+func TestRecordOOMMaxedWithKnownSample(t *testing.T) {
 	test := newContainerTest()
 	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
 
@@ -192,7 +192,7 @@ func TestRecordOOMMMemoryaxedWithKnownSample(t *testing.T) {
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceMemory, ResourceAmount(1000*mb)))
 }
 
-func TestRecordOOMMemoryDiscardsOldSample(t *testing.T) {
+func TestRecordOOMDiscardsOldSample(t *testing.T) {
 	test := newContainerTest()
 	memoryAggregationWindowEnd := testTimestamp.Add(GetAggregationsConfig().MemoryAggregationInterval)
 
@@ -203,7 +203,7 @@ func TestRecordOOMMemoryDiscardsOldSample(t *testing.T) {
 	assert.Error(t, test.container.RecordOOM(testTimestamp.Add(-30*time.Hour), ResourceMemory, ResourceAmount(1000*mb)))
 }
 
-func TestRecordOOMMemoryInNewWindow(t *testing.T) {
+func TestRecordOOMInNewWindow(t *testing.T) {
 	test := newContainerTest()
 	memoryAggregationInterval := GetAggregationsConfig().MemoryAggregationInterval
 	memoryAggregationWindowEnd := testTimestamp.Add(memoryAggregationInterval)

@@ -36,7 +36,7 @@ func init() {
 	utilruntime.Must(v1.AddToScheme(scheme))
 }
 
-const podYaml = `
+const pod1Yaml = `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -56,7 +56,7 @@ status:
     restartCount: 0
 `
 
-const nativeOomPodYaml = `
+const pod2Yaml = `
 apiVersion: v1
 kind: Pod
 metadata:
@@ -98,10 +98,10 @@ func newEvent(yaml string) (*v1.Event, error) {
 	return obj.(*v1.Event), nil
 }
 
-func TestNativeOOMReceived(t *testing.T) {
-	p1, err := newPod(podYaml)
+func TestOOMReceived(t *testing.T) {
+	p1, err := newPod(pod1Yaml)
 	assert.NoError(t, err)
-	p2, err := newPod(nativeOomPodYaml)
+	p2, err := newPod(pod2Yaml)
 	assert.NoError(t, err)
 	observer := NewObserver()
 	go observer.OnUpdate(p1, p2)
@@ -130,9 +130,9 @@ func TestNativeOOMReceived(t *testing.T) {
 }
 
 func TestMalformedPodReceived(t *testing.T) {
-	p1, err := newPod(podYaml)
+	p1, err := newPod(pod1Yaml)
 	assert.NoError(t, err)
-	p2, err := newPod(nativeOomPodYaml)
+	p2, err := newPod(pod2Yaml)
 	assert.NoError(t, err)
 
 	// Malformed pod: restart count > 0, but last termination status is nil
