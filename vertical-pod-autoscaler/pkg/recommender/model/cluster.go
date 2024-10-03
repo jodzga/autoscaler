@@ -234,7 +234,8 @@ func (cluster *ClusterState) RecordOOM(containerID ContainerID, timestamp time.T
 		return NewKeyError(containerID.ContainerName)
 	}
 
-	if err := containerState.RecordOOM(timestamp, resource, memory); err != nil {
+	err := containerState.RecordOOM(timestamp, resource, memory)
+	if err != nil {
 		return fmt.Errorf("error while recording OOM for %v, Reason: %v", containerID, err)
 	}
 	return nil
