@@ -91,11 +91,11 @@ func (r *recommender) UpdateVPAs() {
 		if !found {
 			continue
 		}
-		containerNameToAggregateStateMap := GetContainerNameToAggregateStateMap(vpa)
-		resources := r.podResourceRecommender.GetRecommendedPodResources(containerNameToAggregateStateMap)
+		resources := r.podResourceRecommender.GetRecommendedPodResources(GetContainerNameToAggregateStateMap(vpa))
 		had := vpa.HasRecommendation()
 
 		listOfResourceRecommendation := logic.MapToListOfRecommendedContainerResources(resources)
+
 		for _, postProcessor := range r.recommendationPostProcessor {
 			listOfResourceRecommendation = postProcessor.Process(observedVpa, listOfResourceRecommendation)
 		}
@@ -126,7 +126,7 @@ func (r *recommender) UpdateVPAs() {
 			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status)
 		if err != nil {
 			klog.Errorf(
-				"Cannot update status of VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+				"Cannot update VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
 	}
 }
