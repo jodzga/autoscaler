@@ -106,16 +106,16 @@ func TestOOMReceived(t *testing.T) {
 	observer := NewObserver()
 	go observer.OnUpdate(p1, p2)
 
-	infoMemory := <-observer.observedOomsChannel
-	container := infoMemory.ContainerID
+	info := <-observer.observedOomsChannel
+	container := info.ContainerID
 	assert.Equal(t, "mockNamespace", container.PodID.Namespace)
 	assert.Equal(t, "Pod1", container.PodID.PodName)
 	assert.Equal(t, "Name11", container.ContainerName)
-	assert.Equal(t, model.ResourceAmount(int64(1024)), infoMemory.Memory)
-	assert.Equal(t, model.ResourceMemory, infoMemory.Resource)
+	assert.Equal(t, model.ResourceAmount(int64(1024)), info.Memory)
+	assert.Equal(t, model.ResourceMemory, info.Resource)
 	timestamp, err := time.Parse(time.RFC3339, "2018-02-23T13:38:48Z")
 	assert.NoError(t, err)
-	assert.Equal(t, timestamp.Unix(), infoMemory.Timestamp.Unix())
+	assert.Equal(t, timestamp.Unix(), info.Timestamp.Unix())
 
 	infoRSS := <-observer.observedOomsChannel
 	container = infoRSS.ContainerID
