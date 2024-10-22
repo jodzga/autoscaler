@@ -134,6 +134,15 @@ func findSpec(name string, containers []apiv1.Container) *apiv1.Container {
 	return nil
 }
 
+func findEnvVar(name string, envVars []apiv1.EnvVar) *apiv1.EnvVar {
+	for _, envVar := range envVars {
+		if envVar.Name == name {
+			return &envVar
+		}
+	}
+	return nil
+}
+
 func findContainerOverrideJvmHeapSizeEnv(envVars []apiv1.EnvVar) *resource.Quantity {
 	for _, envVar := range envVars {
 		if envVar.Name == "OVERRIDE_JVM_HEAP_SIZE" {
