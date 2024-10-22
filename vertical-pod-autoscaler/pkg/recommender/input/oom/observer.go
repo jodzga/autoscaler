@@ -19,6 +19,7 @@ package oom
 import (
 	"strings"
 	"time"
+	"unicode"
 
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -128,6 +129,32 @@ func findSpec(name string, containers []apiv1.Container) *apiv1.Container {
 	for _, containerSpec := range containers {
 		if containerSpec.Name == name {
 			return &containerSpec
+		}
+	}
+	return nil
+}
+
+func findContainerOverrideJvmHeapSizeEnv(envVars []apiv1.EnvVar) *resource.Quantity {
+	for _, envVar := range envVars {
+		if envVar.Name == "OVERRIDE_JVM_HEAP_SIZE" {
+			jvmHeapSize, err := resource.ParseQuantity(envVar.Value)
+			jvmHeapSizeStr := envVar.Value
+			if jvmHeapSizeStr == "" {
+				return nil
+			}
+
+			// JVM heap size is specified as k/K to indicate KiB, m/M to indicate MiB, g/G to indicate GiB.
+			// https://docs.oracle.com/en/java/javase/17/docs/specs/man/java.html > -Xmx size
+			if unicode.IsLetter(rune(jvmHeapSizeStr[len(jvmHeapSizeStr)-1])) {
+				// If not a raw byte value, must capitalize and then add an 'i' to indicate binary units.
+				jvmHeapSizeStr = strings.ToUpper(jvmHeapSizeStr) + "i"
+			}
+
+			jvmHeapSize, err = resource.ParseQuantity(jvmHeapSizeStr)
+			if err != nil {
+				return nil
+			}
+			return &jvmHeapSize
 		}
 	}
 	return nil
