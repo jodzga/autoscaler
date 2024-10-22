@@ -177,46 +177,77 @@ func (o *observer) OnUpdate(oldObj, newObj interface{}) {
 
 	for _, containerStatus := range newPod.Status.ContainerStatuses {
 		if containerStatus.RestartCount > 0 &&
-			containerStatus.LastTerminationState.Terminated != nil &&
-			containerStatus.LastTerminationState.Terminated.Reason == "OOMKilled" {
+			containerStatus.LastTerminationState.Terminated != nil {
+			if containerStatus.LastTerminationState.Terminated.Reason == "OOMKilled" {
 
-			oldStatus := findStatus(containerStatus.Name, oldPod.Status.ContainerStatuses)
-			if oldStatus != nil && containerStatus.RestartCount > oldStatus.RestartCount {
-				oldSpec := findSpec(containerStatus.Name, oldPod.Spec.Containers)
-				if oldSpec != nil {
-					// Artificial memory sample is created based on the memory request.
-					memory := oldSpec.Resources.Requests[apiv1.ResourceMemory]
-					oomInfo := OomInfo{
-						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
-						Memory:    model.ResourceAmount(memory.Value()),
-						Resource:  model.ResourceMemory,
-						ContainerID: model.ContainerID{
-							PodID: model.PodID{
-								Namespace: newPod.ObjectMeta.Namespace,
-								PodName:   newPod.ObjectMeta.Name,
+				oldStatus := findStatus(containerStatus.Name, oldPod.Status.ContainerStatuses)
+				if oldStatus != nil && containerStatus.RestartCount > oldStatus.RestartCount {
+					oldSpec := findSpec(containerStatus.Name, oldPod.Spec.Containers)
+					if oldSpec != nil {
+						// Artificial memory sample is created based on the memory request.
+						memory := oldSpec.Resources.Requests[apiv1.ResourceMemory]
+						oomInfo := OomInfo{
+							Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
+							Memory:    model.ResourceAmount(memory.Value()),
+							Resource:  model.ResourceMemory,
+							ContainerID: model.ContainerID{
+								PodID: model.PodID{
+									Namespace: newPod.ObjectMeta.Namespace,
+									PodName:   newPod.ObjectMeta.Name,
+								},
+								ContainerName: containerStatus.Name,
 							},
-							ContainerName: containerStatus.Name,
-						},
-					}
-					o.observedOomsChannel <- oomInfo
+						}
+						o.observedOomsChannel <- oomInfo
 
-					// Artificial RSS sample is created based on the memory limit.
-					// The generated RSS recommendation will then be higher than the memory limit because the
-					// RSS binary decaying histogram recommends the max RSS observed in some past period.
-					memoryLimit := oldSpec.Resources.Limits[apiv1.ResourceMemory]
-					oomInfoRSS := OomInfo{
-						Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
-						Memory:    model.ResourceAmount(memoryLimit.Value()),
-						Resource:  model.ResourceRSS,
-						ContainerID: model.ContainerID{
-							PodID: model.PodID{
-								Namespace: newPod.ObjectMeta.Namespace,
-								PodName:   newPod.ObjectMeta.Name,
+						// Artificial RSS sample is created based on the memory limit.
+						// The generated RSS recommendation will then be higher than the memory limit because the
+						// RSS binary decaying histogram recommends the max RSS observed in some past period.
+						memoryLimit := oldSpec.Resources.Limits[apiv1.ResourceMemory]
+						oomInfoRSS := OomInfo{
+							Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
+							Memory:    model.ResourceAmount(memoryLimit.Value()),
+							Resource:  model.ResourceRSS,
+							ContainerID: model.ContainerID{
+								PodID: model.PodID{
+									Namespace: newPod.ObjectMeta.Namespace,
+									PodName:   newPod.ObjectMeta.Name,
+								},
+								ContainerName: containerStatus.Name,
 							},
-							ContainerName: containerStatus.Name,
-						},
+						}
+						o.observedOomsChannel <- oomInfoRSS
 					}
-					o.observedOomsChannel <- oomInfoRSS
+				}
+				// On JVM Heap OOM, the container is restarted with Reason "Error" and Message "JVM Heap OOM"
+				// JVM Heap OOM is a non-standard message that gets added by our custom bazel build target.
+				// We must check string Contains because other additions to the message are possible.
+			} else if containerStatus.LastTerminationState.Terminated.Reason == "Error" &&
+				strings.Contains(containerStatus.LastTerminationState.Terminated.Message, "JVM Heap OOM") {
+
+				oldStatus := findStatus(containerStatus.Name, oldPod.Status.ContainerStatuses)
+				if oldStatus != nil && containerStatus.RestartCount > oldStatus.RestartCount {
+					oldSpec := findSpec(containerStatus.Name, oldPod.Spec.Containers)
+					if oldSpec != nil {
+						jvmHeapSize := findContainerOverrideJvmHeapSizeEnv(oldSpec.Env)
+						if jvmHeapSize == nil {
+							klog.Errorf("OOM observer received JVM OOM event without JVM Heap Size override: %v", oldSpec.Env)
+							continue
+						}
+						oomInfoJVMHeapComitted := OomInfo{
+							Timestamp: containerStatus.LastTerminationState.Terminated.FinishedAt.Time.UTC(),
+							Memory:    model.ResourceAmount(jvmHeapSize.Value()),
+							Resource:  model.ResourceJVMHeapCommitted,
+							ContainerID: model.ContainerID{
+								PodID: model.PodID{
+									Namespace: newPod.ObjectMeta.Namespace,
+									PodName:   newPod.ObjectMeta.Name,
+								},
+								ContainerName: containerStatus.Name,
+							},
+						}
+						o.observedOomsChannel <- oomInfoJVMHeapComitted
+					}
 				}
 			}
 		}
