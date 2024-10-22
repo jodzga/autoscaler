@@ -330,6 +330,29 @@ func TestClusterRecordOOMRSS(t *testing.T) {
 	assert.NotZero(t, aggregation.AggregateRSSPeaks.Percentile(1.0))
 }
 
+func TestClusterRecordOOMJvmHeapComitted(t *testing.T) {
+	// Create a pod with a single container.
+	cluster := NewClusterState(testGcPeriod)
+	cluster.AddOrUpdatePod(testPodID, testLabels, apiv1.PodRunning)
+	assert.NoError(t, cluster.AddOrUpdateContainer(testContainerID, testRequest))
+
+	// RecordOOM
+	pod, _ := cluster.Pods[testPodID]
+	containerState, _ := pod.Containers[testContainerID.ContainerName]
+	containerState.lastJVMHeapCommittedSampleStart = testTimestamp.Add(10 * time.Minute)
+	// Get current peaks of JVM Heap Committed and RSS for comparison
+	aggregation := cluster.findOrCreateAggregateContainerState(testContainerID)
+	prevJVMHeapCommitted := aggregation.AggregateJVMHeapCommittedPeaks.Percentile(1.0)
+	prevRSS := aggregation.AggregateRSSPeaks.Percentile(1.0)
+	assert.NoError(t, cluster.RecordOOM(testContainerID, testTimestamp, ResourceJVMHeapCommitted, ResourceAmount(40.0*1024*1024*1024)))
+
+	// Verify that OOM was aggregated into the aggregated stats.
+	assert.Greaterf(t, aggregation.AggregateJVMHeapCommittedPeaks.Percentile(1.0), prevJVMHeapCommitted, "JVM Heap Committed should be greater than previous value")
+	// For JVM Heap OOM, we also add an OOM sample to RSS.
+	assert.Greaterf(t, aggregation.AggregateRSSPeaks.Percentile(1.0), prevRSS, "RSS should be greater than previous value")
+
+}
+
 // Verifies that AddSample and AddOrUpdateContainer methods return a proper
 // KeyError when referring to a non-existent pod.
 func TestMissingKeys(t *testing.T) {

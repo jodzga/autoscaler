@@ -207,6 +207,12 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 		// Special OOM handling for binary decaying histogram.
 		if sample.isOOM {
 			a.AggregateJVMHeapCommittedPeaks.AddOomSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+			// We need to add an RSS peak OOM as well, as if we bump up the JVM heap recommendation, the RSS recommendation
+			// must be bumped up by the same amount or more.
+			// In this case, we are adding a JVM Heap OOM sample, which adds a sample in the next biggest bucket size.
+			// RSS OOM sample will also add a sample in the next bucket as well, which is guaranteed to be the same increase or larger.
+			rssPeakRecommendation := a.AggregateRSSPeaks.Percentile(1.0)
+			a.AggregateRSSPeaks.AddOomSample(rssPeakRecommendation, 1.0, sample.MeasureStart)
 		} else {
 			a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 		}
