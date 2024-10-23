@@ -45,6 +45,9 @@ metadata:
 spec:
   containers:
   - name: Name11
+    env:
+    - name: OVERRIDE_JVM_HEAP_SIZE
+      value: "500M"
     resources:
       requests:
         memory: "1024"
@@ -78,6 +81,35 @@ status:
       terminated:
         finishedAt: 2018-02-23T13:38:48Z
         reason: OOMKilled
+`
+
+const pod3Yaml = `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: Pod1
+  namespace: mockNamespace
+spec:
+  containers:
+  - name: Name11
+    env:
+    - name: OVERRIDE_JVM_HEAP_SIZE
+      value: "500M"
+    resources:
+      requests:
+        memory: "1024"
+      limits:
+        memory: "2048"
+status:
+  containerStatuses:
+  - name: Name11
+    restartCount: 1
+    lastState:
+      terminated:
+        finishedAt: 2018-02-23T13:38:48Z
+        reason: Error
+        message: |
+          JVM Heap OOM
 `
 
 func newPod(yaml string) (*v1.Pod, error) {
@@ -127,6 +159,28 @@ func TestOOMReceived(t *testing.T) {
 	timestamp, err = time.Parse(time.RFC3339, "2018-02-23T13:38:48Z")
 	assert.NoError(t, err)
 	assert.Equal(t, timestamp.Unix(), infoRSS.Timestamp.Unix())
+}
+
+func TestJVMHeapOOMReceived(t *testing.T) {
+	p1, err := newPod(pod1Yaml)
+	assert.NoError(t, err)
+	p3, err := newPod(pod3Yaml)
+	assert.NoError(t, err)
+	observer := NewObserver()
+	go observer.OnUpdate(p1, p3)
+
+	info := <-observer.observedOomsChannel
+	container := info.ContainerID
+	assert.Equal(t, "mockNamespace", container.PodID.Namespace)
+	assert.Equal(t, "Pod1", container.PodID.PodName)
+	assert.Equal(t, "Name11", container.ContainerName)
+	val, err := resource.ParseQuantity("500Mi")
+	assert.NoError(t, err)
+	assert.Equal(t, model.ResourceAmount(val.Value()), info.Memory)
+	assert.Equal(t, model.ResourceJVMHeapCommitted, info.Resource)
+	timestamp, err := time.Parse(time.RFC3339, "2018-02-23T13:38:48Z")
+	assert.NoError(t, err)
+	assert.Equal(t, timestamp.Unix(), info.Timestamp.Unix())
 }
 
 func TestMalformedPodReceived(t *testing.T) {

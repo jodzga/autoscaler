@@ -29,9 +29,10 @@ var (
 	testTimestamp, _ = time.Parse(timeLayout, "2017-04-18 17:35:05")
 
 	TestRequest = Resources{
-		ResourceCPU:    CPUAmountFromCores(2.3),
-		ResourceMemory: MemoryAmountFromBytes(5e8),
-		ResourceRSS:    MemoryAmountFromBytes(4e8),
+		ResourceCPU:              CPUAmountFromCores(2.3),
+		ResourceMemory:           MemoryAmountFromBytes(5e8),
+		ResourceRSS:              MemoryAmountFromBytes(4e8),
+		ResourceJVMHeapCommitted: MemoryAmountFromBytes(3e8),
 	}
 )
 
@@ -53,6 +54,7 @@ type ContainerTest struct {
 	mockCPUHistogram        *util.MockHistogram
 	mockMemoryHistogram     *util.MockHistogram
 	mockRSSHistogram        *util.MockHistogram
+	mockJVMHeapHistogram    *util.MockHistogram
 	aggregateContainerState *AggregateContainerState
 	container               *ContainerState
 }
@@ -61,10 +63,12 @@ func newContainerTest() ContainerTest {
 	mockCPUHistogram := new(util.MockHistogram)
 	mockMemoryHistogram := new(util.MockHistogram)
 	mockRSSHistogram := new(util.MockHistogram)
+	mockJVMHeapHistogram := new(util.MockHistogram)
 	aggregateContainerState := &AggregateContainerState{
-		AggregateCPUUsage:    mockCPUHistogram,
-		AggregateMemoryPeaks: mockMemoryHistogram,
-		AggregateRSSPeaks:    mockRSSHistogram,
+		AggregateCPUUsage:              mockCPUHistogram,
+		AggregateMemoryPeaks:           mockMemoryHistogram,
+		AggregateRSSPeaks:              mockRSSHistogram,
+		AggregateJVMHeapCommittedPeaks: mockJVMHeapHistogram,
 	}
 	container := &ContainerState{
 		Request:    TestRequest,
@@ -74,6 +78,7 @@ func newContainerTest() ContainerTest {
 		mockCPUHistogram:        mockCPUHistogram,
 		mockMemoryHistogram:     mockMemoryHistogram,
 		mockRSSHistogram:        mockRSSHistogram,
+		mockJVMHeapHistogram:    mockJVMHeapHistogram,
 		aggregateContainerState: aggregateContainerState,
 		container:               container,
 	}
@@ -104,14 +109,20 @@ func TestAggregateContainerUsageSamples(t *testing.T) {
 	test.mockRSSHistogram.On("AddSample", 4.0, 1.0, testTimestamp)
 	test.mockRSSHistogram.On("AddSample", 8.0, 1.0, testTimestamp.Add(timeStep))
 	test.mockRSSHistogram.On("AddSample", 2.0, 1.0, testTimestamp.Add(2*timeStep))
+	// Verify that JVM Heap peaks are added to the JVM Heap peaks histogram.
+	test.mockJVMHeapHistogram.On("AddSample", 3.0, 1.0, testTimestamp)
+	test.mockJVMHeapHistogram.On("AddSample", 6.0, 1.0, testTimestamp.Add(timeStep))
+	test.mockJVMHeapHistogram.On("AddSample", 2.0, 1.0, testTimestamp.Add(2*timeStep))
 
-	// Add three CPU, memory, and RSS usage samples.
+	// Add three CPU, memory, RSS and JVM Heap Committed usage samples.
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp, 3140, ResourceCPU)))
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp, 5, ResourceMemory)))
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp, 4, ResourceRSS)))
+	assert.True(t, c.AddSample(newUsageSample(
+		testTimestamp, 3, ResourceJVMHeapCommitted)))
 
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp.Add(timeStep), 6280, ResourceCPU)))
@@ -119,6 +130,8 @@ func TestAggregateContainerUsageSamples(t *testing.T) {
 		testTimestamp.Add(timeStep), 10, ResourceMemory)))
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp.Add(timeStep), 8, ResourceRSS)))
+	assert.True(t, c.AddSample(newUsageSample(
+		testTimestamp.Add(timeStep), 6, ResourceJVMHeapCommitted)))
 
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp.Add(2*timeStep), 1570, ResourceCPU)))
@@ -126,6 +139,8 @@ func TestAggregateContainerUsageSamples(t *testing.T) {
 		testTimestamp.Add(2*timeStep), 2, ResourceMemory)))
 	assert.True(t, c.AddSample(newUsageSample(
 		testTimestamp.Add(2*timeStep), 2, ResourceRSS)))
+	assert.True(t, c.AddSample(newUsageSample(
+		testTimestamp.Add(2*timeStep), 2, ResourceJVMHeapCommitted)))
 
 	// Discard invalid samples.
 	assert.False(t, c.AddSample(newUsageSample( // Out of order sample.
@@ -134,12 +149,16 @@ func TestAggregateContainerUsageSamples(t *testing.T) {
 		testTimestamp.Add(1*timeStep), 1000, ResourceMemory)))
 	assert.False(t, c.AddSample(newUsageSample( // Out of order sample.
 		testTimestamp.Add(1*timeStep), 1000, ResourceRSS)))
+	assert.False(t, c.AddSample(newUsageSample( // Out of order sample.
+		testTimestamp.Add(1*timeStep), 1000, ResourceJVMHeapCommitted)))
 	assert.False(t, c.AddSample(newUsageSample( // Negative CPU usage.
 		testTimestamp.Add(4*timeStep), -1000, ResourceCPU)))
 	assert.False(t, c.AddSample(newUsageSample( // Negative memory usage.
 		testTimestamp.Add(4*timeStep), -1000, ResourceMemory)))
 	assert.False(t, c.AddSample(newUsageSample( // Negative RSS usage.
 		testTimestamp.Add(4*timeStep), -1000, ResourceRSS)))
+	assert.False(t, c.AddSample(newUsageSample( // Negative JVM Heap usage.
+		testTimestamp.Add(4*timeStep), -1000, ResourceJVMHeapCommitted)))
 }
 
 func TestRecordOOMIncreasedByBumpUp(t *testing.T) {
@@ -231,4 +250,23 @@ func TestRecordOOMRSSConsecutive(t *testing.T) {
 	// Larger OOMs are recorded.
 	test.mockRSSHistogram.On("AddOomSample", 2000.0*mb, 1.0, testTimestamp)
 	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceRSS, ResourceAmount(2000*mb)))
+}
+
+func TestRecordOOMJvmHeapCommittedConsecutive(t *testing.T) {
+	test := newContainerTest()
+
+	test.mockRSSHistogram.On("Percentile", 1.0).Return(1000.0 * mb)
+	test.mockJVMHeapHistogram.On("AddOomSample", 900.0*mb, 1.0, testTimestamp)
+	test.mockRSSHistogram.On("AddOomSample", 1000.0*mb, 1.0, testTimestamp)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceJVMHeapCommitted, ResourceAmount(900*mb)))
+
+	// Smaller OOMs are also recorded.
+	test.mockJVMHeapHistogram.On("AddOomSample", 900.0*mb, 1.0, testTimestamp)
+	test.mockJVMHeapHistogram.On("AddOomSample", 800.0*mb, 1.0, testTimestamp)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceJVMHeapCommitted, ResourceAmount(900*mb)))
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceJVMHeapCommitted, ResourceAmount(800*mb)))
+
+	// Larger OOMs are recorded.
+	test.mockJVMHeapHistogram.On("AddOomSample", 2000.0*mb, 1.0, testTimestamp)
+	assert.NoError(t, test.container.RecordOOM(testTimestamp, ResourceJVMHeapCommitted, ResourceAmount(2000*mb)))
 }
