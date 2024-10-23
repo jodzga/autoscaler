@@ -284,3 +284,98 @@ reason: Evicted
 		assert.Equal(t, tc.oomInfo, oomInfoArray)
 	}
 }
+
+func TestFindContainerOverrideJvmHeapSizeEnv(t *testing.T) {
+	// Define the test cases in a table
+	tests := []struct {
+		name     string
+		envVars  []v1.EnvVar
+		expected *resource.Quantity
+	}{
+		{
+			name: "Valid MiB heap size",
+			envVars: []v1.EnvVar{
+				{
+					Name:  "OVERRIDE_JVM_HEAP_SIZE",
+					Value: "512m",
+				},
+			},
+			expected: func() *resource.Quantity {
+				q, _ := resource.ParseQuantity("512Mi")
+				return &q
+			}(),
+		},
+		{
+			name: "Valid GiB heap size",
+			envVars: []v1.EnvVar{
+				{
+					Name:  "OVERRIDE_JVM_HEAP_SIZE",
+					Value: "2g",
+				},
+			},
+			expected: func() *resource.Quantity {
+				q, _ := resource.ParseQuantity("2Gi")
+				return &q
+			}(),
+		},
+		{
+			name: "Valid raw byte heap size",
+			envVars: []v1.EnvVar{
+				{
+					Name:  "OVERRIDE_JVM_HEAP_SIZE",
+					Value: "1048576",
+				},
+			},
+			expected: func() *resource.Quantity {
+				q, _ := resource.ParseQuantity("1048576")
+				return &q
+			}(),
+		},
+		{
+			name: "Invalid non-numeric heap size",
+			envVars: []v1.EnvVar{
+				{
+					Name:  "OVERRIDE_JVM_HEAP_SIZE",
+					Value: "invalid",
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "Empty heap size value",
+			envVars: []v1.EnvVar{
+				{
+					Name:  "OVERRIDE_JVM_HEAP_SIZE",
+					Value: "",
+				},
+			},
+			expected: nil,
+		},
+		{
+			name: "Heap size not set",
+			envVars: []v1.EnvVar{
+				{
+					Name:  "SOME_OTHER_ENV_VAR",
+					Value: "value",
+				},
+			},
+			expected: nil,
+		},
+	}
+
+	// Loop over each test case
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := findContainerOverrideJvmHeapSizeEnv(tc.envVars)
+
+			// Compare results
+			if tc.expected == nil && result != nil {
+				t.Errorf("Expected nil, got %v", result)
+			} else if tc.expected != nil && result == nil {
+				t.Errorf("Expected %v, got nil", tc.expected)
+			} else if tc.expected != nil && result != nil && tc.expected.String() != result.String() {
+				t.Errorf("Expected %v, got %v", tc.expected, result)
+			}
+		})
+	}
+}
