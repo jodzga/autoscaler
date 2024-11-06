@@ -32,10 +32,15 @@ var (
 
 	retentionsToTest = []int{30, 32, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360}
 
+	// We calculate epsilon for 128MiB and 256MiB to use in assert.InEpsilon.
+	// Epsilon values are not absolute differences, but rather fractions. assert.InEpislon uses the following formula:
+	// |expected - actual| / |expected| <= epsilon
 	v128Mib        = float64(128 * 1024 * 1024)
-	v128MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v128Mib)
+	v128MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v128Mib) / v128Mib
 	v256Mib        = float64(256 * 1024 * 1024)
-	v256MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v256Mib)
+	v256MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v256Mib) / v256Mib
+	v512Mib        = float64(512 * 1024 * 1024)
+	v512MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v512Mib) / v512Mib
 )
 
 func bucketLength(options HistogramOptions, value float64) float64 {
@@ -417,17 +422,21 @@ func TestBinaryDecayingHistogramLoadFromDecayingHistogramCheckpoint(t *testing.T
 
 func TestBinaryDecayingHistogramLoadFromDifferentCheckpointBucketGrowthScheme(t *testing.T) {
 	for _, retentionDays := range retentionsToTest {
-		fivePctBinaryDecayingHistogramOptions, _ := NewExponentialHistogramOptions(1e12, 1e7, 1.05, epsilon)
-		hOld := NewBinaryDecayingHistogram(fivePctBinaryDecayingHistogramOptions, retentionDays)
-		hOld.AddSample(v128Mib, 1.0, startTime)
-		hOld.AddSample(v256Mib, 1.0, startTime.AddDate(0, 0, 1))
-		s, err := hOld.SaveToChekpoint()
-		assert.NoError(t, err)
+		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
+			fivePctBinaryDecayingHistogramOptions, _ := NewExponentialHistogramOptions(1e12, 1e7, 1.05, epsilon)
+			hOld := NewBinaryDecayingHistogram(fivePctBinaryDecayingHistogramOptions, retentionDays)
+			hOld.AddSample(v128Mib, 1.0, startTime)
+			hOld.AddSample(v256Mib, 1.0, startTime.AddDate(0, 0, 1))
+			hOld.AddSample(v512Mib, 1.0, startTime.AddDate(0, 0, 30))
+			s, err := hOld.SaveToChekpoint()
+			assert.NoError(t, err)
 
-		// One percent bucketing scheme
-		hNew := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
-		err = hNew.LoadFromCheckpoint(s)
-		assert.NoError(t, err)
-		assert.InEpsilon(t, v256Mib, hNew.Percentile(1.0), v256MibEpsilon)
+			// One percent bucketing scheme
+			hNew := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
+			err = hNew.LoadFromCheckpoint(s)
+			assert.NoError(t, err)
+			assert.InEpsilon(t, v512Mib, hNew.Percentile(1.0), v512MibEpsilon)
+
+		})
 	}
 }

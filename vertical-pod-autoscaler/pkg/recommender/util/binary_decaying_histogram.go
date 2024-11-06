@@ -312,7 +312,8 @@ func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.Histo
 				retentionDays: h.retentionDays,
 			}
 			oldH.LoadFromCheckpointInternal(checkpoint)
-			h.convertFromDifferentHistogramBucketScheme(oldH)
+			h.lastDayIndex = h.dayIndex(checkpoint.ReferenceTimestamp.Time)
+			return h.convertFromDifferentHistogramBucketScheme(oldH)
 		} else if checkpoint.NumBuckets != 0 {
 			panic(fmt.Sprintf("cannot load from checkpoint:  checkpoint has different number of buckets %d than the histogram %d", checkpoint.NumBuckets, h.options.NumBuckets()))
 		}
@@ -322,12 +323,13 @@ func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.Histo
 
 // convertFromDifferentHistogramBucketScheme converts the binary decaying histogram with a different number of buckets to bucket scheme of the calling histogram.
 // This is done by finding the corresponding bucket value for each day in the old histogram and storing it in the new histogram.
-func (h *binaryDecayingHistogram) convertFromDifferentHistogramBucketScheme(oldHistogram *binaryDecayingHistogram) {
+func (h *binaryDecayingHistogram) convertFromDifferentHistogramBucketScheme(oldHistogram *binaryDecayingHistogram) error {
 	for dayIndex, bucketIndex := range oldHistogram.bucketForDay {
 		if bucketIndex != 0 {
-			memValue := oldHistogram.options.GetBucketStart(int(bucketIndex)) // Maybe -1
+			memValue := oldHistogram.options.GetBucketStart(int(bucketIndex))
 			newBucketIndex := h.options.FindBucket(memValue)
 			h.bucketForDay[dayIndex] = uint16(newBucketIndex)
 		}
 	}
+	return nil
 }
