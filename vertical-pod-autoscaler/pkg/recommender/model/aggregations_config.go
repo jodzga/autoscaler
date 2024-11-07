@@ -40,9 +40,15 @@ type AggregationsConfig struct {
 	// MemoryHistogramOptions are options to be used by histograms that
 	// store memory measures expressed in bytes.
 	MemoryHistogramOptions util.HistogramOptions
+	// BinaryDecayingHistogramOptions are options to be used by binary decaying histograms that
+	// store memory measures expressed in bytes.
+	BinaryDecayingHistogramOptions util.HistogramOptions
 	// HistogramBucketSizeGrowth defines the growth rate of the histogram buckets.
 	// Each bucket is wider than the previous one by this fraction.
 	HistogramBucketSizeGrowth float64
+	// BinaryDecayingHistogramBucketSizeGrowth defines the growth rate of the binary decaying histogram buckets.
+	// Each bucket is wider than the previous one by this fraction.
+	BinaryDecayingHistogramBucketSizeGrowth float64
 	// MemoryHistogramDecayHalfLife is the amount of time it takes a historical
 	// memory usage sample to lose half of its weight. In other words, a fresh
 	// usage sample is twice as 'important' as one with age equal to the half
@@ -72,6 +78,8 @@ const (
 	DefaultMemoryAggregationInterval = time.Hour * 24
 	// DefaultHistogramBucketSizeGrowth is the default value for HistogramBucketSizeGrowth.
 	DefaultHistogramBucketSizeGrowth = 0.05 // Make each bucket 5% larger than the previous one.
+	// DefaultBinaryDecayingHistogramBucketSizeGrowth is the default value for BinaryDecayingHistogramBucketSizeGrowth.
+	DefaultBinaryDecayingHistogramBucketSizeGrowth = 0.01 // Make each bucket 1% larger than the previous one.
 	// DefaultMemoryHistogramDecayHalfLife is the default value for MemoryHistogramDecayHalfLife.
 	DefaultMemoryHistogramDecayHalfLife = time.Hour * 24
 	// DefaultCPUHistogramDecayHalfLife is the default value for CPUHistogramDecayHalfLife.
@@ -114,20 +122,34 @@ func (a *AggregationsConfig) memoryHistogramOptions() util.HistogramOptions {
 	return options
 }
 
+func (a *AggregationsConfig) binaryDecayingHistogramOptions() util.HistogramOptions {
+	// Binary decaying histograms use exponential bucketing scheme with the smallest
+	// bucket size of 10MB, max of 1TB and the relative error of HistogramRelativeError.
+	//
+	// When parameters below are changed SupportedCheckpointVersion has to be bumped.
+	options, err := util.NewExponentialHistogramOptions(1e12, 1e7, 1.+a.BinaryDecayingHistogramBucketSizeGrowth, epsilon)
+	if err != nil {
+		panic("Invalid binary decaying histogram options") // Should not happen.
+	}
+	return options
+}
+
 // NewAggregationsConfig creates a new AggregationsConfig based on the supplied parameters and default values.
 func NewAggregationsConfig(memoryAggregationInterval time.Duration, memoryAggregationIntervalCount int64, memoryHistogramDecayHalfLife, cpuHistogramDecayHalfLife time.Duration, oomBumpUpRatio float64, oomMinBumpUp float64, customMemoryHistogramRetentionDays int) *AggregationsConfig {
 	a := &AggregationsConfig{
-		MemoryAggregationInterval:          memoryAggregationInterval,
-		MemoryAggregationIntervalCount:     memoryAggregationIntervalCount,
-		HistogramBucketSizeGrowth:          DefaultHistogramBucketSizeGrowth,
-		MemoryHistogramDecayHalfLife:       memoryHistogramDecayHalfLife,
-		CPUHistogramDecayHalfLife:          cpuHistogramDecayHalfLife,
-		OOMBumpUpRatio:                     oomBumpUpRatio,
-		OOMMinBumpUp:                       oomMinBumpUp,
-		CustomMemoryHistogramRetentionDays: customMemoryHistogramRetentionDays,
+		MemoryAggregationInterval:               memoryAggregationInterval,
+		MemoryAggregationIntervalCount:          memoryAggregationIntervalCount,
+		HistogramBucketSizeGrowth:               DefaultHistogramBucketSizeGrowth,
+		BinaryDecayingHistogramBucketSizeGrowth: DefaultBinaryDecayingHistogramBucketSizeGrowth,
+		MemoryHistogramDecayHalfLife:            memoryHistogramDecayHalfLife,
+		CPUHistogramDecayHalfLife:               cpuHistogramDecayHalfLife,
+		OOMBumpUpRatio:                          oomBumpUpRatio,
+		OOMMinBumpUp:                            oomMinBumpUp,
+		CustomMemoryHistogramRetentionDays:      customMemoryHistogramRetentionDays,
 	}
 	a.CPUHistogramOptions = a.cpuHistogramOptions()
 	a.MemoryHistogramOptions = a.memoryHistogramOptions()
+	a.BinaryDecayingHistogramOptions = a.binaryDecayingHistogramOptions()
 	return a
 }
 

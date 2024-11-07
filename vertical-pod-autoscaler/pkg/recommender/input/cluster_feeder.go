@@ -19,6 +19,7 @@ package input
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
@@ -36,6 +37,7 @@ import (
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	vpa_api "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned/typed/autoscaling.k8s.io/v1"
 	vpa_lister "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/listers/autoscaling.k8s.io/v1"
+	checkpointwriter "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/checkpoint"
 	controllerfetcher "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/input/controller_fetcher"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/input/history"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/input/metrics"
@@ -231,6 +233,26 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 	vpa, exists := feeder.clusterState.Vpas[vpaID]
 	if !exists {
 		return fmt.Errorf("cannot load checkpoint to missing VPA object %+v", vpaID)
+	}
+
+	// Check for numBuckets annotations for JVM Heap and RSS histograms.
+	if checkpoint.Annotations != nil {
+		rssNumBucketsStr, ok := checkpoint.Annotations[checkpointwriter.RSSBinaryDecayingHistogramNumBuckets]
+		if ok {
+			rssNumBuckets, err := strconv.Atoi(rssNumBucketsStr)
+			if err != nil {
+				return fmt.Errorf("cannot parse RSS histogram num buckets %v. Reason: %v", rssNumBucketsStr, err)
+			}
+			checkpoint.Status.RSSHistogram.NumBuckets = rssNumBuckets
+		}
+		jvmHeapNumBucketsStr, ok := checkpoint.Annotations[checkpointwriter.JVMHeapCommittedBinaryDecayingHistogramNumBuckets]
+		if ok {
+			jvmHeapNumBuckets, err := strconv.Atoi(jvmHeapNumBucketsStr)
+			if err != nil {
+				return fmt.Errorf("cannot parse JVM heap histogram num buckets %v. Reason: %v", jvmHeapNumBucketsStr, err)
+			}
+			checkpoint.Status.JVMHeapCommittedHistogram.NumBuckets = jvmHeapNumBuckets
+		}
 	}
 
 	cs := model.NewAggregateContainerState()

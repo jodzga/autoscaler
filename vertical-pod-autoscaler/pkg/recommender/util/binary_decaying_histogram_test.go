@@ -26,20 +26,25 @@ import (
 )
 
 var (
-	bucketGrowth = 0.05
+	bucketGrowth = 0.01
 	// Test histogram options.
 	testBinaryDecayingHistogramOptions, _ = NewExponentialHistogramOptions(1e12, 1e7, 1.+bucketGrowth, epsilon)
 
 	retentionsToTest = []int{30, 32, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360}
 
+	// We calculate epsilon for 128MiB and 256MiB to use in assert.InEpsilon.
+	// Epsilon values are not absolute differences, but rather fractions. assert.InEpislon uses the following formula:
+	// |expected - actual| / |expected| <= epsilon
 	v128Mib        = float64(128 * 1024 * 1024)
 	v128MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v128Mib) / v128Mib
 	v256Mib        = float64(256 * 1024 * 1024)
 	v256MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v256Mib) / v256Mib
+	v512Mib        = float64(512 * 1024 * 1024)
+	v512MibEpsilon = bucketLength(testBinaryDecayingHistogramOptions, v512Mib) / v512Mib
 )
 
 func bucketLength(options HistogramOptions, value float64) float64 {
-	bucket := options.FindBucket(value)
+	bucket := options.FindBucket(value) + 1
 	// special handling of the last bucket
 	if bucket == options.NumBuckets()-1 {
 		return options.GetBucketStart(bucket) - options.GetBucketStart(bucket-1)
@@ -89,8 +94,9 @@ func TestBinaryDecayingHistogramPutsOomInNextBucket(t *testing.T) {
 			// OOM sample should go in the next bucket, compared to a real sample of the same value.
 			h.AddOomSample(v128Mib, 1.0, startTime)
 			bucketRaw := testBinaryDecayingHistogramOptions.FindBucket(v128Mib)
-			bucketOom := bucketRaw + 1
-			assert.InEpsilon(t, testBinaryDecayingHistogramOptions.GetBucketStart(bucketOom), h.Percentile(1.0), testBinaryDecayingHistogramOptions.GetBucketStart(bucketOom+1))
+			// Since buckets are zero indexed, we need to add 1 to account for the zero index (bucket 0 means no sample) and 1 for the OOM.
+			bucketOom := bucketRaw + 2
+			assert.Equal(t, testBinaryDecayingHistogramOptions.GetBucketStart(bucketOom), h.Percentile(1.0))
 		})
 	}
 }
@@ -401,7 +407,8 @@ func TestBinaryDecayingHistogramCheckpointing(t *testing.T) {
 func TestBinaryDecayingHistogramLoadFromDecayingHistogramCheckpoint(t *testing.T) {
 	for _, retentionDays := range retentionsToTest {
 		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
-			h := NewDecayingHistogram(testBinaryDecayingHistogramOptions, time.Hour*24)
+			testDecayingHistogramOptions, _ := NewExponentialHistogramOptions(1e12, 1e7, 1.+0.05, epsilon)
+			h := NewDecayingHistogram(testDecayingHistogramOptions, time.Hour*24)
 			h.AddSample(v128Mib, 1.0, startTime)
 			h.AddSample(v256Mib, 1.0, startTime.AddDate(0, 0, 1))
 			s, err := h.SaveToChekpoint()
@@ -409,6 +416,27 @@ func TestBinaryDecayingHistogramLoadFromDecayingHistogramCheckpoint(t *testing.T
 			loaded := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
 			loaded.LoadFromCheckpoint(s)
 			assert.InEpsilon(t, v256Mib, loaded.Percentile(1.0), v256MibEpsilon)
+		})
+	}
+}
+
+func TestBinaryDecayingHistogramLoadFromDifferentCheckpointBucketGrowthScheme(t *testing.T) {
+	for _, retentionDays := range retentionsToTest {
+		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
+			fivePctBinaryDecayingHistogramOptions, _ := NewExponentialHistogramOptions(1e12, 1e7, 1.05, epsilon)
+			hOld := NewBinaryDecayingHistogram(fivePctBinaryDecayingHistogramOptions, retentionDays)
+			hOld.AddSample(v128Mib, 1.0, startTime)
+			hOld.AddSample(v256Mib, 1.0, startTime.AddDate(0, 0, 1))
+			hOld.AddSample(v512Mib, 1.0, startTime.AddDate(0, 0, 30))
+			s, err := hOld.SaveToChekpoint()
+			assert.NoError(t, err)
+
+			// One percent bucketing scheme
+			hNew := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
+			err = hNew.LoadFromCheckpoint(s)
+			assert.NoError(t, err)
+			assert.InEpsilon(t, v512Mib, hNew.Percentile(1.0), v512MibEpsilon)
+
 		})
 	}
 }

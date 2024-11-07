@@ -114,6 +114,8 @@ func (h *binaryDecayingHistogram) addSampleToBucket(bucket uint16, dayIndex int)
 }
 
 func (h *binaryDecayingHistogram) addSample(value float64, dayIndex int, isOOM bool) {
+	// We add 1 to the bucket index to account for the zero indexing of the binary decaying histogram.
+	// The zero index indicates no sample, so we have to shift all bucket values by 1.
 	bucket := h.options.FindBucket(value) + 1
 	if isOOM {
 		// OOM samples are stored in the next bucket to differentiate them
@@ -252,7 +254,7 @@ func (h *binaryDecayingHistogram) SaveToChekpoint() (*vpa_types.HistogramCheckpo
 
 // Loading from checkpoint supports loading from checkpoints saved by decaying histogram and by this histogram type.
 // It supports loading from checkpoint with different retention days.
-func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.HistogramCheckpoint) error {
+func (h *binaryDecayingHistogram) LoadFromCheckpointInternal(checkpoint *vpa_types.HistogramCheckpoint) error {
 	if checkpoint == nil {
 		return fmt.Errorf("cannot load from empty checkpoint")
 	}
@@ -280,6 +282,53 @@ func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.Histo
 					}
 				}
 			}
+		}
+	}
+	return nil
+}
+
+// LoadFromCheckpoint loads the histogram from the checkpoint.
+// It checks if a conversion on bucketing scheme is necessrary, and calls the underlying LoadFromCheckpointInternal function.
+func (h *binaryDecayingHistogram) LoadFromCheckpoint(checkpoint *vpa_types.HistogramCheckpoint) error {
+	if checkpoint == nil {
+		return fmt.Errorf("cannot load from empty checkpoint")
+	}
+	// If the checkpoint does not have the same number of buckets as the histogram, we need to convert the checkpointed histogram
+	// 176 buckets indicates 5% growth rate.
+	// We don't dynamically calculate the growth rate because from numBuckets because it is not accurate due to floating points and rounding.
+	if checkpoint.NumBuckets != h.options.NumBuckets() {
+		// If the checkpoint has 0 numBuckets, it means that the checkpoint has not been saved with the NumBuckets annotation, meaning it was the old default scheme of 5%.
+		if checkpoint.NumBuckets == 176 || checkpoint.NumBuckets == 0 {
+			oldOptions := &exponentialHistogramOptions{
+				numBuckets:      176,
+				firstBucketSize: 1e7,
+				ratio:           1.05,
+				epsilon:         h.options.Epsilon(),
+			}
+			oldH := &binaryDecayingHistogram{
+				options:       oldOptions,
+				bucketForDay:  make([]uint16, h.retentionDays),
+				lastDayIndex:  0,
+				retentionDays: h.retentionDays,
+			}
+			oldH.LoadFromCheckpointInternal(checkpoint)
+			h.lastDayIndex = h.dayIndex(checkpoint.ReferenceTimestamp.Time)
+			return h.convertFromDifferentHistogramBucketScheme(oldH)
+		} else if checkpoint.NumBuckets != 0 {
+			panic(fmt.Sprintf("cannot load from checkpoint:  checkpoint has different number of buckets %d than the histogram %d", checkpoint.NumBuckets, h.options.NumBuckets()))
+		}
+	}
+	return h.LoadFromCheckpointInternal(checkpoint)
+}
+
+// convertFromDifferentHistogramBucketScheme converts the binary decaying histogram with a different number of buckets to bucket scheme of the calling histogram.
+// This is done by finding the corresponding bucket value for each day in the old histogram and storing it in the new histogram.
+func (h *binaryDecayingHistogram) convertFromDifferentHistogramBucketScheme(oldHistogram *binaryDecayingHistogram) error {
+	for dayIndex, bucketIndex := range oldHistogram.bucketForDay {
+		if bucketIndex != 0 {
+			memValue := oldHistogram.options.GetBucketStart(int(bucketIndex))
+			newBucketIndex := h.options.FindBucket(memValue)
+			h.bucketForDay[dayIndex] = uint16(newBucketIndex)
 		}
 	}
 	return nil
