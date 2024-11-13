@@ -128,7 +128,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 	close(customResChan)
 
 	podMetrics := <-resChan
-	if s.customMetricsLister == nil {
+	if podMetrics == nil || s.customMetricsLister == nil {
 		return podMetrics, nil
 	}
 
