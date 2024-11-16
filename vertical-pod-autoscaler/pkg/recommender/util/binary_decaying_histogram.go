@@ -229,7 +229,7 @@ func (h *binaryDecayingHistogram) String() string {
 			value = h.valueForBucket(int(bucket) - 1)
 		}
 		lines = append(lines, fmt.Sprintf("%s\t%s",
-			time.Unix(int64(day*60*60*24), 0).Format("2006-01-02"),
+			time.Unix(int64(day*60*60*24), 0).UTC().Format("2006-01-02"),
 			addThousandSeparators(int64(value/1024/1024))+"Mi"))
 	}
 	lines = append(lines, "\n")
