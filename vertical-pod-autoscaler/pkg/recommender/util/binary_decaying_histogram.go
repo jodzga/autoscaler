@@ -18,6 +18,7 @@ package util
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -196,10 +197,30 @@ func (h *binaryDecayingHistogram) valueForBucket(bucket int) float64 {
 	return h.options.GetBucketStart(bucket)
 }
 
+// Add this helper function
+func addThousandSeparators(n int64) string {
+	str := strconv.FormatInt(n, 10)
+	if len(str) <= 3 {
+		return str
+	}
+
+	// Start from the end and insert commas every 3 digits
+	var result []byte
+	for i, j := len(str)-1, 0; i >= 0; i-- {
+		if j > 0 && j%3 == 0 {
+			result = append([]byte{','}, result...)
+		}
+		result = append([]byte{str[i]}, result...)
+		j++
+	}
+	return string(result)
+}
+
 func (h *binaryDecayingHistogram) String() string {
 	lines := []string{
 		fmt.Sprintf("retentionDays: %d", h.retentionDays),
-		"day\tbucket\tvalue",
+		fmt.Sprintf("max: %s", addThousandSeparators(int64(h.Percentile(1.0)/1024/1024))+"Mi"),
+		"day\tvalue",
 	}
 	for day := h.lastDayIndex; day > h.lastDayIndex-h.retentionDays && day >= 0; day-- {
 		bucket := h.bucketForDay[day%h.retentionDays]
@@ -207,7 +228,9 @@ func (h *binaryDecayingHistogram) String() string {
 		if bucket > 0 {
 			value = h.valueForBucket(int(bucket) - 1)
 		}
-		lines = append(lines, fmt.Sprintf("%d\t%d\t%.3f", day, bucket, value))
+		lines = append(lines, fmt.Sprintf("%s\t%s",
+			time.Unix(int64(day*60*60*24), 0).Format("2006-01-02"),
+			addThousandSeparators(int64(value/1024/1024))+"Mi"))
 	}
 	lines = append(lines, "\n")
 	return strings.Join(lines, "\n")
