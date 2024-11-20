@@ -314,7 +314,7 @@ func (a *AggregateContainerState) isExpired(now time.Time) bool {
 }
 
 func (a *AggregateContainerState) isEmpty() bool {
-	return a.TotalSamplesCount == 0
+	return a.TotalSamplesCount == 0 && a.AggregateCPUUsage.IsEmpty() && a.AggregateMemoryPeaks.IsEmpty() && a.AggregateRSSPeaks.IsEmpty() && a.AggregateJVMHeapCommittedPeaks.IsEmpty()
 }
 
 // UpdateFromPolicy updates container state scaling mode and controlled resources based on resource

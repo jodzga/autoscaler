@@ -146,25 +146,19 @@ func buildAggregateContainerStateMap(vpa *model.Vpa, cluster *model.ClusterState
 	// checkpoint to avoid having multiple peaks in the same interval after the state is restored from
 	// the checkpoint. Therefore we are extracting the current peak from all containers.
 	// TODO: Avoid the nested loop over all containers for each VPA.
+	// AHH HHERE THE CLUSTER PODS HAS BEEN DELETED SO ITS NOT IN HERE!! this is called by maintain checkpoints then store checkpoints then here
+	// because the pod no longer exists, we will not merge that aggregate state map hm but where is the merge
 	for _, pod := range cluster.Pods {
 		for containerName, container := range pod.Containers {
 			aggregateKey := cluster.MakeAggregateStateKey(pod, containerName)
-			if vpa.ID.Namespace == "vpa-test-service" && containerName == "vpa-test-service" {
-				klog.Infof("vpa-test-service123 buildAggregateContainerStateMap: aggregateKey: %s, pod: %s", aggregateKey, pod.ID.PodName)
-			}
 			if vpa.UsesAggregation(aggregateKey) {
-				if vpa.ID.Namespace == "vpa-test-service" && containerName == "vpa-test-service" {
-					klog.Infof("vpa-test-service123 buildAggregateContainerStateMap usesaggregation: aggregateKey: %s, pod: %s", aggregateKey, pod.ID.PodName)
-				}
 				if aggregateContainerState, exists := aggregateContainerStateMap[containerName]; exists {
-					if vpa.ID.Namespace == "vpa-test-service" && containerName == "vpa-test-service" {
-						klog.Infof("vpa-test-service123 buildAggregateContainerStateMap aggregatecontainerstate: %v, aggregateKey: %s, pod: %s", aggregateContainerState, aggregateKey, pod.ID.PodName)
-					}
 					subtractCurrentContainerMemoryPeak(aggregateContainerState, container, now)
 				}
 			}
 		}
 	}
+	klog.Info("vpa-test-service123 buildAggregateContainerStateMap: %v", aggregateContainerStateMap["vpa-test-service"])
 	return aggregateContainerStateMap
 }
 

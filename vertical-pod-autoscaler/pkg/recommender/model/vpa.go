@@ -204,6 +204,9 @@ func (vpa *Vpa) MergeCheckpointedState(aggregateContainerStateMap ContainerNameT
 // AggregateStateByContainerName returns a map from container name to the aggregated state
 // of all containers with that name, belonging to pods matched by the VPA.
 func (vpa *Vpa) AggregateStateByContainerName() ContainerNameToAggregateStateMap {
+	if vpa.ID.Namespace == "vpa-test-service" {
+		klog.Infof("vpa-test-service123 AggregateStateByContainerName: %v", vpa.aggregateContainerStates["vpa-test-service"])
+	}
 	containerNameToAggregateStateMap := AggregateStateByContainerName(vpa.aggregateContainerStates)
 	vpa.MergeCheckpointedState(containerNameToAggregateStateMap)
 	return containerNameToAggregateStateMap
