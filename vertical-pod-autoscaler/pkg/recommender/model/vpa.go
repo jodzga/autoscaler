@@ -27,6 +27,7 @@ import (
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	metrics_quality "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/utils/metrics/quality"
 	vpa_api_util "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/utils/vpa"
+		"k8s.io/klog/v2"
 )
 
 // Map from VPA annotation key to value.
@@ -204,6 +205,9 @@ func (vpa *Vpa) MergeCheckpointedState(aggregateContainerStateMap ContainerNameT
 // AggregateStateByContainerName returns a map from container name to the aggregated state
 // of all containers with that name, belonging to pods matched by the VPA.
 func (vpa *Vpa) AggregateStateByContainerName() ContainerNameToAggregateStateMap {
+	if vpa.ID.Namespace == "vpa-test-service" {
+		klog.Infof("vpa-test-service123 AggregateStateByContainerName: %v", vpa.aggregateContainerStates)
+	}
 	containerNameToAggregateStateMap := AggregateStateByContainerName(vpa.aggregateContainerStates)
 	vpa.MergeCheckpointedState(containerNameToAggregateStateMap)
 	return containerNameToAggregateStateMap

@@ -104,6 +104,9 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 				klog.Errorf("Cannot serialize checkpoint for vpa %v container %v. Reason: %+v", vpa.ID.VpaName, container, err)
 				continue
 			}
+			if vpa.ID.Namespace == "vpa-test-service" && container == "vpa-test-service" {
+				klog.Infof("vpa-test-service123 StoreCheckpoints: containerCheckpoint: %v, aggregatedContainerState: %v", containerCheckpoint, aggregatedContainerState)
+			}
 			checkpointName := fmt.Sprintf("%s-%s", vpa.ID.VpaName, container)
 			vpaCheckpoint := vpa_types.VerticalPodAutoscalerCheckpoint{
 				ObjectMeta: metav1.ObjectMeta{Name: checkpointName},
@@ -143,6 +146,8 @@ func buildAggregateContainerStateMap(vpa *model.Vpa, cluster *model.ClusterState
 	// checkpoint to avoid having multiple peaks in the same interval after the state is restored from
 	// the checkpoint. Therefore we are extracting the current peak from all containers.
 	// TODO: Avoid the nested loop over all containers for each VPA.
+	// AHH HHERE THE CLUSTER PODS HAS BEEN DELETED SO ITS NOT IN HERE!! this is called by maintain checkpoints then store checkpoints then here
+	// because the pod no longer exists, we will not merge that aggregate state map hm but where is the merge
 	for _, pod := range cluster.Pods {
 		for containerName, container := range pod.Containers {
 			aggregateKey := cluster.MakeAggregateStateKey(pod, containerName)
@@ -152,6 +157,9 @@ func buildAggregateContainerStateMap(vpa *model.Vpa, cluster *model.ClusterState
 				}
 			}
 		}
+	}
+	if vpa.ID.Namespace == "vpa-test-service" {
+		klog.Info("vpa-test-service123 buildAggregateContainerStateMap: %v", aggregateContainerStateMap["vpa-test-service"])
 	}
 	return aggregateContainerStateMap
 }
