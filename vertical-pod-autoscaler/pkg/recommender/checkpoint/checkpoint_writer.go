@@ -158,7 +158,9 @@ func buildAggregateContainerStateMap(vpa *model.Vpa, cluster *model.ClusterState
 			}
 		}
 	}
-	klog.Info("vpa-test-service123 buildAggregateContainerStateMap: %v", aggregateContainerStateMap["vpa-test-service"])
+	if vpa.ID.Namespace == "vpa-test-service" {
+		klog.Info("vpa-test-service123 buildAggregateContainerStateMap: %v", aggregateContainerStateMap["vpa-test-service"])
+	}
 	return aggregateContainerStateMap
 }
 
