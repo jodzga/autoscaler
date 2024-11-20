@@ -394,9 +394,9 @@ func (cluster *ClusterState) garbageCollectAggregateCollectionStates(now time.Ti
 // 2) The last sample is too old to give meaningful recommendation (>8 days),
 // 3) There are no samples and the aggregate state was created >8 days ago.
 func (cluster *ClusterState) RateLimitedGarbageCollectAggregateCollectionStates(now time.Time, controllerFetcher controllerfetcher.ControllerFetcher) {
-	if now.Sub(cluster.lastAggregateContainerStateGC) < cluster.gcInterval {
-		return
-	}
+	// if now.Sub(cluster.lastAggregateContainerStateGC) < cluster.gcInterval {
+	// 	return
+	// }
 	cluster.garbageCollectAggregateCollectionStates(now, controllerFetcher)
 	cluster.lastAggregateContainerStateGC = now
 }

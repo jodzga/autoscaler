@@ -104,6 +104,9 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 				klog.Errorf("Cannot serialize checkpoint for vpa %v container %v. Reason: %+v", vpa.ID.VpaName, container, err)
 				continue
 			}
+			if vpa.VpaID.Namespace == "vpa-test-service" && container == "vpa-test-service" {
+				klog.Infof("vpa-test-service123 StoreCheckpoints: containerCheckpoint: %v, aggregatedContainerState: %v", containerCheckpoint, aggregatedContainerState)
+			}
 			checkpointName := fmt.Sprintf("%s-%s", vpa.ID.VpaName, container)
 			vpaCheckpoint := vpa_types.VerticalPodAutoscalerCheckpoint{
 				ObjectMeta: metav1.ObjectMeta{Name: checkpointName},
@@ -146,8 +149,17 @@ func buildAggregateContainerStateMap(vpa *model.Vpa, cluster *model.ClusterState
 	for _, pod := range cluster.Pods {
 		for containerName, container := range pod.Containers {
 			aggregateKey := cluster.MakeAggregateStateKey(pod, containerName)
+			if vpa.VpaID.Namespace == "vpa-test-service" && containerName == "vpa-test-service" {
+				klog.Infof("vpa-test-service123 buildAggregateContainerStateMap: aggregateKey: %s, pod: %s", aggregateKey, pod.Name)
+			}
 			if vpa.UsesAggregation(aggregateKey) {
+				if vpa.VpaID.Namespace == "vpa-test-service" && containerName == "vpa-test-service" {
+					klog.Infof("vpa-test-service123 buildAggregateContainerStateMap usesaggregation: aggregateKey: %s, pod: %s", aggregateKey, pod.Name)
+				}
 				if aggregateContainerState, exists := aggregateContainerStateMap[containerName]; exists {
+					if vpa.VpaID.Namespace == "vpa-test-service" && containerName == "vpa-test-service" {
+						klog.Infof("vpa-test-service123 buildAggregateContainerStateMap aggregatecontainerstate: %v, aggregateKey: %s, pod: %s", aggregateContainerState, aggregateKey, pod.Name)
+					}
 					subtractCurrentContainerMemoryPeak(aggregateContainerState, container, now)
 				}
 			}
