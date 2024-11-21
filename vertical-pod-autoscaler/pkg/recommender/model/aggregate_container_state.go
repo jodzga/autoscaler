@@ -306,15 +306,51 @@ func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.Verti
 	return nil
 }
 
+// Each aggregate container state has an aggregation key, i.e. ID of namespace + container name + pod labels.
+// Upon workload re-creation, since pod labels may change (e.g. pod-template-hash), the aggregation key may change,
+// so the VPA (for that workload) may track multiple aggregate container states for a given container.
+//
+// To generate recommendations for that given container, all corresponding aggregate container states are merged.
+// Note that this is not a destructive merge. All original aggregate container states are still tracked by the VPA.
+// Every time a recommendation is generated, the merge happens in a fresh aggregate container state that is then discarded.
+//
+// When an aggregate container state is GC'ed, it no longer contributes to the merge and hence the recommendation.
+
+// isExpired returns true if the aggregate container state is expired.
+// The aggregate container state is GC'ed when it is expired.
+//
+// The native implementation only checked that time elapsed since the last update >= memory aggregation window.
+// This is no longer sufficient, and instead should be >= max(memory aggregation window, custom memory histogram retention).
+//
+// This change is to account for the custom memory histogram retention used by the RSS and JVM heap recommendations.
+// Since they take the max usage over this retention period, no samples over this time can be discarded.
 func (a *AggregateContainerState) isExpired(now time.Time) bool {
-	if a.isEmpty() {
-		return now.Sub(a.CreationTime) >= GetAggregationsConfig().GetMemoryAggregationWindowLength()
+	config := GetAggregationsConfig()
+	maxRetention := config.GetMemoryAggregationWindowLength()
+	if customMemoryRetention := 24 * time.Hour * time.Duration(config.CustomMemoryHistogramRetentionDays); customMemoryRetention > maxRetention {
+		maxRetention = customMemoryRetention
 	}
-	return now.Sub(a.LastSampleStart) >= GetAggregationsConfig().GetMemoryAggregationWindowLength()
+
+	if a.isEmpty() {
+		return now.Sub(a.CreationTime) >= maxRetention
+	}
+	return !a.LastSampleStart.IsZero() && now.Sub(a.LastSampleStart) >= maxRetention
 }
 
+// isEmpty returns true if the aggregate container state is empty.
+// The aggregate container state is GC'ed when it is both empty and there are no existing associated Pods.
+//
+// The native implementation only checked a.TotalSamplesCount == 0, which is the count of standard CPU samples.
+// This is no longer sufficient, and instead all histograms are explicitly checked to be empty.
+//
+// This change is due to the following factors:
+//  1. An external OOM mitigation mechanism re-creates workloads upon OOMs.
+//     The VPA (for an OOM'ed workload) would have both the old and new aggregate container states.
+//  2. If a workload were to OOM immediately upon startup and then be immediately re-created by the OOM mitigation mechanism,
+//     the old aggregate container state would have a.TotalSamplesCount == 0, but it would have OOM samples.
+//     This old aggregate container state should not be GC'ed.
 func (a *AggregateContainerState) isEmpty() bool {
-	return a.TotalSamplesCount == 0
+	return a.AggregateCPUUsage.IsEmpty() && a.AggregateMemoryPeaks.IsEmpty() && a.AggregateRSSPeaks.IsEmpty() && a.AggregateJVMHeapCommittedPeaks.IsEmpty()
 }
 
 // UpdateFromPolicy updates container state scaling mode and controlled resources based on resource

@@ -110,8 +110,8 @@ func TestClusterGCAggregateContainerStateDeletesOld(t *testing.T) {
 	assert.NotEmpty(t, cluster.aggregateStateMap)
 	assert.NotEmpty(t, vpa.aggregateContainerStates)
 
-	// AggregateContainerState are valid for 8 days since last sample
-	cluster.garbageCollectAggregateCollectionStates(usageSample.MeasureStart.Add(9*24*time.Hour), testControllerFetcher)
+	// AggregateContainerState are valid for 90 days since last sample
+	cluster.garbageCollectAggregateCollectionStates(usageSample.MeasureStart.Add(91*24*time.Hour), testControllerFetcher)
 
 	// AggregateContainerState should be deleted from both cluster and vpa
 	assert.Empty(t, cluster.aggregateStateMap)
@@ -141,8 +141,8 @@ func TestClusterGCAggregateContainerStateDeletesOldEmpty(t *testing.T) {
 	assert.NotEmpty(t, cluster.aggregateStateMap)
 	assert.NotEmpty(t, vpa.aggregateContainerStates)
 
-	// AggregateContainerState are valid for 8 days since creation
-	cluster.garbageCollectAggregateCollectionStates(creationTime.Add(9*24*time.Hour), testControllerFetcher)
+	// AggregateContainerState are valid for 90 days since creation
+	cluster.garbageCollectAggregateCollectionStates(creationTime.Add(91*24*time.Hour), testControllerFetcher)
 
 	// AggregateContainerState should be deleted from both cluster and vpa
 	assert.Empty(t, cluster.aggregateStateMap)
@@ -250,8 +250,8 @@ func TestAddSampleAfterAggregateContainerStateGCed(t *testing.T) {
 	aggregateStateKey := cluster.aggregateStateKeyForContainerID(testContainerID)
 	assert.Contains(t, vpa.aggregateContainerStates, aggregateStateKey)
 
-	// AggregateContainerState are invalid after 8 days since last sample
-	gcTimestamp := usageSample.MeasureStart.Add(10 * 24 * time.Hour)
+	// AggregateContainerState are invalid after 90 days since last sample
+	gcTimestamp := usageSample.MeasureStart.Add(100 * 24 * time.Hour)
 	cluster.garbageCollectAggregateCollectionStates(gcTimestamp, testControllerFetcher)
 
 	assert.Empty(t, cluster.aggregateStateMap)
@@ -274,7 +274,7 @@ func TestClusterGCRateLimiting(t *testing.T) {
 	// Create a pod with a single container.
 	cluster := NewClusterState(testGcPeriod)
 	usageSample := makeTestUsageSample()
-	sampleExpireTime := usageSample.MeasureStart.Add(9 * 24 * time.Hour)
+	sampleExpireTime := usageSample.MeasureStart.Add(91 * 24 * time.Hour)
 	// AggregateContainerState are valid for 8 days since last sample but this run
 	// doesn't remove the sample, because we didn't add it yet.
 	cluster.RateLimitedGarbageCollectAggregateCollectionStates(sampleExpireTime, testControllerFetcher)

@@ -202,15 +202,14 @@ func TestAggregateContainerStateLoadFromCheckpoint(t *testing.T) {
 func TestAggregateContainerStateIsExpired(t *testing.T) {
 	cs := NewAggregateContainerState()
 	cs.LastSampleStart = testTimestamp
-	cs.TotalSamplesCount = 1
-	assert.False(t, cs.isExpired(testTimestamp.Add(7*24*time.Hour)))
-	assert.True(t, cs.isExpired(testTimestamp.Add(8*24*time.Hour)))
+	cs.AggregateCPUUsage.AddSample(1, 33, testTimestamp)
+	assert.False(t, cs.isExpired(testTimestamp.Add(89*24*time.Hour)))
+	assert.True(t, cs.isExpired(testTimestamp.Add(91*24*time.Hour)))
 
 	csEmpty := NewAggregateContainerState()
-	csEmpty.TotalSamplesCount = 0
 	csEmpty.CreationTime = testTimestamp
-	assert.False(t, csEmpty.isExpired(testTimestamp.Add(7*24*time.Hour)))
-	assert.True(t, csEmpty.isExpired(testTimestamp.Add(8*24*time.Hour)))
+	assert.False(t, csEmpty.isExpired(testTimestamp.Add(89*24*time.Hour)))
+	assert.True(t, csEmpty.isExpired(testTimestamp.Add(91*24*time.Hour)))
 }
 
 func TestUpdateFromPolicyScalingMode(t *testing.T) {
