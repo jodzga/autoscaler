@@ -203,8 +203,8 @@ func TestAggregateContainerStateIsExpired(t *testing.T) {
 	cs := NewAggregateContainerState()
 	cs.LastSampleStart = testTimestamp
 	cs.TotalSamplesCount = 1
-	assert.False(t, cs.isExpired(testTimestamp.Add(7*24*time.Hour)))
-	assert.True(t, cs.isExpired(testTimestamp.Add(8*24*time.Hour)))
+	assert.False(t, cs.isExpired(testTimestamp.Add(90*24*time.Hour)))
+	assert.True(t, cs.isExpired(testTimestamp.Add(91*24*time.Hour)))
 
 	csEmpty := NewAggregateContainerState()
 	csEmpty.TotalSamplesCount = 0
