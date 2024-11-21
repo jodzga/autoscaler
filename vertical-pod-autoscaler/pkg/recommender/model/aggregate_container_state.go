@@ -334,7 +334,7 @@ func (a *AggregateContainerState) isExpired(now time.Time) bool {
 	if a.isEmpty() {
 		return now.Sub(a.CreationTime) >= maxRetention
 	}
-	return now.Sub(a.LastSampleStart) >= maxRetention
+	return !a.LastSampleStart.IsZero() && now.Sub(a.LastSampleStart) >= maxRetention
 }
 
 // isEmpty returns true if the aggregate container state is empty.
