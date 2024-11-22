@@ -228,13 +228,7 @@ func (feeder *clusterStateFeeder) InitFromHistoryProvider(historyProvider histor
 	}
 }
 
-func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.VerticalPodAutoscalerCheckpoint) error {
-	vpaID := model.VpaID{Namespace: checkpoint.Namespace, VpaName: checkpoint.Spec.VPAObjectName}
-	vpa, exists := feeder.clusterState.Vpas[vpaID]
-	if !exists {
-		return fmt.Errorf("cannot load checkpoint to missing VPA object %+v", vpaID)
-	}
-
+func SetNumBucketsFromAnnotations(checkpoint *vpa_types.VerticalPodAutoscalerCheckpoint) error {
 	// Check for numBuckets annotations for JVM Heap and RSS histograms.
 	if checkpoint.Annotations != nil {
 		rssNumBucketsStr, ok := checkpoint.Annotations[checkpointwriter.RSSBinaryDecayingHistogramNumBuckets]
@@ -254,9 +248,23 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 			checkpoint.Status.JVMHeapCommittedHistogram.NumBuckets = jvmHeapNumBuckets
 		}
 	}
+	return nil
+}
+
+func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.VerticalPodAutoscalerCheckpoint) error {
+	vpaID := model.VpaID{Namespace: checkpoint.Namespace, VpaName: checkpoint.Spec.VPAObjectName}
+	vpa, exists := feeder.clusterState.Vpas[vpaID]
+	if !exists {
+		return fmt.Errorf("cannot load checkpoint to missing VPA object %+v", vpaID)
+	}
+
+	err := SetNumBucketsFromAnnotations(checkpoint)
+	if err != nil {
+		return err
+	}
 
 	cs := model.NewAggregateContainerState()
-	err := cs.LoadFromCheckpoint(&checkpoint.Status)
+	err = cs.LoadFromCheckpoint(&checkpoint.Status)
 	if err != nil {
 		return fmt.Errorf("cannot load checkpoint for VPA %+v. Reason: %v", vpa.ID, err)
 	}
