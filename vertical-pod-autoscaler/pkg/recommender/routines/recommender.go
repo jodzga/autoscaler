@@ -18,6 +18,7 @@ package routines
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"time"
 
@@ -106,6 +107,42 @@ func (r *recommender) UpdateVPAs() {
 		}
 		hasMatchingPods := vpa.PodCount > 0
 		vpa.UpdateConditions(hasMatchingPods)
+
+		// Collect last updated info for each container
+		lastUpdatedInfo := []map[string]string{}
+		containerStateMap := GetContainerNameToAggregateStateMap(vpa)
+		for container, aggregateState := range containerStateMap {
+			containerInfo := map[string]string{
+				"containerName": container,
+			}
+			if !aggregateState.LastSampleStart.IsZero() {
+				containerInfo["LastCPUSampleStart"] = aggregateState.LastSampleStart.String()
+			}
+			if !aggregateState.LastMemorySampleStart.IsZero() {
+				containerInfo["LastMemorySampleStart"] = aggregateState.LastMemorySampleStart.String()
+			}
+			if !aggregateState.LastRSSSampleStart.IsZero() {
+				containerInfo["LastRSSSampleStart"] = aggregateState.LastRSSSampleStart.String()
+			}
+			if !aggregateState.LastJVMHeapCommittedSampleStart.IsZero() {
+				containerInfo["LastJVMHeapCommittedSampleStart"] = aggregateState.LastJVMHeapCommittedSampleStart.String()
+			}
+			lastUpdatedInfo = append(lastUpdatedInfo, containerInfo)
+		}
+
+		// Encode last updated info into JSON
+		lastUpdatedJSON, err := json.Marshal(lastUpdatedInfo)
+		if err != nil {
+			klog.Errorf("Failed to serialize last updated info for VPA %v/%v: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+			continue
+		}
+
+		// Update annotations with the JSON-encoded last updated info
+		if vpa.Annotations == nil {
+			vpa.Annotations = make(map[string]string)
+		}
+		vpa.Annotations["lastUpdatedInfo"] = string(lastUpdatedJSON)
+
 		if err := r.clusterState.RecordRecommendation(vpa, time.Now()); err != nil {
 			klog.Warningf("%v", err)
 			if klog.V(4).Enabled() {
