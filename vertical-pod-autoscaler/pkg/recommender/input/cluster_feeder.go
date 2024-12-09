@@ -268,6 +268,23 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 	if err != nil {
 		return fmt.Errorf("cannot load checkpoint for VPA %+v. Reason: %v", vpa.ID, err)
 	}
+	if checkpoint.Namespace == "vpa-test-service" {
+		layout := "2006-01-02 15:04:05.999999999 -0700 MST"
+		parsedTime, err := time.Parse(layout, checkpoint.Annotations["LastSampleStart"])
+		if err != nil {
+			fmt.Printf("Error parsing time: %v\n", err)
+		}
+		cs.LastSampleStart = parsedTime
+		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastMemorySampleStart"])
+		cs.LastMemorySampleStart = parsedTime
+		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastRSSSampleStart"])
+		cs.LastRSSSampleStart = parsedTime
+		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastJVMHeapCommittedSampleStart"])
+		cs.LastJVMHeapCommittedSampleStart = parsedTime
+		if err != nil {
+			fmt.Printf("Error parsing time: %v\n", err)
+		}
+	}
 	vpa.ContainersInitialAggregateState[checkpoint.Spec.ContainerName] = cs
 	return nil
 }

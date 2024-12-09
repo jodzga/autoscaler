@@ -22,6 +22,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"time"
 
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/input"
@@ -50,6 +51,23 @@ func main() {
 	aggregateState := model.NewAggregateContainerState()
 	// Load data into the AggregateContainerState using LoadFromCheckpoint
 	err = aggregateState.LoadFromCheckpoint(&checkpoint.Status)
+	if checkpoint.Namespace == "vpa-test-service" {
+		layout := "2006-01-02 15:04:05.999999999 -0700 MST"
+		parsedTime, err := time.Parse(layout, checkpoint.Annotations["LastSampleStart"])
+		if err != nil {
+			fmt.Printf("Error parsing time: %v\n", err)
+		}
+		aggregateState.LastSampleStart = parsedTime
+		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastMemorySampleStart"])
+		aggregateState.LastMemorySampleStart = parsedTime
+		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastRSSSampleStart"])
+		aggregateState.LastRSSSampleStart = parsedTime
+		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastJVMHeapCommittedSampleStart"])
+		aggregateState.LastJVMHeapCommittedSampleStart = parsedTime
+		if err != nil {
+			fmt.Printf("Error parsing time: %v\n", err)
+		}
+	}
 	if err != nil {
 		log.Fatalf("Error loading from checkpoint: %v", err)
 	}

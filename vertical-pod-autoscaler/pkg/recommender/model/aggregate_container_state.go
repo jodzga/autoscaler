@@ -106,11 +106,11 @@ type AggregateContainerState struct {
 	LastSampleStart   time.Time
 	TotalSamplesCount int
 	CreationTime      time.Time
-	
+
 	// LastXSampleSample is the timestamp of the last sample start recorded.
-	LastMemorySampleStart 	time.Time
-	LastRSSSampleStart 		time.Time
-	LastJVMHeapCommittedSampleStart  time.Time
+	LastMemorySampleStart           time.Time
+	LastRSSSampleStart              time.Time
+	LastJVMHeapCommittedSampleStart time.Time
 
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
@@ -311,9 +311,6 @@ func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.Verti
 	a.TotalSamplesCount = checkpoint.TotalSamplesCount
 	a.FirstSampleStart = checkpoint.FirstSampleStart.Time
 	a.LastSampleStart = checkpoint.LastSampleStart.Time
-	a.LastMemorySampleStart = checkpoint.LastMemorySampleStart.Time
-	a.LastRSSSampleStart = checkpoint.LastRSSSampleStart.Time
-	a.LastJVMHeapCommittedSampleStart = checkpoint.LastJVMHeapCommittedSampleStart.Time
 	err := a.AggregateMemoryPeaks.LoadFromCheckpoint(&checkpoint.MemoryHistogram)
 	if err != nil {
 		return err
