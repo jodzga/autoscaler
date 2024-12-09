@@ -80,6 +80,13 @@ func (r *podResourceRecommender) GetRecommendedPodResources(containerNameToAggre
 
 	for containerName, aggregatedContainerState := range containerNameToAggregateStateMap {
 		recommendation[containerName] = recommender.estimateContainerResources(aggregatedContainerState)
+		// Propagate timestamps for CPU and Memory.
+		if aggregatedContainerState.CPUUsageLastSampled != nil {
+			recommendation[containerName].LastCpuUpdate = *aggregatedContainerState.CPUUsageLastSampled
+		}
+		if aggregatedContainerState.MemoryUsageLastSampled != nil {
+			recommendation[containerName].LastMemoryUpdate = *aggregatedContainerState.MemoryUsageLastSampled
+		}
 	}
 	return recommendation
 }
