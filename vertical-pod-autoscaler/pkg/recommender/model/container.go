@@ -72,9 +72,6 @@ func NewContainerState(request Resources, aggregator ContainerStateAggregator) *
 	return &ContainerState{
 		Request:                         request,
 		LastCPUSampleStart:              time.Time{},
-		LastMemorySampleStart:              time.Time{},
-		LastRSSSampleStart:              time.Time{},
-		LastJVMHeapCommittedSampleStart:              time.Time{},
 		MemoryWindowEnd:                 time.Time{},
 		lastMemorySampleStart:           time.Time{},
 		lastRSSSampleStart:              time.Time{},

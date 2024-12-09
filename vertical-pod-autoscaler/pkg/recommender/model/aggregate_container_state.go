@@ -110,7 +110,7 @@ type AggregateContainerState struct {
 	// LastXSampleSample is the timestamp of the last sample start recorded.
 	LastMemorySampleStart 	time.Time
 	LastRSSSampleStart 		time.Time
-	LastJVMHeapSampleStart  time.Time
+	LastJVMHeapCommittedSampleStart  time.Time
 
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
@@ -182,11 +182,11 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	if other.LastMemorySampleStart.After(a.LastMemorySampleStart) {
 		a.LastMemorySampleStart = other.LastMemorySampleStart
 	}
-	if other.lastRSSSampleStart.After(a.lastRSSSampleStart) {
-		a.lastRSSSampleStart = other.lastRSSSampleStart
+	if other.LastRSSSampleStart.After(a.LastRSSSampleStart) {
+		a.LastRSSSampleStart = other.LastRSSSampleStart
 	}
-	if other.lastJVMHeapSampleStart.After(a.lastJVMHeapSampleStart) {
-		a.lastJVMHeapSampleStart = other.lastJVMHeapSampleStart
+	if other.LastJVMHeapCommittedSampleStart.After(a.LastJVMHeapCommittedSampleStart) {
+		a.LastJVMHeapCommittedSampleStart = other.LastJVMHeapCommittedSampleStart
 	}
 
 	a.TotalSamplesCount += other.TotalSamplesCount
@@ -231,8 +231,8 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 		} else {
 			a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 		}
-		if sample.MeasureStart.After(a.LastJVMHeapSampleStart) {
-			a.LastJVMHeapSampleStart = sample.MeasureStart
+		if sample.MeasureStart.After(a.LastJVMHeapCommittedSampleStart) {
+			a.LastJVMHeapCommittedSampleStart = sample.MeasureStart
 		}
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
@@ -313,7 +313,7 @@ func (a *AggregateContainerState) LoadFromCheckpoint(checkpoint *vpa_types.Verti
 	a.LastSampleStart = checkpoint.LastSampleStart.Time
 	a.LastMemorySampleStart = checkpoint.LastMemorySampleStart.Time
 	a.LastRSSSampleStart = checkpoint.LastRSSSampleStart.Time
-	a.LastJVMHeapSampleStart = checkpoint.LastJVMHeapSampleStart.Time
+	a.LastJVMHeapCommittedSampleStart = checkpoint.LastJVMHeapCommittedSampleStart.Time
 	err := a.AggregateMemoryPeaks.LoadFromCheckpoint(&checkpoint.MemoryHistogram)
 	if err != nil {
 		return err

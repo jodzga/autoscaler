@@ -119,17 +119,17 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 			vpaCheckpoint.ObjectMeta.Annotations[RSSBinaryDecayingHistogramNumBuckets] = fmt.Sprintf("%d", containerCheckpoint.RSSHistogram.NumBuckets)
 			vpaCheckpoint.ObjectMeta.Annotations[JVMHeapCommittedBinaryDecayingHistogramNumBuckets] = fmt.Sprintf("%d", containerCheckpoint.JVMHeapCommittedHistogram.NumBuckets)
 			// Annotate the checkpoint with the new timestamp fields.
-			if aggregatedContainerState.CPUUsageLastSampled != nil {
-				vpaCheckpoint.Status.LastCPUUpdate = *aggregatedContainerState.CPUUsageLastSampled
+			if !aggregatedContainerState.LastSampleStart.IsZero() {
+				vpaCheckpoint.ObjectMeta.Annotations["LastSampleStart"] = fmt.Sprintf("%s", *aggregatedContainerState.LastSampleStart)
 			}
-			if aggregatedContainerState.MemoryUsageLastSampled != nil {
-				vpaCheckpoint.ObjectMeta.Annotations["MemoryUsageLastSampled"] = fmt.Sprintf("%s", *aggregatedContainerState.MemoryUsageLastSampled)
+			if aggregatedContainerState.LastMemorySampleStart != nil {
+				vpaCheckpoint.ObjectMeta.Annotations["LastMemorySampleStart"] = fmt.Sprintf("%s", *aggregatedContainerState.LastMemorySampleStart)
 			}
-			if aggregatedContainerState.RSSLastSampled != nil {
-				vpaCheckpoint.ObjectMeta.Annotations["RSSLastSampled"] = fmt.Sprintf("%s", *aggregatedContainerState.RSSLastSampled)
+			if aggregatedContainerState.LastRSSSampleStart != nil {
+				vpaCheckpoint.ObjectMeta.Annotations["LastRSSSampleStart"] = fmt.Sprintf("%s", *aggregatedContainerState.LastRSSSampleStart)
 			}
-			if aggregatedContainerState.JVMHeapCommittedLastSampled != nil {
-				vpaCheckpoint.ObjectMeta.Annotations["JVMHeapCommittedLastSampled"] = fmt.Sprintf("%s", *aggregatedContainerState.JVMHeapCommittedLastSampled)
+			if aggregatedContainerState.LastJVMHeapCommittedSampleStart != nil {
+				vpaCheckpoint.ObjectMeta.Annotations["LastJVMHeapCommittedSampleStart"] = fmt.Sprintf("%s", *aggregatedContainerState.LastJVMHeapCommittedSampleStart)
 			}
 
 			err = api_util.CreateOrUpdateVpaCheckpoint(writer.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(vpa.ID.Namespace), &vpaCheckpoint)
