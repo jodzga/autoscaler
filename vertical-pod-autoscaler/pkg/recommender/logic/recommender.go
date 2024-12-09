@@ -87,6 +87,12 @@ func (r *podResourceRecommender) GetRecommendedPodResources(containerNameToAggre
 		if aggregatedContainerState.MemoryUsageLastSampled != nil {
 			recommendation[containerName].LastMemoryUpdate = *aggregatedContainerState.MemoryUsageLastSampled
 		}
+		if aggregatedContainerState.RSSLastSampled != nil {
+			recommendation[containerName].LastRSSUpdate = *aggregatedContainerState.RSSLastSampled
+		}
+		if aggregatedContainerState.JVMHeapCommittedLastSampled != nil {
+			recommendation[containerName].LastJVMHeapCommittedUpdate = *aggregatedContainerState.JVMHeapCommitted
+		}
 	}
 	return recommendation
 }
