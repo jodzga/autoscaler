@@ -77,37 +77,26 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
-// PatchVpaAnnotations updates the annotations filed of the VPA API Object
 func PatchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, namespace string,
 	annotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	// Construct the desired metadata with the new annotations
-	metadataUpdate := &vpa_types.VerticalPodAutoscaler{
-		TypeMeta: meta.TypeMeta{
-			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
-			Kind:       "VerticalPodAutoscaler",
-		},
-		ObjectMeta: meta.ObjectMeta{
-			Name:        vpaName,
-			Namespace:   namespace,
-			Annotations: annotations,
+	// Construct a JSON patch to update annotations
+	patch := []map[string]interface{}{
+		{
+			"op":    "replace",
+			"path":  "/metadata/annotations",
+			"value": annotations,
 		},
 	}
 
-	// Marshal the metadata update into JSON
-	bytes, err := json.Marshal(metadataUpdate)
+	// Marshal the patch into JSON
+	bytes, err := json.Marshal(patch)
 	if err != nil {
-		klog.Errorf("Cannot marshal VPA annotations %+v. Reason: %+v", metadataUpdate, err)
+		klog.Errorf("Cannot marshal annotations patch %+v. Reason: %+v", patch, err)
 		return
 	}
 
-	// Define patch options with Server-Side Apply and Force set to true
-	opts := meta.PatchOptions{
-		FieldManager: "vpa-controller",
-		Force:        pointer.Bool(true),
-	}
-
-	// Apply the patch using Server-Side Apply
-	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata")
+	// Apply the patch
+	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{})
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
