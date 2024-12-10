@@ -78,25 +78,24 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 }
 
 func PatchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, namespace string,
-	annotations map[string]string) (result *vpa_types.VerticalPodAutoscaler, err error) {
-	// Construct a JSON patch to update annotations
-	patch := []map[string]interface{}{
-		{
-			"op":    "replace",
-			"path":  "/metadata/annotations",
-			"value": annotations,
-		},
-	}
+	annotations map[string]string) error {
 
-	// Marshal the patch into JSON
-	bytes, err := json.Marshal(patch)
+	patches := make([]patchRecord, 0)
+	patches = append(patches, patchRecord{
+		Op:    "replace",
+		Path:  "/metadata/annotations",
+		Value: annotations,
+	})
+	bytes, err := json.Marshal(patches)
 	if err != nil {
-		klog.Errorf("Cannot marshal annotations patch %+v. Reason: %+v", patch, err)
-		return
+		return fmt.Errorf("Cannot marshal VPA checkpoint status patches %+v. Reason: %+v", patches, err)
 	}
+	_, err = vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{})
 
-	// Apply the patch
-	return vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("Cannot save checkpoint for vpa %v namespace %v. Reason: %+v", vpaName, namespace, err)
+	}
+	return nil
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
