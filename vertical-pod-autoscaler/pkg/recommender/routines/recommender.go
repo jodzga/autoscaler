@@ -109,6 +109,7 @@ func (r *recommender) UpdateVPAs() {
 		vpa.UpdateConditions(hasMatchingPods)
 
 		if vpa.ID.Namespace == "vpa-test-service" {
+			klog.Infof("Working on vpa-test-service VPA Object")
 			// Collect last updated info for each container
 			lastUpdatedInfo := []map[string]string{}
 			containerStateMap := GetContainerNameToAggregateStateMap(vpa)
@@ -142,7 +143,8 @@ func (r *recommender) UpdateVPAs() {
 			if vpa.Annotations == nil {
 				vpa.Annotations = make(map[string]string)
 			}
-			vpa.Annotations["lastUpdatedInfo"] = string(lastUpdatedJSON)
+			klog.Infof("Annotations: %s", string(lastUpdatedJSON))
+			vpa.Annotations[vpa.ID.Namespace] = string(lastUpdatedJSON)
 		}
 
 		if err := r.clusterState.RecordRecommendation(vpa, time.Now()); err != nil {
