@@ -115,19 +115,19 @@ func (r *recommender) UpdateVPAs() {
 			containerStateMap := GetContainerNameToAggregateStateMap(vpa)
 			for container, aggregateState := range containerStateMap {
 				containerInfo := map[string]string{
-					"containerName": container,
+					"container_name": container,
 				}
 				if !aggregateState.LastSampleStart.IsZero() {
-					containerInfo["LastCPUSampleStart"] = aggregateState.LastSampleStart.String()
+					containerInfo["cpu_last_updated"] = aggregateState.LastSampleStart.String()
 				}
 				if !aggregateState.LastMemorySampleStart.IsZero() {
-					containerInfo["LastMemorySampleStart"] = aggregateState.LastMemorySampleStart.String()
+					containerInfo["memory_lsat_updated"] = aggregateState.LastMemorySampleStart.String()
 				}
 				if !aggregateState.LastRSSSampleStart.IsZero() {
-					containerInfo["LastRSSSampleStart"] = aggregateState.LastRSSSampleStart.String()
+					containerInfo["rss_last_updated"] = aggregateState.LastRSSSampleStart.String()
 				}
 				if !aggregateState.LastJVMHeapCommittedSampleStart.IsZero() {
-					containerInfo["LastJVMHeapCommittedSampleStart"] = aggregateState.LastJVMHeapCommittedSampleStart.String()
+					containerInfo["jvm_heap_last_updated"] = aggregateState.LastJVMHeapCommittedSampleStart.String()
 				}
 				lastUpdatedInfo = append(lastUpdatedInfo, containerInfo)
 			}
@@ -144,7 +144,7 @@ func (r *recommender) UpdateVPAs() {
 				vpa.Annotations = make(map[string]string)
 			}
 			klog.Infof("Annotations: %s", string(lastUpdatedJSON))
-			vpa.Annotations[vpa.ID.VpaName] = string(lastUpdatedJSON)
+			vpa.Annotations["recommendations_last_updated"] = string(lastUpdatedJSON)
 		}
 
 		if err := r.clusterState.RecordRecommendation(vpa, time.Now()); err != nil {

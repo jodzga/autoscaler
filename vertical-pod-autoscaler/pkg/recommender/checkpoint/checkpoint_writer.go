@@ -122,16 +122,16 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 			if vpa.ID.Namespace == "vpa-test-service" {
 				// Annotate the checkpoint with the new timestamp fields.
 				if !aggregatedContainerState.LastSampleStart.IsZero() {
-					vpaCheckpoint.ObjectMeta.Annotations["LastSampleStart"] = fmt.Sprintf("%s", aggregatedContainerState.LastSampleStart)
+					vpaCheckpoint.ObjectMeta.Annotations["cpu_last_updated"] = fmt.Sprintf("%s", aggregatedContainerState.LastSampleStart)
 				}
 				if !aggregatedContainerState.LastMemorySampleStart.IsZero() {
-					vpaCheckpoint.ObjectMeta.Annotations["LastMemorySampleStart"] = fmt.Sprintf("%s", aggregatedContainerState.LastMemorySampleStart)
+					vpaCheckpoint.ObjectMeta.Annotations["memory_last_updated"] = fmt.Sprintf("%s", aggregatedContainerState.LastMemorySampleStart)
 				}
 				if !aggregatedContainerState.LastRSSSampleStart.IsZero() {
-					vpaCheckpoint.ObjectMeta.Annotations["LastRSSSampleStart"] = fmt.Sprintf("%s", aggregatedContainerState.LastRSSSampleStart)
+					vpaCheckpoint.ObjectMeta.Annotations["rss_last_updated"] = fmt.Sprintf("%s", aggregatedContainerState.LastRSSSampleStart)
 				}
 				if !aggregatedContainerState.LastJVMHeapCommittedSampleStart.IsZero() {
-					vpaCheckpoint.ObjectMeta.Annotations["LastJVMHeapCommittedSampleStart"] = fmt.Sprintf("%s", aggregatedContainerState.LastJVMHeapCommittedSampleStart)
+					vpaCheckpoint.ObjectMeta.Annotations["jvm_heap_last_updated"] = fmt.Sprintf("%s", aggregatedContainerState.LastJVMHeapCommittedSampleStart)
 				}
 			}
 
