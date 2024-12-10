@@ -69,19 +69,6 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system:vpa-metadata-actor
-rules:
-  - apiGroups:
-      - "autoscaling.k8s.io"
-    resources:
-      - verticalpodautoscalers/metadata
-    verbs:
-      - get
-      - patch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
   name: system:vpa-checkpoint-actor
 rules:
   - apiGroups:
@@ -170,19 +157,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: system:vpa-status-actor
-subjects:
-  - kind: ServiceAccount
-    name: vpa-recommender
-    namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: system:vpa-metadata-actor
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: system:vpa-metadata-actor
 subjects:
   - kind: ServiceAccount
     name: vpa-recommender

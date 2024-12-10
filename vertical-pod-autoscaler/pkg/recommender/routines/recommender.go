@@ -144,7 +144,7 @@ func (r *recommender) UpdateVPAs() {
 				vpa.Annotations = make(map[string]string)
 			}
 			klog.Infof("Annotations: %s", string(lastUpdatedJSON))
-			vpa.Annotations[vpa.ID.Namespace] = string(lastUpdatedJSON)
+			vpa.Annotations[vpa.ID.VpaName] = string(lastUpdatedJSON)
 		}
 
 		if err := r.clusterState.RecordRecommendation(vpa, time.Now()); err != nil {
@@ -170,7 +170,7 @@ func (r *recommender) UpdateVPAs() {
 				"Cannot update VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
 		if vpa.ID.Namespace == "vpa-test-service" {
-			err = vpa_utils.PatchVpaAnnotations(r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.ID.Namespace, vpa.Annotations)
+			err = vpa_utils.UpdateVpaAnnotationsIfNeeded(r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations, observedVpa.Annotations)
 			if err != nil {
 				klog.Errorf("Failed to update annotations for VPA %v/%v. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 			} else {

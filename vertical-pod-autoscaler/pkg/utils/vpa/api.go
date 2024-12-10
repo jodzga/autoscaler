@@ -77,7 +77,7 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
-func PatchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, namespace string,
+func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string,
 	annotations map[string]string) error {
 
 	patches := make([]patchRecord, 0)
@@ -93,7 +93,17 @@ func PatchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaNa
 	_, err = vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{})
 
 	if err != nil {
-		return fmt.Errorf("Cannot save checkpoint for vpa %v namespace %v. Reason: %+v", vpaName, namespace, err)
+		return fmt.Errorf("Cannot save checkpoint for vpa %v. Reason: %+v", vpaName, err)
+	}
+	return nil
+}
+
+// UpdateVpaStatusIfNeeded updates the annotations field of the VPA API object.
+func UpdateVpaAnnotationsIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newAnnotations map[string]string,
+	oldAnnotations map[string]string) error {
+
+	if !apiequality.Semantic.DeepEqual(newAnnotations, oldAnnotations) {
+		return patchVpaAnnotations(vpaClient, vpaName, newAnnotations)
 	}
 	return nil
 }
