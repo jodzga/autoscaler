@@ -109,7 +109,6 @@ func (r *recommender) UpdateVPAs() {
 		vpa.UpdateConditions(hasMatchingPods)
 
 		if vpa.ID.Namespace == "vpa-test-service" {
-			klog.Infof("Working on vpa-test-service VPA Object")
 			// Collect last updated info for each container
 			lastUpdatedInfo := []map[string]string{}
 			containerStateMap := GetContainerNameToAggregateStateMap(vpa)
@@ -121,7 +120,7 @@ func (r *recommender) UpdateVPAs() {
 					containerInfo["cpu_last_updated"] = aggregateState.LastSampleStart.String()
 				}
 				if !aggregateState.LastMemorySampleStart.IsZero() {
-					containerInfo["memory_lsat_updated"] = aggregateState.LastMemorySampleStart.String()
+					containerInfo["memory_last_updated"] = aggregateState.LastMemorySampleStart.String()
 				}
 				if !aggregateState.LastRSSSampleStart.IsZero() {
 					containerInfo["rss_last_updated"] = aggregateState.LastRSSSampleStart.String()
@@ -143,7 +142,6 @@ func (r *recommender) UpdateVPAs() {
 			if vpa.Annotations == nil {
 				vpa.Annotations = make(map[string]string)
 			}
-			klog.Infof("Annotations: %s", string(lastUpdatedJSON))
 			vpa.Annotations["recommendations_last_updated"] = string(lastUpdatedJSON)
 		}
 
@@ -173,8 +171,6 @@ func (r *recommender) UpdateVPAs() {
 			err = vpa_utils.PatchVpaAnnotations(r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations)
 			if err != nil {
 				klog.Errorf("Failed to update annotations for VPA %v/%v. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
-			} else {
-				klog.Infof("Successfully updated annotations for VPA %v/%v", vpa.ID.Namespace, vpa.ID.VpaName)
 			}
 		}
 	}

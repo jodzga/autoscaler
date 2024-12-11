@@ -53,20 +53,21 @@ func main() {
 	err = aggregateState.LoadFromCheckpoint(&checkpoint.Status)
 	if checkpoint.Namespace == "vpa-test-service" {
 		layout := "2006-01-02 15:04:05.999999999 -0700 MST"
-		parsedTime, err := time.Parse(layout, checkpoint.Annotations["LastSampleStart"])
-		if err != nil {
-			fmt.Printf("Error parsing time: %v\n", err)
+
+		parseAndAssign := func(key string, assignFunc func(time.Time)) {
+			if value, exists := checkpoint.Annotations[key]; exists {
+				if parsedTime, err := time.Parse(layout, value); err != nil {
+					fmt.Printf("Error parsing %s: %v\n", key, err)
+				} else {
+					assignFunc(parsedTime)
+				}
+			}
 		}
-		aggregateState.LastSampleStart = parsedTime
-		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastMemorySampleStart"])
-		aggregateState.LastMemorySampleStart = parsedTime
-		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastRSSSampleStart"])
-		aggregateState.LastRSSSampleStart = parsedTime
-		parsedTime, err = time.Parse(layout, checkpoint.Annotations["LastJVMHeapCommittedSampleStart"])
-		aggregateState.LastJVMHeapCommittedSampleStart = parsedTime
-		if err != nil {
-			fmt.Printf("Error parsing time: %v\n", err)
-		}
+
+		parseAndAssign("cpu_last_updated", func(t time.Time) { aggregateState.LastSampleStart = t })
+		parseAndAssign("memory_last_updated", func(t time.Time) { aggregateState.LastMemorySampleStart = t })
+		parseAndAssign("rss_last_updated", func(t time.Time) { aggregateState.LastRSSSampleStart = t })
+		parseAndAssign("jvm_heap_last_updated", func(t time.Time) { aggregateState.LastJVMHeapCommittedSampleStart = t })
 	}
 	if err != nil {
 		log.Fatalf("Error loading from checkpoint: %v", err)

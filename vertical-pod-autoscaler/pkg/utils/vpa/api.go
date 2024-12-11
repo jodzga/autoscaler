@@ -88,12 +88,12 @@ func PatchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaNa
 	})
 	bytes, err := json.Marshal(patches)
 	if err != nil {
-		return fmt.Errorf("Cannot marshal VPA checkpoint status patches %+v. Reason: %+v", patches, err)
+		return fmt.Errorf("Cannot marshal VPA annotations patches %+v. Reason: %+v", patches, err)
 	}
 	_, err = vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{})
 
 	if err != nil {
-		return fmt.Errorf("Cannot save checkpoint for vpa %v. Reason: %+v", vpaName, err)
+		return fmt.Errorf("Cannot update annotations for vpa %v. Reason: %+v", vpaName, err)
 	}
 	return nil
 }
