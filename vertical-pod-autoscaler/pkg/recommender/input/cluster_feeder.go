@@ -268,24 +268,22 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 	if err != nil {
 		return fmt.Errorf("cannot load checkpoint for VPA %+v. Reason: %v", vpa.ID, err)
 	}
-	if checkpoint.Namespace == "vpa-test-service" {
-		layout := "2006-01-02 15:04:05.999999999 -0700 MST"
 
-		parseAndAssign := func(key string, assignFunc func(time.Time)) {
-			if value, exists := checkpoint.Annotations[key]; exists {
-				if parsedTime, err := time.Parse(layout, value); err != nil {
-					fmt.Printf("Error parsing %s: %v\n", key, err)
-				} else {
-					assignFunc(parsedTime)
-				}
+	layout := "2006-01-02 15:04:05.999999999 -0700 MST"
+	parseAndAssign := func(key string, assignFunc func(time.Time)) {
+		if value, exists := checkpoint.Annotations[key]; exists {
+			if parsedTime, err := time.Parse(layout, value); err != nil {
+				fmt.Printf("Error parsing %s: %v\n", key, err)
+			} else {
+				assignFunc(parsedTime)
 			}
 		}
-
-		parseAndAssign("cpu_last_updated", func(t time.Time) { cs.LastSampleStart = t })
-		parseAndAssign("memory_last_updated", func(t time.Time) { cs.LastMemorySampleStart = t })
-		parseAndAssign("rss_last_updated", func(t time.Time) { cs.LastRSSSampleStart = t })
-		parseAndAssign("jvm_heap_last_updated", func(t time.Time) { cs.LastJVMHeapCommittedSampleStart = t })
 	}
+	parseAndAssign("cpu_last_updated", func(t time.Time) { cs.LastSampleStart = t })
+	parseAndAssign("memory_last_updated", func(t time.Time) { cs.LastMemorySampleStart = t })
+	parseAndAssign("rss_last_updated", func(t time.Time) { cs.LastRSSSampleStart = t })
+	parseAndAssign("jvm_heap_last_updated", func(t time.Time) { cs.LastJVMHeapCommittedSampleStart = t })
+
 	vpa.ContainersInitialAggregateState[checkpoint.Spec.ContainerName] = cs
 	return nil
 }

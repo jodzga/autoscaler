@@ -108,42 +108,36 @@ func (r *recommender) UpdateVPAs() {
 		hasMatchingPods := vpa.PodCount > 0
 		vpa.UpdateConditions(hasMatchingPods)
 
-		if vpa.ID.Namespace == "vpa-test-service" {
-			// Collect last updated info for each container
-			lastUpdatedInfo := []map[string]string{}
-			containerStateMap := GetContainerNameToAggregateStateMap(vpa)
-			for container, aggregateState := range containerStateMap {
-				containerInfo := map[string]string{
-					"container_name": container,
-				}
-				if !aggregateState.LastSampleStart.IsZero() {
-					containerInfo["cpu_last_updated"] = aggregateState.LastSampleStart.String()
-				}
-				if !aggregateState.LastMemorySampleStart.IsZero() {
-					containerInfo["memory_last_updated"] = aggregateState.LastMemorySampleStart.String()
-				}
-				if !aggregateState.LastRSSSampleStart.IsZero() {
-					containerInfo["rss_last_updated"] = aggregateState.LastRSSSampleStart.String()
-				}
-				if !aggregateState.LastJVMHeapCommittedSampleStart.IsZero() {
-					containerInfo["jvm_heap_last_updated"] = aggregateState.LastJVMHeapCommittedSampleStart.String()
-				}
-				lastUpdatedInfo = append(lastUpdatedInfo, containerInfo)
+		lastUpdatedInfo := []map[string]string{}
+		containerStateMap := GetContainerNameToAggregateStateMap(vpa)
+		for container, aggregateState := range containerStateMap {
+			containerInfo := map[string]string{
+				"container_name": container,
 			}
-
-			// Encode last updated info into JSON
-			lastUpdatedJSON, err := json.Marshal(lastUpdatedInfo)
-			if err != nil {
-				klog.Errorf("Failed to serialize last updated info for VPA %v/%v: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
-				continue
+			if !aggregateState.LastSampleStart.IsZero() {
+				containerInfo["cpu_last_updated"] = aggregateState.LastSampleStart.String()
 			}
-
-			// Update annotations with the JSON-encoded last updated info
-			if vpa.Annotations == nil {
-				vpa.Annotations = make(map[string]string)
+			if !aggregateState.LastMemorySampleStart.IsZero() {
+				containerInfo["memory_last_updated"] = aggregateState.LastMemorySampleStart.String()
 			}
-			vpa.Annotations["recommendations_last_updated"] = string(lastUpdatedJSON)
+			if !aggregateState.LastRSSSampleStart.IsZero() {
+				containerInfo["rss_last_updated"] = aggregateState.LastRSSSampleStart.String()
+			}
+			if !aggregateState.LastJVMHeapCommittedSampleStart.IsZero() {
+				containerInfo["jvm_heap_last_updated"] = aggregateState.LastJVMHeapCommittedSampleStart.String()
+			}
+			lastUpdatedInfo = append(lastUpdatedInfo, containerInfo)
 		}
+
+		lastUpdatedJSON, err := json.Marshal(lastUpdatedInfo)
+		if err != nil {
+			klog.Errorf("Failed to serialize last updated info for VPA %v/%v: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+			continue
+		}
+		if vpa.Annotations == nil {
+			vpa.Annotations = make(map[string]string)
+		}
+		vpa.Annotations["recommendations_last_updated"] = string(lastUpdatedJSON)
 
 		if err := r.clusterState.RecordRecommendation(vpa, time.Now()); err != nil {
 			klog.Warningf("%v", err)
@@ -161,17 +155,15 @@ func (r *recommender) UpdateVPAs() {
 		}
 		cnt.Add(vpa)
 
-		_, err := vpa_utils.UpdateVpaStatusIfNeeded(
+		_, err = vpa_utils.UpdateVpaStatusIfNeeded(
 			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status)
 		if err != nil {
 			klog.Errorf(
 				"Cannot update VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
-		if vpa.ID.Namespace == "vpa-test-service" {
-			err = vpa_utils.PatchVpaAnnotations(r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations)
-			if err != nil {
-				klog.Errorf("Failed to update annotations for VPA %v/%v. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
-			}
+		err = vpa_utils.PatchVpaAnnotations(r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.Annotations)
+		if err != nil {
+			klog.Errorf("Failed to update annotations for VPA %v/%v. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
 	}
 }
