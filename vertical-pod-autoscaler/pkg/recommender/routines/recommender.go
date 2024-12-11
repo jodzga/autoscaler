@@ -162,9 +162,13 @@ func (r *recommender) UpdateVPAs() {
 			klog.Errorf(
 				"Cannot update VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
-		err = vpa_utils.UpdateVpaAnnotationsIfNeeded(r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status, vpa.Annotations, observedVpa.Annotations, *hoursThreshold)
-		if err != nil {
-			klog.Errorf("Failed to update annotations for VPA %v/%v. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+		if vpa.ID.Namespace == "vpa-test-service" {
+			err = vpa_utils.UpdateVpaAnnotationsIfNeeded(
+				r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status,
+				vpa.Annotations, observedVpa.Annotations, *hoursThreshold)
+			if err != nil {
+				klog.Errorf("Failed to update annotations for VPA %v/%v. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+			}
 		}
 	}
 }

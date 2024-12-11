@@ -98,10 +98,13 @@ func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaNa
 		FieldManager: "vpa-controller",
 		Force:        pointer.Bool(true),
 	}
+	klog.Infof("applying patch for %s, with data %s", vpaName, string(bytes))
 	_, err = vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata")
 
 	if err != nil {
-		return fmt.Errorf("Cannot update annotations for vpa %v. Reason: %+v", vpaName, err)
+		_, err2 := vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata/annotations")
+		_, err3 := vpaClient.Patch(context.TODO(), vpaName, types.MergePatchType, bytes, opts, "metadata")
+		return fmt.Errorf("Cannot update annotations for vpa %v. Reasons: %+v\n%+v\n%+v", vpaName, err, err2, err3)
 	}
 	return nil
 }
