@@ -77,20 +77,28 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
-func PatchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string,
+func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string,
 	annotations map[string]string) error {
-
-	patches := make([]patchRecord, 0)
-	patches = append(patches, patchRecord{
-		Op:    "replace",
-		Path:  "/metadata/annotations",
-		Value: annotations,
-	})
-	bytes, err := json.Marshal(patches)
-	if err != nil {
-		return fmt.Errorf("Cannot marshal VPA annotations patches %+v. Reason: %+v", patches, err)
+	annotationsUpdate := &vpa_types.VerticalPodAutoscaler{
+		TypeMeta: meta.TypeMeta{
+			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
+			Kind:       "VerticalPodAutoscaler",
+		},
+		ObjectMeta: meta.ObjectMeta{
+			Annotations: annotations,
+		},
 	}
-	_, err = vpaClient.Patch(context.TODO(), vpaName, types.JSONPatchType, bytes, meta.PatchOptions{})
+	bytes, err := json.Marshal(annotationsUpdate)
+	if err != nil {
+		return fmt.Errorf("Cannot marshal VPA annotations patches %+v. Reason: %+v", annotationsUpdate, err)
+	}
+
+	// Define patch options with Server-Side Apply and Force set to true
+	opts := meta.PatchOptions{
+		FieldManager: "vpa-controller",
+		Force:        pointer.Bool(true),
+	}
+	_, err = vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata")
 
 	if err != nil {
 		return fmt.Errorf("Cannot update annotations for vpa %v. Reason: %+v", vpaName, err)
@@ -106,6 +114,42 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 		return patchVpaStatus(vpaClient, vpaName, *newStatus)
 	}
 	return nil, nil
+}
+
+func annotationsAreStaleAndChanged(
+	newAnnotations, oldAnnotations map[string]string,
+	hoursThreshold int,
+) bool {
+	const layout = "2006-01-02 15:04:05.999999999 -0700 MST"
+	keys := []string{"cpu_last_updated", "memory_last_updated", "rss_last_updated", "jvm_heap_last_updated"}
+	staleThreshold := time.Now().Add(-time.Duration(hoursThreshold) * time.Hour)
+
+	for _, key := range keys {
+		newValue, newExists := newAnnotations[key]
+		oldValue, oldExists := oldAnnotations[key]
+
+		oldTime, oldErr := time.Parse(layout, oldValue)
+		if (!oldExists || oldErr != nil || oldTime.Before(staleThreshold)) &&
+			(newExists && newValue != oldValue) {
+			// Return true only if old annotation is stale AND new annotation is different
+			return true
+		}
+	}
+	return false
+}
+
+// UpdateVpaAnnotationsIfNeeded updates the annotations field of the VPA API object.
+func UpdateVpaAnnotationsIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus,
+	oldStatus *vpa_types.VerticalPodAutoscalerStatus, annotations map[string]string, oldAnnotations map[string]string, hoursThreshold int) error {
+
+	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
+		return patchVpaAnnotations(vpaClient, vpaName, annotations)
+	}
+
+	if annotationsAreStaleAndChanged(annotations, oldAnnotations, hoursThreshold) {
+		return patchVpaAnnotations(vpaClient, vpaName, annotations)
+	}
+	return nil
 }
 
 // NewVpasLister returns VerticalPodAutoscalerLister configured to fetch all VPA objects from namespace,
