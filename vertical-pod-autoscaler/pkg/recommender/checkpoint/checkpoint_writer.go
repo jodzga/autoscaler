@@ -123,9 +123,6 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 			if !aggregatedContainerState.LastSampleStart.IsZero() {
 				vpaCheckpoint.ObjectMeta.Annotations["cpu_last_updated"] = aggregatedContainerState.LastSampleStart.String()
 			}
-			if !aggregatedContainerState.LastMemorySampleStart.IsZero() {
-				vpaCheckpoint.ObjectMeta.Annotations["memory_last_updated"] = aggregatedContainerState.LastMemorySampleStart.String()
-			}
 			if !aggregatedContainerState.LastRSSSampleStart.IsZero() {
 				vpaCheckpoint.ObjectMeta.Annotations["rss_last_updated"] = aggregatedContainerState.LastRSSSampleStart.String()
 			}

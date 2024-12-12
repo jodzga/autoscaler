@@ -118,9 +118,6 @@ func (r *recommender) UpdateVPAs() {
 			if !aggregateState.LastSampleStart.IsZero() {
 				containerInfo["cpu_last_updated"] = aggregateState.LastSampleStart.String()
 			}
-			if !aggregateState.LastMemorySampleStart.IsZero() {
-				containerInfo["memory_last_updated"] = aggregateState.LastMemorySampleStart.String()
-			}
 			if !aggregateState.LastRSSSampleStart.IsZero() {
 				containerInfo["rss_last_updated"] = aggregateState.LastRSSSampleStart.String()
 			}

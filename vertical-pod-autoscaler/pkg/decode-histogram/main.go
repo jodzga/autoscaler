@@ -63,7 +63,6 @@ func main() {
 		}
 	}
 	parseAndAssign("cpu_last_updated", func(t time.Time) { aggregateState.LastSampleStart = t })
-	parseAndAssign("memory_last_updated", func(t time.Time) { aggregateState.LastMemorySampleStart = t })
 	parseAndAssign("rss_last_updated", func(t time.Time) { aggregateState.LastRSSSampleStart = t })
 	parseAndAssign("jvm_heap_last_updated", func(t time.Time) { aggregateState.LastJVMHeapCommittedSampleStart = t })
 

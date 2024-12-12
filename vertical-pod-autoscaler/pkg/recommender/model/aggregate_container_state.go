@@ -108,7 +108,6 @@ type AggregateContainerState struct {
 	CreationTime      time.Time
 
 	// LastXSampleSample is the timestamp of the last sample start recorded.
-	LastMemorySampleStart           time.Time
 	LastRSSSampleStart              time.Time
 	LastJVMHeapCommittedSampleStart time.Time
 
@@ -179,9 +178,6 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	if other.LastSampleStart.After(a.LastSampleStart) {
 		a.LastSampleStart = other.LastSampleStart
 	}
-	if other.LastMemorySampleStart.After(a.LastMemorySampleStart) {
-		a.LastMemorySampleStart = other.LastMemorySampleStart
-	}
 	if other.LastRSSSampleStart.After(a.LastRSSSampleStart) {
 		a.LastRSSSampleStart = other.LastRSSSampleStart
 	}
@@ -211,9 +207,6 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 		a.addCPUSample(sample)
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
-		if sample.MeasureStart.After(a.LastMemorySampleStart) {
-			a.LastMemorySampleStart = sample.MeasureStart
-		}
 	case ResourceRSS:
 		// Special OOM handling for binary decaying histogram.
 		if sample.isOOM {

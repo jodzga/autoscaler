@@ -121,7 +121,7 @@ func annotationsAreStaleAndChanged(
 	hoursThreshold int,
 ) bool {
 	const layout = "2006-01-02 15:04:05.999999999 -0700 MST"
-	keys := []string{"cpu_last_updated", "memory_last_updated", "rss_last_updated", "jvm_heap_last_updated"}
+	keys := []string{"cpu_last_updated", "rss_last_updated", "jvm_heap_last_updated"}
 	staleThreshold := time.Now().Add(-time.Duration(hoursThreshold) * time.Hour)
 
 	for _, key := range keys {

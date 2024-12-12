@@ -280,7 +280,6 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 		}
 	}
 	parseAndAssign("cpu_last_updated", func(t time.Time) { cs.LastSampleStart = t })
-	parseAndAssign("memory_last_updated", func(t time.Time) { cs.LastMemorySampleStart = t })
 	parseAndAssign("rss_last_updated", func(t time.Time) { cs.LastRSSSampleStart = t })
 	parseAndAssign("jvm_heap_last_updated", func(t time.Time) { cs.LastJVMHeapCommittedSampleStart = t })
 
