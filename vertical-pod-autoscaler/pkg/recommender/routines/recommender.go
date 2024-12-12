@@ -108,6 +108,28 @@ func (r *recommender) UpdateVPAs() {
 		}
 		hasMatchingPods := vpa.PodCount > 0
 		vpa.UpdateConditions(hasMatchingPods)
+		if err := r.clusterState.RecordRecommendation(vpa, time.Now()); err != nil {
+			klog.Warningf("%v", err)
+			if klog.V(4).Enabled() {
+				klog.Infof("VPA dump")
+				klog.Infof("%+v", vpa)
+				klog.Infof("HasMatchingPods: %v", hasMatchingPods)
+				klog.Infof("PodCount: %v", vpa.PodCount)
+				pods := r.clusterState.GetMatchingPods(vpa)
+				klog.Infof("MatchingPods: %+v", pods)
+				if len(pods) != vpa.PodCount {
+					klog.Errorf("ClusterState pod count and matching pods disagree for vpa %v/%v", vpa.ID.Namespace, vpa.ID.VpaName)
+				}
+			}
+		}
+		cnt.Add(vpa)
+
+		_, err := vpa_utils.UpdateVpaStatusIfNeeded(
+			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status)
+		if err != nil {
+			klog.Errorf(
+				"Cannot update VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+		}
 
 		lastUpdatedInfo := []map[string]string{}
 		containerStateMap := GetContainerNameToAggregateStateMap(vpa)
@@ -137,28 +159,6 @@ func (r *recommender) UpdateVPAs() {
 		}
 		vpa.Annotations["recommendations_last_updated"] = string(lastUpdatedJSON)
 
-		if err := r.clusterState.RecordRecommendation(vpa, time.Now()); err != nil {
-			klog.Warningf("%v", err)
-			if klog.V(4).Enabled() {
-				klog.Infof("VPA dump")
-				klog.Infof("%+v", vpa)
-				klog.Infof("HasMatchingPods: %v", hasMatchingPods)
-				klog.Infof("PodCount: %v", vpa.PodCount)
-				pods := r.clusterState.GetMatchingPods(vpa)
-				klog.Infof("MatchingPods: %+v", pods)
-				if len(pods) != vpa.PodCount {
-					klog.Errorf("ClusterState pod count and matching pods disagree for vpa %v/%v", vpa.ID.Namespace, vpa.ID.VpaName)
-				}
-			}
-		}
-		cnt.Add(vpa)
-
-		_, err = vpa_utils.UpdateVpaStatusIfNeeded(
-			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status)
-		if err != nil {
-			klog.Errorf(
-				"Cannot update VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
-		}
 		err = vpa_utils.UpdateVpaAnnotationsIfNeeded(
 			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status,
 			vpa.Annotations, observedVpa.Annotations, *hoursThreshold)
