@@ -72,9 +72,7 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 		FieldManager: "vpa-controller",
 		Force:        pointer.Bool(true),
 	}
-	if vpaName == "vpa-test-service-deployment-high-vpa" {
-		klog.Infof("applying patch for %s, with data %s", vpaName, string(bytes))
-	}
+
 	// Apply the patch using Server-Side Apply
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
@@ -100,7 +98,6 @@ func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaNa
 		FieldManager: "vpa-controller",
 		Force:        pointer.Bool(true),
 	}
-	klog.Infof("applying patch for %s, with data %s", vpaName, string(bytes))
 	_, err = vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts)
 
 	if err != nil {
@@ -144,14 +141,10 @@ func annotationsAreStaleAndChanged(
 // UpdateVpaAnnotationsIfNeeded updates the annotations field of the VPA API object.
 func UpdateVpaAnnotationsIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus,
 	oldStatus *vpa_types.VerticalPodAutoscalerStatus, annotations, oldAnnotations map[string]string, hoursThreshold int) error {
-
 	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
-		klog.Infof("updating annotations based on new status")
 		return patchVpaAnnotations(vpaClient, vpaName, annotations)
 	}
-
 	if annotationsAreStaleAndChanged(annotations, oldAnnotations, hoursThreshold) {
-		klog.Infof("updating annotations based on stale annotations")
 		return patchVpaAnnotations(vpaClient, vpaName, annotations)
 	}
 	return nil
