@@ -212,10 +212,6 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 	case ResourceMemory:
 		a.AggregateMemoryPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 		if sample.MeasureStart.After(a.LastMemorySampleStart) {
-			currentTime := time.Now()
-			if sample.MeasureStart.After(currentTime) {
-				fmt.Printf("Future timestamp detected for memory sample %s\n", sample.MeasureStart)
-			}
 			a.LastMemorySampleStart = sample.MeasureStart
 		}
 	case ResourceRSS:
