@@ -121,16 +121,16 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 
 			// Annotate the checkpoint with the new timestamp fields.
 			if !aggregatedContainerState.LastSampleStart.IsZero() {
-				vpaCheckpoint.ObjectMeta.Annotations["cpu_last_updated"] = fmt.Sprintf("%s", aggregatedContainerState.LastSampleStart)
+				vpaCheckpoint.ObjectMeta.Annotations["cpu_last_updated"] = aggregatedContainerState.LastSampleStart.String()
 			}
 			if !aggregatedContainerState.LastMemorySampleStart.IsZero() {
-				vpaCheckpoint.ObjectMeta.Annotations["memory_last_updated"] = fmt.Sprintf("%s", aggregatedContainerState.LastMemorySampleStart)
+				vpaCheckpoint.ObjectMeta.Annotations["memory_last_updated"] = aggregatedContainerState.LastMemorySampleStart.String()
 			}
 			if !aggregatedContainerState.LastRSSSampleStart.IsZero() {
-				vpaCheckpoint.ObjectMeta.Annotations["rss_last_updated"] = fmt.Sprintf("%s", aggregatedContainerState.LastRSSSampleStart)
+				vpaCheckpoint.ObjectMeta.Annotations["rss_last_updated"] = aggregatedContainerState.LastRSSSampleStart.String()
 			}
 			if !aggregatedContainerState.LastJVMHeapCommittedSampleStart.IsZero() {
-				vpaCheckpoint.ObjectMeta.Annotations["jvm_heap_last_updated"] = fmt.Sprintf("%s", aggregatedContainerState.LastJVMHeapCommittedSampleStart)
+				vpaCheckpoint.ObjectMeta.Annotations["jvm_heap_last_updated"] = aggregatedContainerState.LastJVMHeapCommittedSampleStart.String()
 			}
 
 			err = api_util.CreateOrUpdateVpaCheckpoint(writer.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(vpa.ID.Namespace), &vpaCheckpoint)

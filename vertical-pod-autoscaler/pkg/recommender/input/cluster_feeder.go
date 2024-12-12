@@ -275,6 +275,10 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 			if parsedTime, err := time.Parse(layout, value); err != nil {
 				fmt.Printf("Error parsing %s: %v\n", key, err)
 			} else {
+				currentTime := time.Now()
+				if parsedTime.After(currentTime) {
+					fmt.Printf("Future timestamp detected for key %s: %s\n", key, parsedTime)
+				}
 				assignFunc(parsedTime)
 			}
 		}
