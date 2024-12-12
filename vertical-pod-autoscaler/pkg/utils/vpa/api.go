@@ -81,11 +81,13 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 
 func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string,
 	annotations map[string]string) error {
-	annotationsUpdate := map[string]interface{}{
-		"kind":       "VerticalPodAutoscaler",
-		"apiVersion": "autoscaling.k8s.io/v1",
-		"metadata": map[string]interface{}{
-			"annotations": annotations,
+	annotationsUpdate := &vpa_types.VerticalPodAutoscaler{
+		TypeMeta: meta.TypeMeta{
+			APIVersion: "autoscaling.k8s.io/v1", // Ensure this matches the VPA's actual API version
+			Kind:       "VerticalPodAutoscaler",
+		},
+		ObjectMeta: meta.ObjectMeta{
+			Annotations: annotations,
 		},
 	}
 	bytes, err := json.Marshal(annotationsUpdate)
@@ -102,7 +104,7 @@ func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaNa
 	_, err = vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "metadata")
 
 	if err != nil {
-		return fmt.Errorf("Cannot update annotations for vpa %v. Reasons: %+v\n%+v\n%+v", vpaName, err)
+		return fmt.Errorf("Cannot update annotations for vpa %v. Reasons: %+v", vpaName, err)
 	}
 	return nil
 }
