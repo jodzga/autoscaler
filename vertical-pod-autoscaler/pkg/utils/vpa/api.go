@@ -118,17 +118,16 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 
 func annotationsAreStaleAndChanged(
 	newAnnotations, oldAnnotations map[string]string,
-	hoursThreshold int,
+	freshnessUpdateIntervalSeconds int,
 ) bool {
-	const layout = "2006-01-02 15:04:05.999999999 -0700 MST"
 	keys := []string{"cpu_last_updated", "rss_last_updated", "jvm_heap_last_updated"}
-	staleThreshold := time.Now().Add(-time.Duration(hoursThreshold) * time.Hour)
+	staleThreshold := time.Now().Add(-time.Duration(freshnessUpdateIntervalSeconds) * time.Hour)
 
 	for _, key := range keys {
 		newValue, newExists := newAnnotations[key]
 		oldValue, oldExists := oldAnnotations[key]
 
-		oldTime, oldErr := time.Parse(layout, oldValue)
+		oldTime, oldErr := time.Parse(time.RFC3339, oldValue)
 		if (!oldExists || oldErr != nil || oldTime.Before(staleThreshold)) &&
 			(newExists && newValue != oldValue) {
 			// Return true only if old annotation is stale AND new annotation is different
@@ -140,11 +139,11 @@ func annotationsAreStaleAndChanged(
 
 // UpdateVpaAnnotationsIfNeeded updates the annotations field of the VPA API object.
 func UpdateVpaAnnotationsIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus,
-	oldStatus *vpa_types.VerticalPodAutoscalerStatus, annotations, oldAnnotations map[string]string, hoursThreshold int) error {
+	oldStatus *vpa_types.VerticalPodAutoscalerStatus, annotations, oldAnnotations map[string]string, freshnessUpdateIntervalSeconds int) error {
 	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
 		return patchVpaAnnotations(vpaClient, vpaName, annotations)
 	}
-	if annotationsAreStaleAndChanged(annotations, oldAnnotations, hoursThreshold) {
+	if annotationsAreStaleAndChanged(annotations, oldAnnotations, freshnessUpdateIntervalSeconds) {
 		return patchVpaAnnotations(vpaClient, vpaName, annotations)
 	}
 	return nil

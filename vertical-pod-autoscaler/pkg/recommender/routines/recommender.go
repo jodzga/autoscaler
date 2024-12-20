@@ -35,9 +35,9 @@ import (
 )
 
 var (
-	checkpointsWriteTimeout = flag.Duration("checkpoints-timeout", time.Minute, `Timeout for writing checkpoints since the start of the recommender's main loop`)
-	minCheckpointsPerRun    = flag.Int("min-checkpoints", 10, "Minimum number of checkpoints to write per recommender's main loop")
-	hoursThreshold          = flag.Int("hours-threshold", 1, "Number of hours before VPA object annotations are considered stale")
+	checkpointsWriteTimeout        = flag.Duration("checkpoints-timeout", time.Minute, `Timeout for writing checkpoints since the start of the recommender's main loop`)
+	minCheckpointsPerRun           = flag.Int("min-checkpoints", 10, "Minimum number of checkpoints to write per recommender's main loop")
+	freshnessUpdateIntervalSeconds = flag.Int("freshness-update-interval-seconds", 60*60, "Number of seconds before VPA object annotations are considered stale")
 )
 
 // Recommender recommend resources for certain containers, based on utilization periodically got from metrics api.
@@ -137,15 +137,7 @@ func (r *recommender) UpdateVPAs() {
 			containerInfo := map[string]string{
 				"container_name": container,
 			}
-			if !aggregateState.LastSampleStart.IsZero() {
-				containerInfo["cpu_last_updated"] = aggregateState.LastSampleStart.String()
-			}
-			if !aggregateState.LastRSSSampleStart.IsZero() {
-				containerInfo["rss_last_updated"] = aggregateState.LastRSSSampleStart.String()
-			}
-			if !aggregateState.LastJVMHeapCommittedSampleStart.IsZero() {
-				containerInfo["jvm_heap_last_updated"] = aggregateState.LastJVMHeapCommittedSampleStart.String()
-			}
+			model.UpdateAnnotationsFromState(aggregateState, containerInfo)
 			lastUpdatedInfo = append(lastUpdatedInfo, containerInfo)
 		}
 
@@ -161,7 +153,7 @@ func (r *recommender) UpdateVPAs() {
 
 		err = vpa_utils.UpdateVpaAnnotationsIfNeeded(
 			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status,
-			vpa.Annotations, observedVpa.Annotations, *hoursThreshold)
+			vpa.Annotations, observedVpa.Annotations, *freshnessUpdateIntervalSeconds)
 		if err != nil {
 			klog.Errorf("Failed to update annotations for VPA %v/%v. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}

@@ -120,15 +120,7 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 			vpaCheckpoint.ObjectMeta.Annotations[JVMHeapCommittedBinaryDecayingHistogramNumBuckets] = fmt.Sprintf("%d", containerCheckpoint.JVMHeapCommittedHistogram.NumBuckets)
 
 			// Annotate the checkpoint with the new timestamp fields.
-			if !aggregatedContainerState.LastSampleStart.IsZero() {
-				vpaCheckpoint.ObjectMeta.Annotations["cpu_last_updated"] = aggregatedContainerState.LastSampleStart.String()
-			}
-			if !aggregatedContainerState.LastRSSSampleStart.IsZero() {
-				vpaCheckpoint.ObjectMeta.Annotations["rss_last_updated"] = aggregatedContainerState.LastRSSSampleStart.String()
-			}
-			if !aggregatedContainerState.LastJVMHeapCommittedSampleStart.IsZero() {
-				vpaCheckpoint.ObjectMeta.Annotations["jvm_heap_last_updated"] = aggregatedContainerState.LastJVMHeapCommittedSampleStart.String()
-			}
+			model.UpdateAnnotationsFromState(aggregatedContainerState, vpaCheckpoint.ObjectMeta.Annotations)
 
 			err = api_util.CreateOrUpdateVpaCheckpoint(writer.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(vpa.ID.Namespace), &vpaCheckpoint)
 			if err != nil {

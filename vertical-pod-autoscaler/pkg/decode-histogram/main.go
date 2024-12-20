@@ -20,13 +20,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"os"
-	"time"
-
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/input"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model"
+	"log"
+	"os"
 )
 
 func main() {
@@ -52,19 +50,8 @@ func main() {
 	// Load data into the AggregateContainerState using LoadFromCheckpoint
 	err = aggregateState.LoadFromCheckpoint(&checkpoint.Status)
 
-	layout := "2006-01-02 15:04:05.999999999 -0700 MST"
-	parseAndAssign := func(key string, assignFunc func(time.Time)) {
-		if value, exists := checkpoint.Annotations[key]; exists {
-			if parsedTime, err := time.Parse(layout, value); err != nil {
-				fmt.Printf("Error parsing %s: %v\n", key, err)
-			} else {
-				assignFunc(parsedTime)
-			}
-		}
-	}
-	parseAndAssign("cpu_last_updated", func(t time.Time) { aggregateState.LastSampleStart = t })
-	parseAndAssign("rss_last_updated", func(t time.Time) { aggregateState.LastRSSSampleStart = t })
-	parseAndAssign("jvm_heap_last_updated", func(t time.Time) { aggregateState.LastJVMHeapCommittedSampleStart = t })
+	// Parse freshness from checkpoint and assign to annotations
+	model.AssignFreshnessAnnotations(aggregateState, checkpoint.Annotations)
 
 	if err != nil {
 		log.Fatalf("Error loading from checkpoint: %v", err)

@@ -451,3 +451,33 @@ func (p *ContainerStateAggregatorProxy) GetScalingMode() *vpa_types.ContainerSca
 	aggregator := p.cluster.findOrCreateAggregateContainerState(p.containerID)
 	return aggregator.GetScalingMode()
 }
+
+func AssignFreshnessAnnotations(a *AggregateContainerState, checkpointAnnotations map[string]string) {
+	keys := map[string]*time.Time{
+		"cpu_last_updated":      &a.LastSampleStart,
+		"rss_last_updated":      &a.LastRSSSampleStart,
+		"jvm_heap_last_updated": &a.LastJVMHeapCommittedSampleStart,
+	}
+
+	for key, target := range keys {
+		if value, exists := checkpointAnnotations[key]; exists {
+			if parsedTime, err := time.Parse(time.RFC3339, value); err != nil {
+				fmt.Printf("Error parsing %s: %v\n", key, err)
+			} else {
+				*target = parsedTime
+			}
+		}
+	}
+}
+
+func UpdateAnnotationsFromState(state *AggregateContainerState, annotations map[string]string) {
+	if !state.LastSampleStart.IsZero() {
+		annotations["cpu_last_updated"] = state.LastSampleStart.Format(time.RFC3339)
+	}
+	if !state.LastRSSSampleStart.IsZero() {
+		annotations["rss_last_updated"] = state.LastRSSSampleStart.Format(time.RFC3339)
+	}
+	if !state.LastJVMHeapCommittedSampleStart.IsZero() {
+		annotations["jvm_heap_last_updated"] = state.LastJVMHeapCommittedSampleStart.Format(time.RFC3339)
+	}
+}
