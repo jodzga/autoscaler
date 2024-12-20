@@ -137,7 +137,7 @@ func (r *recommender) UpdateVPAs() {
 			containerInfo := map[string]string{
 				"container_name": container,
 			}
-			model.UpdateAnnotationsFromState(aggregateState, containerInfo)
+			model.AssignAnnotationsFromState(aggregateState, containerInfo)
 			lastUpdatedInfo = append(lastUpdatedInfo, containerInfo)
 		}
 
