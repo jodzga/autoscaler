@@ -77,6 +77,8 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
 }
 
+// patchVpaAnnotations updates the annotations of a VerticalPodAutoscaler object using
+// server-side apply. Returns an error if the operation fails.
 func patchVpaAnnotations(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string,
 	annotations map[string]string) error {
 	annotationsUpdate := &vpa_types.VerticalPodAutoscaler{
@@ -116,6 +118,8 @@ func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, v
 	return nil, nil
 }
 
+// annotationsAreStaleAndChanged checks if any of the specified annotations are stale
+// (older than freshnessUpdateIntervalSeconds) or have changed between the new and old annotations.
 func annotationsAreStaleAndChanged(
 	newAnnotations, oldAnnotations map[string]string,
 	freshnessUpdateIntervalSeconds int,
@@ -130,7 +134,6 @@ func annotationsAreStaleAndChanged(
 		oldTime, oldErr := time.Parse(time.RFC3339, oldValue)
 		if (!oldExists || oldErr != nil || oldTime.Before(staleThreshold)) &&
 			(newExists && newValue != oldValue) {
-			// Return true only if old annotation is stale AND new annotation is different
 			return true
 		}
 	}

@@ -270,7 +270,7 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 	}
 
 	// Parse checkpoint for freshness and assign to annotations
-	model.AssignFreshnessAnnotations(cs, checkpoint.Annotations)
+	model.AssignFreshnessAnnotationsFromCheckpoint(cs, checkpoint.Annotations)
 
 	vpa.ContainersInitialAggregateState[checkpoint.Spec.ContainerName] = cs
 	return nil

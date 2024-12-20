@@ -184,7 +184,6 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	if other.LastJVMHeapCommittedSampleStart.After(a.LastJVMHeapCommittedSampleStart) {
 		a.LastJVMHeapCommittedSampleStart = other.LastJVMHeapCommittedSampleStart
 	}
-
 	a.TotalSamplesCount += other.TotalSamplesCount
 }
 
@@ -452,7 +451,9 @@ func (p *ContainerStateAggregatorProxy) GetScalingMode() *vpa_types.ContainerSca
 	return aggregator.GetScalingMode()
 }
 
-func AssignFreshnessAnnotations(a *AggregateContainerState, checkpointAnnotations map[string]string) {
+// AssignFreshnessAnnotationsFromCheckpoint parses timestamps from checkpointAnnotations
+// and updates the corresponding fields in the AggregateContainerState.
+func AssignFreshnessAnnotationsFromCheckpoint(a *AggregateContainerState, checkpointAnnotations map[string]string) {
 	keys := map[string]*time.Time{
 		"cpu_last_updated":      &a.LastSampleStart,
 		"rss_last_updated":      &a.LastRSSSampleStart,
@@ -470,7 +471,8 @@ func AssignFreshnessAnnotations(a *AggregateContainerState, checkpointAnnotation
 	}
 }
 
-func UpdateAnnotationsFromState(state *AggregateContainerState, annotations map[string]string) {
+// AssignAnnotationsFromState updates annotations with timestamps from the AggregateContainerState.
+func AssignAnnotationsFromState(state *AggregateContainerState, annotations map[string]string) {
 	if !state.LastSampleStart.IsZero() {
 		annotations["cpu_last_updated"] = state.LastSampleStart.Format(time.RFC3339)
 	}

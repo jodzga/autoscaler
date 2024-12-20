@@ -20,11 +20,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"os"
+
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/input"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model"
-	"log"
-	"os"
 )
 
 func main() {
@@ -49,13 +50,11 @@ func main() {
 	aggregateState := model.NewAggregateContainerState()
 	// Load data into the AggregateContainerState using LoadFromCheckpoint
 	err = aggregateState.LoadFromCheckpoint(&checkpoint.Status)
-
-	// Parse freshness from checkpoint and assign to annotations
-	model.AssignFreshnessAnnotations(aggregateState, checkpoint.Annotations)
-
 	if err != nil {
 		log.Fatalf("Error loading from checkpoint: %v", err)
 	}
+	// Parse freshness from checkpoint and assign to annotations
+	model.AssignFreshnessAnnotationsFromCheckpoint(aggregateState, checkpoint.Annotations)
 
 	fmt.Printf("CPU histogram:\n%v\n", aggregateState.AggregateCPUUsage)
 	fmt.Printf("\nRSS Usage:\n%v\n", aggregateState.AggregateRSSPeaks)
