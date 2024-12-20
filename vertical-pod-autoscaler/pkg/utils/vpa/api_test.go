@@ -271,3 +271,154 @@ func TestGetContainerControlledResources(t *testing.T) {
 		})
 	}
 }
+
+func TestPatchVpaAnnotations(t *testing.T) {
+	// Create a fake VPA object to simulate the existing state
+	existingVpa := test.VerticalPodAutoscaler().WithName("test-vpa").WithNamespace("test-namespace").Get()
+
+	// Define the annotations to be applied
+	annotations := map[string]string{
+		"cpu_last_updated": "2024-12-10T23:57:04Z",
+		"rss_last_updated": "2024-12-10T23:57:05Z",
+	}
+
+	// Set up the fake client with the existing VPA
+	fakeClient := vpa_fake.NewSimpleClientset(existingVpa)
+
+	// Call the patchVpaAnnotations function
+	err := patchVpaAnnotations(fakeClient.AutoscalingV1().VerticalPodAutoscalers("test-namespace"), "test-vpa", annotations)
+
+	// Ensure no error occurred
+	assert.NoError(t, err, "patchVpaAnnotations should not return an error")
+
+	// Verify that a single action was performed
+	actions := fakeClient.Actions()
+	assert.Equal(t, 1, len(actions), "Expected exactly one action to be performed")
+
+	// Verify the action is a patch operation
+	action := actions[0]
+	assert.Equal(t, "patch", action.GetVerb(), "Expected the action to be a patch operation")
+}
+
+func TestAnnotationsAreStaleAndChanged(t *testing.T) {
+	// Define test cases
+	testCases := []struct {
+		name                           string
+		newAnnotations                 map[string]string
+		oldAnnotations                 map[string]string
+		freshnessUpdateIntervalSeconds int
+		expectedResult                 bool
+	}{
+		{
+			name: "No changes and not stale",
+			newAnnotations: map[string]string{
+				"cpu_last_updated":      time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated":      time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+				"jvm_heap_last_updated": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+			},
+			oldAnnotations: map[string]string{
+				"cpu_last_updated":      time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated":      time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+				"jvm_heap_last_updated": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+			},
+			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
+			expectedResult:                 false,
+		},
+		{
+			name: "Stale annotations",
+			newAnnotations: map[string]string{
+				"cpu_last_updated":      time.Now().Add(-25 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated":      time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
+				"jvm_heap_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
+			},
+			oldAnnotations: map[string]string{
+				"cpu_last_updated":      time.Now().Add(-25 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated":      time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
+				"jvm_heap_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
+			},
+			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
+			expectedResult:                 true,
+		},
+		{
+			name: "Annotations changed but not stale",
+			newAnnotations: map[string]string{
+				"cpu_last_updated": time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated": time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+			},
+			oldAnnotations: map[string]string{
+				"cpu_last_updated": time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+			},
+			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
+			expectedResult:                 false,
+		},
+		{
+			name: "Annotations changed and stale",
+			newAnnotations: map[string]string{
+				"cpu_last_updated": time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated": time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
+			},
+			oldAnnotations: map[string]string{
+				"cpu_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
+			},
+			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
+			expectedResult:                 true,
+		},
+	}
+
+	// Run each test case
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := annotationsAreStaleAndChanged(tc.newAnnotations, tc.oldAnnotations, tc.freshnessUpdateIntervalSeconds)
+			assert.Equal(t, tc.expectedResult, result, "Unexpected result for case: %s", tc.name)
+		})
+	}
+}
+
+func TestUpdateVpaAnnotationsIfNeeded(t *testing.T) {
+	fakeClient := vpa_fake.NewSimpleClientset()
+	vpaClient := fakeClient.AutoscalingV1().VerticalPodAutoscalers("test-namespace")
+
+	newStatus := &vpa_types.VerticalPodAutoscalerStatus{
+		Recommendation: &vpa_types.RecommendedPodResources{
+			ContainerRecommendations: []vpa_types.RecommendedContainerResources{
+				{
+					ContainerName: "container1",
+					Target: core.ResourceList{
+						core.ResourceCPU:    resource.MustParse("500m"),
+						core.ResourceMemory: resource.MustParse("200Mi"),
+					},
+				},
+			},
+		},
+	}
+	oldStatus := &vpa_types.VerticalPodAutoscalerStatus{}
+
+	annotations := map[string]string{
+		"cpu_last_updated": "2024-12-10T23:57:04Z",
+		"rss_last_updated": "2024-12-10T23:57:05Z",
+	}
+	oldAnnotations := map[string]string{
+		"cpu_last_updated": "2024-12-09T23:57:04Z",
+		"rss_last_updated": "2024-12-09T23:57:05Z",
+	}
+
+	// Case 1: Status has changed
+	err := UpdateVpaAnnotationsIfNeeded(vpaClient, "test-vpa", newStatus, oldStatus, annotations, oldAnnotations, 3600*24)
+	assert.NoError(t, err)
+
+	// Verify patch operation
+	actions := fakeClient.Actions()
+	assert.Equal(t, 1, len(actions), "Expected one action for status update")
+
+	// Case 2: Annotations are stale and changed
+	fakeClient.ClearActions()
+	oldStatus = newStatus
+	err = UpdateVpaAnnotationsIfNeeded(vpaClient, "test-vpa", newStatus, oldStatus, annotations, oldAnnotations, 3600*24)
+	assert.NoError(t, err)
+
+	// Verify patch operation
+	actions = fakeClient.Actions()
+	assert.Equal(t, 1, len(actions), "Expected one action for annotations update")
+}
