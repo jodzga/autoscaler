@@ -274,7 +274,7 @@ func TestGetContainerControlledResources(t *testing.T) {
 
 func TestPatchVpaAnnotations(t *testing.T) {
 	// Create a fake VPA object to simulate the existing state
-	existingVpa := test.VerticalPodAutoscaler().WithName("test-vpa").WithNamespace("test-namespace").Get()
+	existingVpa := test.VerticalPodAutoscaler().WithName("test-vpa").WithNamespace("test-namespace").WithContainer(containerName).Get()
 
 	// Define the annotations to be applied
 	annotations := map[string]string{
@@ -325,7 +325,7 @@ func TestAnnotationsAreStaleAndChanged(t *testing.T) {
 			expectedResult:                 false,
 		},
 		{
-			name: "Stale annotations",
+			name: "No changes and stale",
 			newAnnotations: map[string]string{
 				"cpu_last_updated":      time.Now().Add(-25 * time.Hour).Format(time.RFC3339),
 				"rss_last_updated":      time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
@@ -337,7 +337,7 @@ func TestAnnotationsAreStaleAndChanged(t *testing.T) {
 				"jvm_heap_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
 			},
 			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
-			expectedResult:                 true,
+			expectedResult:                 false,
 		},
 		{
 			name: "Annotations changed but not stale",
@@ -377,8 +377,8 @@ func TestAnnotationsAreStaleAndChanged(t *testing.T) {
 }
 
 func TestUpdateVpaAnnotationsIfNeeded(t *testing.T) {
-	fakeClient := vpa_fake.NewSimpleClientset()
-	vpaClient := fakeClient.AutoscalingV1().VerticalPodAutoscalers("test-namespace")
+	// Create a fake VPA object to simulate the existing state
+	existingVpa := test.VerticalPodAutoscaler().WithName("test-vpa").WithNamespace("test-namespace").WithContainer(containerName).Get()
 
 	newStatus := &vpa_types.VerticalPodAutoscalerStatus{
 		Recommendation: &vpa_types.RecommendedPodResources{
@@ -395,6 +395,9 @@ func TestUpdateVpaAnnotationsIfNeeded(t *testing.T) {
 	}
 	oldStatus := &vpa_types.VerticalPodAutoscalerStatus{}
 
+	// Set up the fake client with the existing VPA
+	fakeClient := vpa_fake.NewSimpleClientset(existingVpa)
+
 	annotations := map[string]string{
 		"cpu_last_updated": "2024-12-10T23:57:04Z",
 		"rss_last_updated": "2024-12-10T23:57:05Z",
@@ -405,7 +408,7 @@ func TestUpdateVpaAnnotationsIfNeeded(t *testing.T) {
 	}
 
 	// Case 1: Status has changed
-	err := UpdateVpaAnnotationsIfNeeded(vpaClient, "test-vpa", newStatus, oldStatus, annotations, oldAnnotations, 3600*24)
+	err := UpdateVpaAnnotationsIfNeeded(fakeClient.AutoscalingV1().VerticalPodAutoscalers("test-namespace"), "test-vpa", newStatus, oldStatus, annotations, oldAnnotations, 3600*24)
 	assert.NoError(t, err)
 
 	// Verify patch operation
@@ -415,10 +418,22 @@ func TestUpdateVpaAnnotationsIfNeeded(t *testing.T) {
 	// Case 2: Annotations are stale and changed
 	fakeClient.ClearActions()
 	oldStatus = newStatus
-	err = UpdateVpaAnnotationsIfNeeded(vpaClient, "test-vpa", newStatus, oldStatus, annotations, oldAnnotations, 3600*24)
+	err = UpdateVpaAnnotationsIfNeeded(fakeClient.AutoscalingV1().VerticalPodAutoscalers("test-namespace"), "test-vpa", newStatus, oldStatus, annotations, oldAnnotations, 3600*24)
 	assert.NoError(t, err)
 
 	// Verify patch operation
 	actions = fakeClient.Actions()
 	assert.Equal(t, 1, len(actions), "Expected one action for annotations update")
+
+	// Case 3: Annotations are not stale or changed
+	fakeClient.ClearActions()
+	// Make oldAnnotations the same as newAnnotations to simulate no changes
+	oldAnnotations = annotations
+
+	err = UpdateVpaAnnotationsIfNeeded(fakeClient.AutoscalingV1().VerticalPodAutoscalers("test-namespace"), "test-vpa", newStatus, oldStatus, annotations, oldAnnotations, 3600*24)
+	assert.NoError(t, err)
+
+	// Verify no patch operation
+	actions = fakeClient.Actions()
+	assert.Equal(t, 0, len(actions), "Expected no actions since annotations are not stale or changed")
 }

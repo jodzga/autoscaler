@@ -125,7 +125,7 @@ func annotationsAreStaleAndChanged(
 	freshnessUpdateIntervalSeconds int,
 ) bool {
 	keys := []string{"cpu_last_updated", "rss_last_updated", "jvm_heap_last_updated"}
-	staleThreshold := time.Now().Add(-time.Duration(freshnessUpdateIntervalSeconds) * time.Hour)
+	staleThreshold := time.Now().Add(-time.Duration(freshnessUpdateIntervalSeconds) * time.Second)
 
 	for _, key := range keys {
 		newValue, newExists := newAnnotations[key]
