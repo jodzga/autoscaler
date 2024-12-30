@@ -301,6 +301,9 @@ func TestPatchVpaAnnotations(t *testing.T) {
 }
 
 func TestAnnotationsAreStaleAndChanged(t *testing.T) {
+	// Define a fixed base time for the tests
+	baseTime := time.Date(2024, 12, 30, 0, 0, 0, 0, time.UTC)
+
 	// Define test cases
 	testCases := []struct {
 		name                           string
@@ -312,14 +315,14 @@ func TestAnnotationsAreStaleAndChanged(t *testing.T) {
 		{
 			name: "No changes and not stale",
 			newAnnotations: map[string]string{
-				"cpu_last_updated":      time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
-				"rss_last_updated":      time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-				"jvm_heap_last_updated": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+				"cpu_last_updated":      baseTime.Add(-1 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated":      baseTime.Add(-2 * time.Hour).Format(time.RFC3339),
+				"jvm_heap_last_updated": baseTime.Add(-3 * time.Hour).Format(time.RFC3339),
 			},
 			oldAnnotations: map[string]string{
-				"cpu_last_updated":      time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
-				"rss_last_updated":      time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-				"jvm_heap_last_updated": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+				"cpu_last_updated":      baseTime.Add(-1 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated":      baseTime.Add(-2 * time.Hour).Format(time.RFC3339),
+				"jvm_heap_last_updated": baseTime.Add(-3 * time.Hour).Format(time.RFC3339),
 			},
 			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
 			expectedResult:                 false,
@@ -327,14 +330,14 @@ func TestAnnotationsAreStaleAndChanged(t *testing.T) {
 		{
 			name: "No changes and stale",
 			newAnnotations: map[string]string{
-				"cpu_last_updated":      time.Now().Add(-25 * time.Hour).Format(time.RFC3339),
-				"rss_last_updated":      time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
-				"jvm_heap_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
+				"cpu_last_updated":      baseTime.Add(-25 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated":      baseTime.Add(-26 * time.Hour).Format(time.RFC3339),
+				"jvm_heap_last_updated": baseTime.Add(-27 * time.Hour).Format(time.RFC3339),
 			},
 			oldAnnotations: map[string]string{
-				"cpu_last_updated":      time.Now().Add(-25 * time.Hour).Format(time.RFC3339),
-				"rss_last_updated":      time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
-				"jvm_heap_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
+				"cpu_last_updated":      baseTime.Add(-25 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated":      baseTime.Add(-26 * time.Hour).Format(time.RFC3339),
+				"jvm_heap_last_updated": baseTime.Add(-27 * time.Hour).Format(time.RFC3339),
 			},
 			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
 			expectedResult:                 false,
@@ -342,12 +345,12 @@ func TestAnnotationsAreStaleAndChanged(t *testing.T) {
 		{
 			name: "Annotations changed but not stale",
 			newAnnotations: map[string]string{
-				"cpu_last_updated": time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
-				"rss_last_updated": time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+				"cpu_last_updated": baseTime.Add(-1 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated": baseTime.Add(-2 * time.Hour).Format(time.RFC3339),
 			},
 			oldAnnotations: map[string]string{
-				"cpu_last_updated": time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
-				"rss_last_updated": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+				"cpu_last_updated": baseTime.Add(-1 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated": baseTime.Add(-3 * time.Hour).Format(time.RFC3339),
 			},
 			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
 			expectedResult:                 false,
@@ -355,12 +358,12 @@ func TestAnnotationsAreStaleAndChanged(t *testing.T) {
 		{
 			name: "Annotations changed and stale",
 			newAnnotations: map[string]string{
-				"cpu_last_updated": time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
-				"rss_last_updated": time.Now().Add(-26 * time.Hour).Format(time.RFC3339),
+				"cpu_last_updated": baseTime.Add(-26 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated": baseTime.Add(-26 * time.Hour).Format(time.RFC3339),
 			},
 			oldAnnotations: map[string]string{
-				"cpu_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
-				"rss_last_updated": time.Now().Add(-27 * time.Hour).Format(time.RFC3339),
+				"cpu_last_updated": baseTime.Add(-27 * time.Hour).Format(time.RFC3339),
+				"rss_last_updated": baseTime.Add(-27 * time.Hour).Format(time.RFC3339),
 			},
 			freshnessUpdateIntervalSeconds: 24 * 3600, // 24 hours
 			expectedResult:                 true,

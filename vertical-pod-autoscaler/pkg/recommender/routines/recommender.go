@@ -37,7 +37,7 @@ import (
 var (
 	checkpointsWriteTimeout        = flag.Duration("checkpoints-timeout", time.Minute, `Timeout for writing checkpoints since the start of the recommender's main loop`)
 	minCheckpointsPerRun           = flag.Int("min-checkpoints", 10, "Minimum number of checkpoints to write per recommender's main loop")
-	freshnessUpdateIntervalSeconds = flag.Int("freshness-update-interval-seconds", 60*60, "Number of seconds before VPA object annotations are considered stale")
+	freshnessUpdateIntervalSeconds = flag.Int("freshness-update-interval-seconds", 60*60, "Number of seconds before VPA object freshness annotations are considered stale and updated even if recommendation has not changed")
 )
 
 // Recommender recommend resources for certain containers, based on utilization periodically got from metrics api.

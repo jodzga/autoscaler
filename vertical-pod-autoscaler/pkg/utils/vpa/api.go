@@ -132,6 +132,9 @@ func annotationsAreStaleAndChanged(
 		oldValue, oldExists := oldAnnotations[key]
 
 		oldTime, oldErr := time.Parse(time.RFC3339, oldValue)
+		if oldErr != nil {
+			klog.Errorf("Error parsing time: %+v", oldErr)
+		}
 		if (!oldExists || oldErr != nil || oldTime.Before(staleThreshold)) &&
 			(newExists && newValue != oldValue) {
 			return true
