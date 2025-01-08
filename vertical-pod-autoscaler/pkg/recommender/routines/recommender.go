@@ -18,6 +18,7 @@ package routines
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"time"
 
@@ -34,8 +35,9 @@ import (
 )
 
 var (
-	checkpointsWriteTimeout = flag.Duration("checkpoints-timeout", time.Minute, `Timeout for writing checkpoints since the start of the recommender's main loop`)
-	minCheckpointsPerRun    = flag.Int("min-checkpoints", 10, "Minimum number of checkpoints to write per recommender's main loop")
+	checkpointsWriteTimeout        = flag.Duration("checkpoints-timeout", time.Minute, `Timeout for writing checkpoints since the start of the recommender's main loop`)
+	minCheckpointsPerRun           = flag.Int("min-checkpoints", 10, "Minimum number of checkpoints to write per recommender's main loop")
+	freshnessUpdateIntervalSeconds = flag.Int("freshness-update-interval-seconds", 60*60, "Number of seconds before VPA object freshness annotations are considered stale and updated even if recommendation has not changed")
 )
 
 // Recommender recommend resources for certain containers, based on utilization periodically got from metrics api.
@@ -127,6 +129,33 @@ func (r *recommender) UpdateVPAs() {
 		if err != nil {
 			klog.Errorf(
 				"Cannot update VPA %v/%v object. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+		}
+
+		lastUpdatedInfo := []map[string]string{}
+		containerStateMap := GetContainerNameToAggregateStateMap(vpa)
+		for container, aggregateState := range containerStateMap {
+			containerInfo := map[string]string{
+				"container_name": container,
+			}
+			model.AssignAnnotationsFromState(aggregateState, containerInfo)
+			lastUpdatedInfo = append(lastUpdatedInfo, containerInfo)
+		}
+
+		lastUpdatedJSON, err := json.Marshal(lastUpdatedInfo)
+		if err != nil {
+			klog.Errorf("Failed to serialize last updated info for VPA %v/%v: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
+			continue
+		}
+		if vpa.Annotations == nil {
+			vpa.Annotations = make(map[string]string)
+		}
+		vpa.Annotations["recommendations_last_updated"] = string(lastUpdatedJSON)
+
+		err = vpa_utils.UpdateVpaAnnotationsIfNeeded(
+			r.vpaClient.VerticalPodAutoscalers(vpa.ID.Namespace), vpa.ID.VpaName, vpa.AsStatus(), &observedVpa.Status,
+			vpa.Annotations, observedVpa.Annotations, *freshnessUpdateIntervalSeconds)
+		if err != nil {
+			klog.Errorf("Failed to update annotations for VPA %v/%v. Reason: %+v", vpa.ID.Namespace, vpa.ID.VpaName, err)
 		}
 	}
 }

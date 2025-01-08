@@ -268,6 +268,10 @@ func (feeder *clusterStateFeeder) setVpaCheckpoint(checkpoint *vpa_types.Vertica
 	if err != nil {
 		return fmt.Errorf("cannot load checkpoint for VPA %+v. Reason: %v", vpa.ID, err)
 	}
+
+	// Parse checkpoint for freshness and assign to annotations
+	model.AssignFreshnessAnnotationsFromCheckpoint(cs, checkpoint.Annotations)
+
 	vpa.ContainersInitialAggregateState[checkpoint.Spec.ContainerName] = cs
 	return nil
 }

@@ -119,6 +119,9 @@ func (writer *checkpointWriter) StoreCheckpoints(ctx context.Context, now time.T
 			vpaCheckpoint.ObjectMeta.Annotations[RSSBinaryDecayingHistogramNumBuckets] = fmt.Sprintf("%d", containerCheckpoint.RSSHistogram.NumBuckets)
 			vpaCheckpoint.ObjectMeta.Annotations[JVMHeapCommittedBinaryDecayingHistogramNumBuckets] = fmt.Sprintf("%d", containerCheckpoint.JVMHeapCommittedHistogram.NumBuckets)
 
+			// Annotate the checkpoint with the new timestamp fields.
+			model.AssignAnnotationsFromState(aggregatedContainerState, vpaCheckpoint.ObjectMeta.Annotations)
+
 			err = api_util.CreateOrUpdateVpaCheckpoint(writer.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(vpa.ID.Namespace), &vpaCheckpoint)
 			if err != nil {
 				klog.Errorf("Cannot save VPA %s/%s checkpoint for %s. Reason: %+v",

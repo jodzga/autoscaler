@@ -293,3 +293,43 @@ func TestUpdateFromPolicyControlledResources(t *testing.T) {
 		})
 	}
 }
+
+func TestAssignFreshnessAnnotationsFromCheckpoint(t *testing.T) {
+	location, _ := time.LoadLocation("UTC")
+	t1 := time.Date(2024, time.December, 10, 23, 57, 4, 0, location)
+	t2 := time.Date(2024, time.December, 11, 12, 0, 0, 0, location)
+
+	checkpointAnnotations := map[string]string{
+		"cpu_last_updated":      t1.Format(time.RFC3339),
+		"rss_last_updated":      t2.Format(time.RFC3339),
+		"jvm_heap_last_updated": "invalid-timestamp",
+	}
+
+	a := &AggregateContainerState{}
+
+	AssignFreshnessAnnotationsFromCheckpoint(a, checkpointAnnotations)
+
+	assert.Equal(t, t1, a.LastSampleStart, "cpu_last_updated should match t1")
+	assert.Equal(t, t2, a.LastRSSSampleStart, "rss_last_updated should match t2")
+	assert.True(t, a.LastJVMHeapCommittedSampleStart.IsZero(), "jvm_heap_last_updated should remain zero on invalid timestamp")
+}
+
+func TestAssignAnnotationsFromState(t *testing.T) {
+	location, _ := time.LoadLocation("UTC")
+	t1 := time.Date(2024, time.December, 10, 23, 57, 4, 0, location)
+	t2 := time.Date(2024, time.December, 11, 12, 0, 0, 0, location)
+
+	state := &AggregateContainerState{
+		LastSampleStart:                 t1,
+		LastRSSSampleStart:              t2,
+		LastJVMHeapCommittedSampleStart: time.Time{}, // Zero value
+	}
+
+	annotations := make(map[string]string)
+
+	AssignAnnotationsFromState(state, annotations)
+
+	assert.Equal(t, t1.Format(time.RFC3339), annotations["cpu_last_updated"], "cpu_last_updated should match formatted t1")
+	assert.Equal(t, t2.Format(time.RFC3339), annotations["rss_last_updated"], "rss_last_updated should match formatted t2")
+	assert.NotContains(t, annotations, "jvm_heap_last_updated", "jvm_heap_last_updated should not exist for zero time")
+}

@@ -107,6 +107,10 @@ type AggregateContainerState struct {
 	TotalSamplesCount int
 	CreationTime      time.Time
 
+	// LastXSampleSample is the timestamp of the last sample start recorded.
+	LastRSSSampleStart              time.Time
+	LastJVMHeapCommittedSampleStart time.Time
+
 	// Following fields are needed to correctly report quality metrics
 	// for VPA. When we record a new sample in an AggregateContainerState
 	// we want to know if it needs recommendation, if the recommendation
@@ -174,6 +178,12 @@ func (a *AggregateContainerState) MergeContainerState(other *AggregateContainerS
 	if other.LastSampleStart.After(a.LastSampleStart) {
 		a.LastSampleStart = other.LastSampleStart
 	}
+	if other.LastRSSSampleStart.After(a.LastRSSSampleStart) {
+		a.LastRSSSampleStart = other.LastRSSSampleStart
+	}
+	if other.LastJVMHeapCommittedSampleStart.After(a.LastJVMHeapCommittedSampleStart) {
+		a.LastJVMHeapCommittedSampleStart = other.LastJVMHeapCommittedSampleStart
+	}
 	a.TotalSamplesCount += other.TotalSamplesCount
 }
 
@@ -203,12 +213,18 @@ func (a *AggregateContainerState) AddSample(sample *ContainerUsageSample) {
 		} else {
 			a.AggregateRSSPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 		}
+		if sample.MeasureStart.After(a.LastRSSSampleStart) {
+			a.LastRSSSampleStart = sample.MeasureStart
+		}
 	case ResourceJVMHeapCommitted:
 		// Special OOM handling for binary decaying histogram.
 		if sample.isOOM {
 			a.AggregateJVMHeapCommittedPeaks.AddOomSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
 		} else {
 			a.AggregateJVMHeapCommittedPeaks.AddSample(BytesFromMemoryAmount(sample.Usage), 1.0, sample.MeasureStart)
+		}
+		if sample.MeasureStart.After(a.LastJVMHeapCommittedSampleStart) {
+			a.LastJVMHeapCommittedSampleStart = sample.MeasureStart
 		}
 	default:
 		panic(fmt.Sprintf("AddSample doesn't support resource '%s'", sample.Resource))
@@ -433,4 +449,37 @@ func (p *ContainerStateAggregatorProxy) GetUpdateMode() *vpa_types.UpdateMode {
 func (p *ContainerStateAggregatorProxy) GetScalingMode() *vpa_types.ContainerScalingMode {
 	aggregator := p.cluster.findOrCreateAggregateContainerState(p.containerID)
 	return aggregator.GetScalingMode()
+}
+
+// AssignFreshnessAnnotationsFromCheckpoint parses timestamps from checkpointAnnotations
+// and updates the corresponding fields in the AggregateContainerState.
+func AssignFreshnessAnnotationsFromCheckpoint(a *AggregateContainerState, checkpointAnnotations map[string]string) {
+	keys := map[string]*time.Time{
+		"cpu_last_updated":      &a.LastSampleStart,
+		"rss_last_updated":      &a.LastRSSSampleStart,
+		"jvm_heap_last_updated": &a.LastJVMHeapCommittedSampleStart,
+	}
+
+	for key, target := range keys {
+		if value, exists := checkpointAnnotations[key]; exists {
+			if parsedTime, err := time.Parse(time.RFC3339, value); err != nil {
+				fmt.Printf("Error parsing %s: %v\n", key, err)
+			} else {
+				*target = parsedTime
+			}
+		}
+	}
+}
+
+// AssignAnnotationsFromState updates annotations with timestamps from the AggregateContainerState.
+func AssignAnnotationsFromState(state *AggregateContainerState, annotations map[string]string) {
+	if !state.LastSampleStart.IsZero() {
+		annotations["cpu_last_updated"] = state.LastSampleStart.Format(time.RFC3339)
+	}
+	if !state.LastRSSSampleStart.IsZero() {
+		annotations["rss_last_updated"] = state.LastRSSSampleStart.Format(time.RFC3339)
+	}
+	if !state.LastJVMHeapCommittedSampleStart.IsZero() {
+		annotations["jvm_heap_last_updated"] = state.LastJVMHeapCommittedSampleStart.Format(time.RFC3339)
+	}
 }

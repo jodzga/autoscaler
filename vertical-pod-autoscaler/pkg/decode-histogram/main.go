@@ -53,6 +53,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error loading from checkpoint: %v", err)
 	}
+	// Parse freshness from checkpoint and assign to annotations
+	model.AssignFreshnessAnnotationsFromCheckpoint(aggregateState, checkpoint.Annotations)
 
 	fmt.Printf("CPU histogram:\n%v\n", aggregateState.AggregateCPUUsage)
 	fmt.Printf("\nRSS Usage:\n%v\n", aggregateState.AggregateRSSPeaks)
