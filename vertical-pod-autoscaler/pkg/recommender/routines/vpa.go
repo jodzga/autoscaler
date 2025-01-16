@@ -20,10 +20,15 @@ import (
 	vpa_types "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/apis/autoscaling.k8s.io/v1"
 	"k8s.io/autoscaler/vertical-pod-autoscaler/pkg/recommender/model"
 	api_utils "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/utils/vpa"
+	"k8s.io/klog/v2"
 )
 
 // GetContainerNameToAggregateStateMap returns ContainerNameToAggregateStateMap for pods.
 func GetContainerNameToAggregateStateMap(vpa *model.Vpa) model.ContainerNameToAggregateStateMap {
+	if vpa.ID.Namespace == "vpa-test-service" {
+		klog.Infof("GetContainerNameToAggregateStateMap: %v", vpa.AggregateStateByContainerName())
+		klog.Infof("PodSelector: %v", vpa.PodSelector.String())
+	}
 	containerNameToAggregateStateMap := vpa.AggregateStateByContainerName()
 	filteredContainerNameToAggregateStateMap := make(model.ContainerNameToAggregateStateMap)
 

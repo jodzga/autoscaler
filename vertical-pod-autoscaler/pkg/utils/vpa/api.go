@@ -35,7 +35,6 @@ import (
 	vpa_lister "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/listers/autoscaling.k8s.io/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/pointer"
 )
 
 // VpaWithSelector is a pair of VPA and its selector.
@@ -67,19 +66,27 @@ func patchVpaStatus(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName st
 		return
 	}
 
-	// Define patch options with Server-Side Apply and Force set to true
+	// Define patch options with Server-Side Apply
 	opts := meta.PatchOptions{
 		FieldManager: "vpa-controller",
-		Force:        pointer.Bool(true),
 	}
 
-	// Apply the patch using Server-Side Apply
-	return vpaClient.Patch(context.TODO(), vpaName, types.ApplyPatchType, bytes, opts, "status")
+	// Apply the patch using Server-Side Apply, and the merge patch type.
+	// We use the Merge Patch type here to handle the case where the VPA resource has been updated since we last read it by another controller or CLI.
+	// This occurs if the current matched recommendations are empty, if the workload was deleted and we no longer have a pod selector, and thus have no recommendations.
+	// In this case, we want to ensure that we're able to write the status, even with an empty recommendation rather than getting an error from the API server.
+	return vpaClient.Patch(context.TODO(), vpaName, types.MergePatchType, bytes, opts, "status")
 }
 
 // UpdateVpaStatusIfNeeded updates the status field of the VPA API object.
 func UpdateVpaStatusIfNeeded(vpaClient vpa_api.VerticalPodAutoscalerInterface, vpaName string, newStatus,
 	oldStatus *vpa_types.VerticalPodAutoscalerStatus) (result *vpa_types.VerticalPodAutoscaler, err error) {
+
+	if vpaName == "vpa-test-service-deployment-high-vpa" || vpaName == "vpa-test-service-rollout-high-vpa" {
+		klog.Infof("Old Recommendation: %+v", oldStatus.Recommendation)
+		klog.Infof("New Recommendation: %+v", newStatus.Recommendation)
+		klog.Infof("Updating VPA status for %s: %+v -> %+v", vpaName, oldStatus, newStatus)
+	}
 
 	if !apiequality.Semantic.DeepEqual(*oldStatus, *newStatus) {
 		return patchVpaStatus(vpaClient, vpaName, *newStatus)

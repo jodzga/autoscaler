@@ -277,6 +277,9 @@ func (cluster *ClusterState) AddOrUpdateVpa(apiObject *vpa_types.VerticalPodAuto
 	vpa.Annotations = annotationsMap
 	vpa.Conditions = conditionsMap
 	vpa.Recommendation = currentRecommendation
+	if vpa.ID.Namespace == "vpa-test-service" {
+		klog.Infof("VPA HAS RECOMMENDATION: %v", vpa.Recommendation)
+	}
 	vpa.SetUpdateMode(apiObject.Spec.UpdatePolicy)
 	vpa.SetResourcePolicy(apiObject.Spec.ResourcePolicy)
 	vpa.SetAPIVersion(apiObject.GetObjectKind().GroupVersionKind().Version)
