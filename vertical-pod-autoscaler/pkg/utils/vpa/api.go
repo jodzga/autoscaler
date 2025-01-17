@@ -130,7 +130,9 @@ func annotationsAreStaleAndChanged(
 	for _, key := range keys {
 		newValue, newExists := newAnnotations[key]
 		oldValue, oldExists := oldAnnotations[key]
-
+    if (oldValue == ""){
+      return true
+    }
 		oldTime, oldErr := time.Parse(time.RFC3339, oldValue)
 		if oldErr != nil {
 			klog.Errorf("Error parsing time: %+v", oldErr)
