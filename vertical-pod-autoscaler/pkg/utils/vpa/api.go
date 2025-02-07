@@ -130,7 +130,7 @@ func annotationsAreStaleAndChanged(
 	for _, key := range keys {
 		newValue, newExists := newAnnotations[key]
 		oldValue, oldExists := oldAnnotations[key]
-		if !oldExists || oldValue == "" { // update if old annotations are missing
+		if !oldExists {
 			return true
 		}
 		oldTime, oldErr := time.Parse(time.RFC3339, oldValue)
