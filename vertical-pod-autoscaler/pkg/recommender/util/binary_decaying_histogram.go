@@ -86,6 +86,9 @@ func (h *binaryDecayingHistogram) dayIndex(ts time.Time) int {
 }
 
 func (h *binaryDecayingHistogram) addSampleToBucket(bucket uint16, dayIndex int) {
+	if bucket >= uint16(h.options.NumBuckets()) {
+		bucket = uint16(h.options.NumBuckets() - 1)
+	}
 	if h.lastDayIndex > 0 {
 		// Ignore samples too far in the past
 		if dayIndex <= h.lastDayIndex-h.retentionDays {

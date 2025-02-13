@@ -440,3 +440,19 @@ func TestBinaryDecayingHistogramLoadFromDifferentCheckpointBucketGrowthScheme(t 
 		})
 	}
 }
+
+func TestBinaryDecayingHistogramRepeatedOomSamples(t *testing.T) {
+	for _, retentionDays := range retentionsToTest {
+		t.Run(fmt.Sprintf("retentionDays: %d", retentionDays), func(t *testing.T) {
+			h := NewBinaryDecayingHistogram(testBinaryDecayingHistogramOptions, retentionDays)
+			value := v128Mib
+			for i := 0; i < 1000; i++ {
+				// Adding Oom sample increases the max value of the histogram by one bucket
+				h.AddOomSample(value, 1.0, startTime)
+				assert.NotPanics(t, func() {
+					value = h.Percentile(1.0)
+				})
+			}
+		})
+	}
+}
