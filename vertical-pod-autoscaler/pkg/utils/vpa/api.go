@@ -20,9 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/utils/pointer"
 	"strings"
 	"time"
+
+	"k8s.io/utils/pointer"
 
 	core "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -130,7 +131,7 @@ func annotationsAreStaleAndChanged(
 	for _, key := range keys {
 		newValue, newExists := newAnnotations[key]
 		oldValue, oldExists := oldAnnotations[key]
-		if !oldExists {
+		if !oldExists || oldValue == "" {
 			return true
 		}
 		oldTime, oldErr := time.Parse(time.RFC3339, oldValue)
