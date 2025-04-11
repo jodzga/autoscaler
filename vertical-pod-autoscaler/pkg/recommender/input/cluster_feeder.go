@@ -289,14 +289,14 @@ func (feeder *clusterStateFeeder) InitFromCheckpoints() {
 		klog.V(3).Infof("Fetching checkpoints from namespace %s", namespace)
 		checkpointList, err := feeder.vpaCheckpointClient.VerticalPodAutoscalerCheckpoints(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
-			klog.Errorf("Cannot list VPA checkpoints from namespace %v. Reason: %+v", namespace, err)
+			klog.Fatalf("Cannot list VPA checkpoints from namespace %v. Reason: %+v", namespace, err)
 		}
 		for _, checkpoint := range checkpointList.Items {
 
 			klog.V(3).Infof("Loading VPA %s/%s checkpoint for %s", checkpoint.ObjectMeta.Namespace, checkpoint.Spec.VPAObjectName, checkpoint.Spec.ContainerName)
 			err = feeder.setVpaCheckpoint(&checkpoint)
 			if err != nil {
-				klog.Errorf("Error while loading checkpoint. Reason: %+v", err)
+				klog.Fatalf("Error while loading checkpoint. Reason: %+v", err)
 			}
 
 		}
