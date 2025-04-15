@@ -18,6 +18,7 @@ package metrics
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -128,13 +129,18 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 	close(customResChan)
 
 	podMetrics := <-resChan
-	if podMetrics == nil || s.customMetricsLister == nil {
+	// Early return if we don't have customMetricsLister
+	if s.customMetricsLister == nil {
+		// If we couldn't find it, return an error
+		if podMetrics == nil {
+			return nil, fmt.Errorf("PodMetrics not found (potentially timed out)")
+		}
 		return podMetrics, nil
 	}
 
 	customPodMetrics := <-customResChan
 	if customPodMetrics == nil {
-		return podMetrics, nil
+		return podMetrics, fmt.Errorf("CustomPodMetrics not found (potentially timed out)")
 	}
 
 	// Index the custom query results by namespace then pod name then container name then resource.
