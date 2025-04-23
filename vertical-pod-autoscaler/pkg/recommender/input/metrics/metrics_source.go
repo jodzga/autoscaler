@@ -92,6 +92,9 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 	resChan := make(chan *v1beta1.PodMetricsList, 1)
 	customResChan := make(chan *v1beta1.PodMetricsList, 1)
 
+	var podMetricError error
+	var customMetricError error
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -100,6 +103,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 		if err != nil {
 			// TODO(leekathy): Emit metrics and setup alerting.
 			klog.ErrorS(err, "Failed to query pod usage metrics from the Metrics API")
+			podMetricError = err
 			resChan <- nil
 			return
 		}
@@ -115,6 +119,7 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 			if err != nil {
 				// TODO(leekathy): Emit metrics and setup alerting.
 				klog.ErrorS(err, "Failed to query pod custom usage metrics from M3")
+				customMetricError = err
 				resChan <- nil
 				return
 			}
@@ -128,13 +133,18 @@ func (s podMetricsSource) List(ctx context.Context, namespace string, opts v1.Li
 	close(customResChan)
 
 	podMetrics := <-resChan
-	if podMetrics == nil || s.customMetricsLister == nil {
+	// Early return if we don't have customMetricsLister
+	if s.customMetricsLister == nil {
+		// If we couldn't find it, return an error
+		if podMetrics == nil {
+			return nil, podMetricError
+		}
 		return podMetrics, nil
 	}
 
 	customPodMetrics := <-customResChan
 	if customPodMetrics == nil {
-		return podMetrics, nil
+		return podMetrics, customMetricError
 	}
 
 	// Index the custom query results by namespace then pod name then container name then resource.
