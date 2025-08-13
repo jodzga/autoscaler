@@ -426,6 +426,14 @@ func (cluster *ClusterState) RecordRecommendation(vpa *Vpa, now time.Time) error
 		delete(cluster.EmptyVPAs, vpa.ID)
 		return nil
 	}
+
+	// Check if VPA has any matching pods before logging missing recommendation error
+	matchingPods := cluster.GetMatchingPods(vpa)
+	if len(matchingPods) == 0 {
+		// No matching pods, so no need to log missing recommendation error
+		return nil
+	}
+
 	lastLogged, ok := cluster.EmptyVPAs[vpa.ID]
 	if !ok {
 		cluster.EmptyVPAs[vpa.ID] = now
