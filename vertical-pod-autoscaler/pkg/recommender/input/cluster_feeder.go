@@ -280,6 +280,9 @@ func (feeder *clusterStateFeeder) InitFromCheckpoints() {
 	klog.V(3).Info("Initializing VPA from checkpoints")
 	feeder.LoadVPAs()
 
+	// First, clean up stale checkpoints to prevent loading errors
+	feeder.GarbageCollectCheckpoints()
+
 	namespaces := make(map[string]bool)
 	for _, v := range feeder.clusterState.Vpas {
 		namespaces[v.ID.Namespace] = true
